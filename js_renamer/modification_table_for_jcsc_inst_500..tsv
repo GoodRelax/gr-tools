@@ -1,0 +1,637 @@
+file_name	loc_start	loc_end	collision_type	kind	scope	old_name	new_name
+unified.js	117	1113	global	globalmodule	Global  Global	CONFIG	
+unified.js	917	9114	global	globalmodule	Global  Global	PRESETS	
+unified.js	1277	12713	global	globalmodule	Global  Global	Logger	
+unified.js	1577	15718	global	globalmodule	Global  Global	MusicTheory	
+unified.js	2507	25018	global	class	Global  Global	SoundEngine	
+unified.js	4227	42218	global	globalmodule	Global  Global	audioEngine	
+unified.js	4257	42520	global	globalmodule	Global  Global	LayoutManager	
+unified.js	4497	44915	global	globalmodule	Global  Global	CoFModel	
+unified.js	5587	55822	global	class	Global  Global	ChordSheetStore	
+unified.js	8257	82520	global	class	Global  Global	VoicingEngine	
+unified.js	12497	124918	global	globalmodule	Global  Global	LocalTheory	
+unified.js	13127	131216	global	globalmodule	Global  Global	SVG_PATHS	
+unified.js	13197	131920	global	globalmodule	Global  Global	StaffRenderer	
+unified.js	13547	135416	global	class	Global  Global	CoFWidget	
+unified.js	18247	182416	global	class	Global  Global	UIManager	
+unified.js	25807	258016	global	globalmodule	Global  Global	APP_STATE	
+unified.js	25877	258714	global	class	Global  Global	JCSCApp	
+unified.js	31537	315310	global	globalmodule	Global  Global	app	
+unified.js	1326	1327	shorthand	param	Global  Global  Funclog	c	category
+unified.js	1419	14113	none	local	Global  Global  FuncexportText	logs	logEntries
+unified.js	1427	14210	shorthand	local	Global  Global  FuncexportText	idx	bufferIndex
+unified.js	14312	14313	none	local	Global  Global  FuncexportText  For0	i	
+unified.js	14410	14415	none	local	Global  Global  FuncexportText  For0	entry	logEntry
+unified.js	14919	14922	none	param	Global  Global  FuncexportText  Callmap  Arg1	log	logEntry
+unified.js	16514	16519	none	param	Global  Global  FuncindexToSemi	index	
+unified.js	1669	16612	none	local	Global  Global  FuncindexToSemi	val	value
+unified.js	1759	17517	none	param	Global  Global  FunctoSemi	noteName	
+unified.js	1779	17710	none	local	Global  Global  FunctoSemi	r	TBD_r
+unified.js	1789	17810	shorthand	local	Global  Global  FunctoSemi	m	noteToSemitoneMap
+unified.js	18720	18727	none	param	Global  Global  FuncgetChordIntervals	quality	
+unified.js	1887	18811	none	local	Global  Global  FuncgetChordIntervals	ints	intervalList
+unified.js	1897	18914	none	local	Global  Global  FuncgetChordIntervals	typeMap	intervalTypeMap
+unified.js	1907	19012	none	local	Global  Global  FuncgetChordIntervals	third	thirdInterval
+unified.js	1917	19112	none	local	Global  Global  FuncgetChordIntervals	fifth	fifthInterval
+unified.js	1927	19214	none	local	Global  Global  FuncgetChordIntervals	seventh	seventhInterval
+unified.js	2249	22413	none	local	Global  Global  FuncgetChordIntervals	tMap	tensionSemitoneMap
+unified.js	2257	22512	none	local	Global  Global  FuncgetChordIntervals	tList	tensionList
+unified.js	22739	22740	none	param	Global  Global  FuncgetChordIntervals  If4  CallforEach  Arg0	t	tensionName
+unified.js	23017	23018	none	param	Global  Global  FuncgetChordIntervals  CallforEach  Arg5	t	tensionName
+unified.js	23619	23620	none	param	Global  Global  FuncgetChordIntervals  Callmap  Arg6	i	intervalEntry
+unified.js	23912	23919	none	param	Global  Global  FuncisMinor	quality	
+unified.js	26310	26312	none	local	Global  Global  ClassSoundEngine  Funcinit  Try0	AC	AudioContextClass
+unified.js	26710	26711	none	local	Global  Global  ClassSoundEngine  Funcinit  Try0	C	compressorSettings
+unified.js	27512	27513	none	catch	Global  Global  ClassSoundEngine  Funcinit  Catch1	e	error
+unified.js	27916	27923	none	param	Global  Global  ClassSoundEngine  FuncapplySettings	jsonStr	jsonString
+unified.js	28110	28121	none	local	Global  Global  ClassSoundEngine  FuncapplySettings  Try0	newSettings	
+unified.js	28811	28812	none	local	Global  Global  ClassSoundEngine  FuncapplySettings  Try0  If0	C	compressorSettings
+unified.js	29312	29313	none	catch	Global  Global  ClassSoundEngine  FuncapplySettings  Catch1	e	error
+unified.js	30412	30419	none	param	Global  Global  ClassSoundEngine  FuncplayChord	voicing	
+unified.js	31210	31211	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0	A	audioSettings
+unified.js	31310	31316	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0	mkNote	createNoteVoice
+unified.js	34210	34219	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0	bassVoice	
+unified.js	31320	31321	shorthand	param	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	m	midiNote
+unified.js	31411	31412	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	f	frequency
+unified.js	31511	31513	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	t0	scheduleTime
+unified.js	31711	31714	shorthand	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	osc	oscillator
+unified.js	31811	31812	shorthand	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	g	gainNode
+unified.js	31911	31914	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	lpf	lowPassFilter
+unified.js	32711	32715	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	dist	pitchDistance
+unified.js	32811	32816	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	curve	volumeCurve
+unified.js	32911	32912	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  FuncmkNote	v	TBD_v
+unified.js	34621	34622	shorthand	param	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  CallforEach  Arg1	m	midiNote
+unified.js	34711	34714	none	local	Global  Global  ClassSoundEngine  FuncplayChord  Callthen  Arg0  CallforEach  Arg1	tid	arpeggioTimerId
+unified.js	35610	35614	none	param	Global  Global  ClassSoundEngine  FuncplayKey	freq	
+unified.js	35810	35811	none	local	Global  Global  ClassSoundEngine  FuncplayKey  Callthen  Arg0	A	audioSettings
+unified.js	36910	36913	shorthand	local	Global  Global  ClassSoundEngine  FuncplayKey  Callthen  Arg0	osc	oscillator
+unified.js	37010	37011	shorthand	local	Global  Global  ClassSoundEngine  FuncplayKey  Callthen  Arg0	g	gainNode
+unified.js	37110	37113	none	local	Global  Global  ClassSoundEngine  FuncplayKey  Callthen  Arg0	lpf	lowPassFilter
+unified.js	37810	37812	none	local	Global  Global  ClassSoundEngine  FuncplayKey  Callthen  Arg0	t0	scheduleTime
+unified.js	36338	36339	none	param	Global  Global  ClassSoundEngine  FuncplayKey  Callthen  Arg0  CallforEach  Arg0	k	voiceKey
+unified.js	39537	39538	none	param	Global  Global  ClassSoundEngine  FuncstopChords  CallforEach  Arg0	k	voiceKey
+unified.js	39911	39921	none	param	Global  Global  ClassSoundEngine  FuncstopKeys	specificId	specificVoiceId
+unified.js	40338	40339	none	param	Global  Global  ClassSoundEngine  FuncstopKeys  If1  CallforEach  Arg0	k	voiceKey
+unified.js	4078	40712	none	param	Global  Global  ClassSoundEngine  FuncstopV	dict	voiceDictionary
+unified.js	4089	40810	none	local	Global  Global  ClassSoundEngine  FuncstopV	v	voiceNode
+unified.js	41110	41113	none	local	Global  Global  ClassSoundEngine  FuncstopV  Try0	now	currentTime
+unified.js	41612	41613	none	catch	Global  Global  ClassSoundEngine  FuncstopV  Catch1	e	error
+unified.js	4279	42713	none	local	Global  Global  Funcupdate	root	
+unified.js	4289	42819	none	local	Global  Global  Funcupdate	isPortrait	
+unified.js	4299	42915	none	local	Global  Global  Funcupdate	ratios	layoutRatios
+unified.js	4319	43118	none	local	Global  Global  Funcupdate	appHeight	
+unified.js	4379	43716	none	local	Global  Global  Funcupdate	kbTotal	keyboardTotalRatio
+unified.js	48214	48219	none	param	Global  Global  FuncgetLabelSet	state	
+unified.js	50012	50024	none	param	Global  Global  FuncgetLabels	spellingMode	
+unified.js	5019	50120	none	local	Global  Global  FuncgetLabels	targetState	
+unified.js	5039	50312	none	local	Global  Global  FuncgetLabels	set	labelSet
+unified.js	51121	51128	none	param	Global  Global  FuncparseStringToIndex	noteStr	
+unified.js	5139	51314	none	local	Global  Global  FuncparseStringToIndex	clean	cleanedNote
+unified.js	5169	51613	none	local	Global  Global  FuncparseStringToIndex	find	findInArray
+unified.js	5249	52417	none	local	Global  Global  FuncparseStringToIndex	contexts	dataContexts
+unified.js	51617	51620	none	param	Global  Global  FuncparseStringToIndex  Funcfind	arr	searchArray
+unified.js	51710	51713	shorthand	local	Global  Global  FuncparseStringToIndex  Funcfind	idx	foundIndex
+unified.js	52514	52517	none	local	Global  Global  FuncparseStringToIndex  ForOf1	ctx	dataContext
+unified.js	5268	52611	shorthand	local	Global  Global  FuncparseStringToIndex  ForOf1	idx	foundIndex
+unified.js	53613	53618	none	param	Global  Global  Func_normalize	index	
+unified.js	53714	53722	none	param	Global  Global  FunccofToChroma	cofIndex	circleOfFifthsIndex
+unified.js	53814	53820	none	param	Global  Global  FuncchromaToCof	chroma	
+unified.js	54020	54028	none	param	Global  Global  FunctransposeCofIndex	cofIndex	circleOfFifthsIndex
+unified.js	5419	54115	none	local	Global  Global  FunctransposeCofIndex	chroma	
+unified.js	5429	54218	none	local	Global  Global  FunctransposeCofIndex	newChroma	
+unified.js	56643	56644	none	param	Global  Global  ClassChordSheetStore  Func_initPads  Callfrom  Arg0	_	
+unified.js	58513	58522	none	param	Global  Global  ClassChordSheetStore  FuncloadPreset	rawString	
+unified.js	5879	58714	none	local	Global  Global  ClassChordSheetStore  FuncloadPreset	lines	
+unified.js	58742	58743	none	param	Global  Global  ClassChordSheetStore  FuncloadPreset  Callmap  Arg0	s	segment
+unified.js	58764	58765	none	param	Global  Global  ClassChordSheetStore  FuncloadPreset  Callfilter  Arg1	s	segment
+unified.js	59018	59022	none	param	Global  Global  ClassChordSheetStore  FuncloadPreset  CallforEach  Arg2	line	chordLine
+unified.js	61017	61028	none	param	Global  Global  ClassChordSheetStore  FunctransposeToKey	newMpkIndex	newMasterKeyIndex
+unified.js	6179	61720	none	local	Global  Global  ClassChordSheetStore  FunctransposeToKey	oldMpkIndex	oldMasterKeyIndex
+unified.js	6209	62018	none	local	Global  Global  ClassChordSheetStore  FunctransposeToKey	oldChroma	
+unified.js	6219	62118	none	local	Global  Global  ClassChordSheetStore  FunctransposeToKey	newChroma	
+unified.js	6229	62219	none	local	Global  Global  ClassChordSheetStore  FunctransposeToKey	chromaDiff	
+unified.js	63121	63124	none	param	Global  Global  ClassChordSheetStore  FunctransposeToKey  CallforEach  Arg1	pad	
+unified.js	65819	65824	none	param	Global  Global  ClassChordSheetStore  FuncgetPadKeyContext	padId	
+unified.js	6599	65912	none	local	Global  Global  ClassChordSheetStore  FuncgetPadKeyContext	pad	
+unified.js	67013	67016	shorthand	param	Global  Global  ClassChordSheetStore  FuncgetPadView	idx	padIndex
+unified.js	6719	67112	none	local	Global  Global  ClassChordSheetStore  FuncgetPadView	pad	
+unified.js	6849	68419	none	local	Global  Global  ClassChordSheetStore  FuncgetPadView	keyContext	
+unified.js	6899	68915	none	local	Global  Global  ClassChordSheetStore  FuncgetPadView	labels	
+unified.js	6929	69226	none	local	Global  Global  ClassChordSheetStore  FuncgetPadView	absoluteRootIndex	
+unified.js	6939	69318	none	local	Global  Global  ClassChordSheetStore  FuncgetPadView	rootLabel	
+unified.js	6957	69514	none	local	Global  Global  ClassChordSheetStore  FuncgetPadView	bassStr	
+unified.js	69710	69727	none	local	Global  Global  ClassChordSheetStore  FuncgetPadView  If1	absoluteBassIndex	
+unified.js	72025	72026	none	param	Global  Global  ClassChordSheetStore  FuncgetAllPadViews  Callmap  Arg0	_	
+unified.js	72824	72827	none	param	Global  Global  ClassChordSheetStore  FuncgetExportString  Callmap  Arg0	pad	
+unified.js	72910	72911	none	local	Global  Global  ClassChordSheetStore  FuncgetExportString  Callmap  Arg0	v	padView
+unified.js	7308	7309	none	local	Global  Global  ClassChordSheetStore  FuncgetExportString  Callmap  Arg0	s	chordString
+unified.js	74011	74020	none	local	Global  Global  ClassChordSheetStore  FuncgetExportString  Callmap  Arg0  If0	keyLabels	keyLabels
+unified.js	74111	74118	none	local	Global  Global  ClassChordSheetStore  FuncgetExportString  Callmap  Arg0  If0	keyRoot	keyRootSemitone
+unified.js	75313	75316	shorthand	param	Global  Global  ClassChordSheetStore  Func_parseLine	idx	padIndex
+unified.js	7547	75412	none	local	Global  Global  ClassChordSheetStore  Func_parseLine	clean	cleanedLine
+unified.js	7557	75513	none	local	Global  Global  ClassChordSheetStore  Func_parseLine	hasPsk	
+unified.js	7567	75614	none	local	Global  Global  ClassChordSheetStore  Func_parseLine	pskData	padSpecifiedKeyData
+unified.js	7599	75916	none	local	Global  Global  ClassChordSheetStore  Func_parseLine	inMatch	inKeywordMatch
+unified.js	7747	77414	none	local	Global  Global  ClassChordSheetStore  Func_parseLine	bassIdx	bassNoteIndex
+unified.js	7829	78218	none	local	Global  Global  ClassChordSheetStore  Func_parseLine	rootMatch	
+unified.js	76210	76217	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If0	pskRoot	padSpecifiedKeyRoot
+unified.js	76310	76317	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If0	pskMode	padSpecifiedKeyMode
+unified.js	77610	77615	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If1	parts	slashParts
+unified.js	78410	78417	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If2	rootStr	
+unified.js	7858	78518	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If2	qualityStr	
+unified.js	79910	79920	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If2	parenMatch	parenthesisMatch
+unified.js	80111	80118	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If2  If1	content	
+unified.js	80411	80416	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If2  If1	items	parsedItems
+unified.js	80519	80523	none	param	Global  Global  ClassChordSheetStore  Func_parseLine  If2  If1  CallforEach  Arg0	item	textCacheItem
+unified.js	80612	80617	none	local	Global  Global  ClassChordSheetStore  Func_parseLine  If2  If1  CallforEach  Arg0	clean	cleanedItem
+unified.js	87213	87216	none	param	Global  Global  ClassVoicingEngine  FuncgetVoicing	pad	
+unified.js	8759	87512	none	local	Global  Global  ClassVoicingEngine  FuncgetVoicing	now	currentTime
+unified.js	8829	88220	none	local	Global  Global  ClassVoicingEngine  FuncgetVoicing	enrichedPad	
+unified.js	8859	88520	none	local	Global  Global  ClassVoicingEngine  FuncgetVoicing	isResolving	
+unified.js	8889	88816	none	local	Global  Global  ClassVoicingEngine  FuncgetVoicing	voicing	
+unified.js	8919	89113	none	local	Global  Global  ClassVoicingEngine  FuncgetVoicing	bass	
+unified.js	91117	91120	none	param	Global  Global  ClassVoicingEngine  Func_enrichPadData	pad	
+unified.js	9139	91310	none	local	Global  Global  ClassVoicingEngine  Func_enrichPadData	p	enrichedCopy
+unified.js	9169	91616	none	local	Global  Global  ClassVoicingEngine  Func_enrichPadData	keyRoot	keyRootSemitone
+unified.js	9179	91719	none	local	Global  Global  ClassVoicingEngine  Func_enrichPadData	isMinorKey	
+unified.js	93221	93231	none	param	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	currentPad	
+unified.js	9337	93314	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	isReset	
+unified.js	9579	95722	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	rawCandidates	
+unified.js	9617	96119	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	targetCenter	
+unified.js	9627	96214	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	prevTop	
+unified.js	9637	96318	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	prev7thMidi	
+unified.js	9647	96418	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	prev3rdMidi	
+unified.js	9879	98723	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	isTriadQuality	
+unified.js	9909	99025	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing	scoredCandidates	
+unified.js	94710	94719	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If1	isSamePad	
+unified.js	94810	94823	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If1	isSameContent	
+unified.js	97111	97123	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If2  If0	prevRootSemi	
+unified.js	97211	97224	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If2  If0	prevIntervals	
+unified.js	9739	97322	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If2  If0	prev7thChroma	
+unified.js	9749	97422	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If2  If0	prev3rdChroma	
+unified.js	97527	97528	none	param	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If2  If0  CallforEach  Arg0	i	
+unified.js	97925	97929	none	param	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If2  If0  CallforEach  Arg1	note	
+unified.js	98012	98022	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  If2  If0  CallforEach  Arg1	noteChroma	
+unified.js	99046	99055	none	param	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3	candidate	
+unified.js	9918	99113	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3	score	
+unified.js	99210	99223	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3	currentCenter	
+unified.js	99310	99320	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3	currentTop	
+unified.js	99410	99415	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3	range	
+unified.js	99510	99515	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3	count	
+unified.js	99710	99714	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3	dist	distance
+unified.js	100010	100017	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3	topDist	topNoteDistance
+unified.js	101912	101924	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3  If4  If0	resolvedNote	
+unified.js	101942	101943	none	param	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3  If4  If0  Callfind  Arg0	n	TBD_n
+unified.js	102312	102324	none	local	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3  If4  If1	resolvedNote	
+unified.js	102342	102343	none	param	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callmap  Arg3  If4  If1  Callfind  Arg0	n	TBD_n
+unified.js	103126	103127	none	param	Global  Global  ClassVoicingEngine  Func_selectBestVoicing  Callsort  Arg4	a	
+unified.js	103529	103532	none	param	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates	pad	
+unified.js	10369	103617	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates	rootSemi	
+unified.js	10379	103718	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates	intervals	
+unified.js	10399	103919	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates	chordTones	
+unified.js	10499	104917	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates	tensions	
+unified.js	10599	105919	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates	candidates	
+unified.js	104021	104029	none	param	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  CallforEach  Arg0	interval	
+unified.js	104211	104215	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  CallforEach  Arg0  If0	semi	semitone
+unified.js	104314	104318	shorthand	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  CallforEach  Arg0  If0  For0	midi	midiNote
+unified.js	105021	105029	none	param	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  CallforEach  Arg1	interval	
+unified.js	105211	105215	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  CallforEach  Arg1  If0	semi	semitone
+unified.js	105314	105318	shorthand	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  CallforEach  Arg1  If0  For0	midi	midiNote
+unified.js	106212	106213	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For2	i	
+unified.js	106313	106314	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For2  For0	j	
+unified.js	106414	106415	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For2  For0  For0	k	
+unified.js	106512	106513	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For2  For0  For0	v	voicingCandidate
+unified.js	106568	106569	none	param	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For2  For0  For0  Callsort  Arg0	a	
+unified.js	107112	107113	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For3	i	
+unified.js	107213	107214	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For3  For0	j	
+unified.js	107314	107315	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For3  For0  For0	k	
+unified.js	107415	107416	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For3  For0  For0  For0	l	
+unified.js	107513	107514	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For3  For0  For0  For0	v	voicingCandidate
+unified.js	107584	107585	none	param	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  For3  For0  For0  For0  Callsort  Arg0	a	
+unified.js	108313	108314	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  If4  For0	i	
+unified.js	108414	108415	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  If4  For0  For0	j	
+unified.js	108515	108516	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  If4  For0  For0  For0	k	
+unified.js	108616	108617	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  If4  For0  For0  For0  For0	l	
+unified.js	108717	108718	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  If4  For0  For0  For0  For0  For0	t	
+unified.js	108815	108819	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  If4  For0  For0  For0  For0  For0	base	baseChordTones
+unified.js	108915	108916	none	local	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  If4  For0  For0  For0  For0  For0	v	voicingCandidate
+unified.js	108948	108949	none	param	Global  Global  ClassVoicingEngine  Func_generateVoicingCandidates  If4  For0  For0  For0  For0  For0  Callsort  Arg0	a	
+unified.js	110218	110221	none	param	Global  Global  ClassVoicingEngine  Func_selectBassNote	pad	
+unified.js	11039	110317	none	local	Global  Global  ClassVoicingEngine  Func_selectBassNote	rootSemi	
+unified.js	11047	110417	none	local	Global  Global  ClassVoicingEngine  Func_selectBassNote	targetBass	targetBassNote
+unified.js	110810	110818	none	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If0	bassSemi	
+unified.js	110913	110917	shorthand	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If0  For0	midi	midiNote
+unified.js	111311	111319	none	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If0  For0  If0  If0	bestMidi	
+unified.js	111411	111423	none	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If0  For0  If0  If0	bestDistance	
+unified.js	111638	111639	shorthand	param	Global  Global  ClassVoicingEngine  Func_selectBassNote  If0  For0  If0  If0  CallforEach  Arg0	m	candidateMidi
+unified.js	111815	111816	shorthand	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If0  For0  If0  If0  CallforEach  Arg0  If0	d	distance
+unified.js	11348	113416	none	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If1	bestMidi	
+unified.js	11358	113520	none	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If1	bestDistance	
+unified.js	113613	113617	shorthand	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If1  For0	midi	midiNote
+unified.js	113812	113813	shorthand	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  If1  For0  If0	d	distance
+unified.js	114912	114916	shorthand	local	Global  Global  ClassVoicingEngine  Func_selectBassNote  For2	midi	midiNote
+unified.js	115518	115525	none	param	Global  Global  ClassVoicingEngine  Func_isValidVoicing	voicing	
+unified.js	11589	115815	none	local	Global  Global  ClassVoicingEngine  Func_isValidVoicing	unique	
+unified.js	116019	116020	none	param	Global  Global  ClassVoicingEngine  Func_isValidVoicing  Callsome  Arg0	n	TBD_n
+unified.js	116410	116419	none	local	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1	intervals	
+unified.js	116510	116520	none	local	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1	rootChroma	
+unified.js	11668	116619	none	local	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1	thirdChroma	
+unified.js	11678	116719	none	local	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1	fifthChroma	
+unified.js	11688	116821	none	local	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1	seventhChroma	
+unified.js	117710	117724	none	local	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1	voicingChromas	
+unified.js	117022	117023	none	param	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1  CallforEach  Arg0	i	intervalEntry
+unified.js	117111	117117	none	local	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1  CallforEach  Arg0	chroma	
+unified.js	117739	117740	shorthand	param	Global  Global  ClassVoicingEngine  Func_isValidVoicing  If1  Callmap  Arg1	m	midiValue
+unified.js	119326	119333	none	param	Global  Global  ClassVoicingEngine  Func_hasValidTensionSpacing	voicing	
+unified.js	119414	119418	none	local	Global  Global  ClassVoicingEngine  Func_hasValidTensionSpacing  ForOf0	note	
+unified.js	119611	119619	none	local	Global  Global  ClassVoicingEngine  Func_hasValidTensionSpacing  ForOf0  If0	interval	
+unified.js	120323	120330	none	param	Global  Global  ClassVoicingEngine  Func_isResolvingDominant	prevPad	
+unified.js	12059	120520	none	local	Global  Global  ClassVoicingEngine  Func_isResolvingDominant	currentRoot	
+unified.js	12069	120616	none	local	Global  Global  ClassVoicingEngine  Func_isResolvingDominant	keyRoot	keyRootSemitone
+unified.js	12129	121219	none	local	Global  Global  ClassVoicingEngine  Func_isResolvingDominant	v7OfTarget	dominantOfTarget
+unified.js	12159	121521	none	local	Global  Global  ClassVoicingEngine  Func_isResolvingDominant	subVOfTarget	subVOfTarget
+unified.js	122125	122132	none	param	Global  Global  ClassVoicingEngine  Func_hasDominant7thQuality	quality	
+unified.js	122626	122633	none	param	Global  Global  ClassVoicingEngine  Func_isDominantTriadQuality	quality	
+unified.js	12289	122825	none	local	Global  Global  ClassVoicingEngine  Func_isDominantTriadQuality	perfectFifthDown	
+unified.js	123229	123237	none	param	Global  Global  ClassVoicingEngine  Func_computeDiatonicResolution	rootSemi	
+unified.js	12339	123315	none	local	Global  Global  ClassVoicingEngine  Func_computeDiatonicResolution	result	
+unified.js	12349	123423	none	local	Global  Global  ClassVoicingEngine  Func_computeDiatonicResolution	perfectFifthUp	
+unified.js	124325	124329	none	param	Global  Global  ClassVoicingEngine  FuncprecomputeDominantInfo	pads	
+unified.js	12519	125110	none	param	Global  Global  FunctoSemi	n	TBD_n
+unified.js	12539	125313	none	local	Global  Global  FunctoSemi	root	
+unified.js	12549	125410	shorthand	local	Global  Global  FunctoSemi	m	noteToSemitoneMap
+unified.js	125720	125727	none	param	Global  Global  FuncgetChordIntervals	quality	
+unified.js	12587	125816	none	local	Global  Global  FuncgetChordIntervals	intervals	
+unified.js	12597	125914	none	local	Global  Global  FuncgetChordIntervals	typeMap	intervalTypeMap
+unified.js	12607	126012	none	local	Global  Global  FuncgetChordIntervals	third	thirdInterval
+unified.js	12617	126112	none	local	Global  Global  FuncgetChordIntervals	fifth	fifthInterval
+unified.js	12627	126214	none	local	Global  Global  FuncgetChordIntervals	seventh	seventhInterval
+unified.js	12789	127812	none	local	Global  Global  FuncgetChordIntervals	no3	omitThird
+unified.js	12799	127912	none	local	Global  Global  FuncgetChordIntervals	no5	omitFifth
+unified.js	129610	129614	none	local	Global  Global  FuncgetChordIntervals  If4	tMap	tensionSemitoneMap
+unified.js	129721	129722	none	param	Global  Global  FuncgetChordIntervals  If4  CallforEach  Arg0	t	tensionName
+unified.js	129911	129915	none	local	Global  Global  FuncgetChordIntervals  If4  CallforEach  Arg0	semi	semitone
+unified.js	130624	130625	none	param	Global  Global  FuncgetChordIntervals  Callmap  Arg5	i	intervalEntry
+unified.js	132011	132018	none	param	Global  Global  FuncrenderTo	element	staffElement
+unified.js	13227	132211	none	local	Global  Global  FuncrenderTo	html	htmlString
+unified.js	132312	132313	none	local	Global  Global  FuncrenderTo  For0	i	
+unified.js	132512	132513	none	local	Global  Global  FuncrenderTo  For1	i	
+unified.js	132917	132922	none	param	Global  Global  FuncgetAccidentals	count	
+unified.js	13307	133011	none	local	Global  Global  FuncgetAccidentals	html	htmlString
+unified.js	13319	133116	none	local	Global  Global  FuncgetAccidentals	isSharp	
+unified.js	13329	133212	none	local	Global  Global  FuncgetAccidentals	num	accidentalCount
+unified.js	13339	133319	none	local	Global  Global  FuncgetAccidentals	svgContent	accidentalSvgContent
+unified.js	13349	133416	none	local	Global  Global  FuncgetAccidentals	tSharpY	trebleSharpPositionsY
+unified.js	13359	133515	none	local	Global  Global  FuncgetAccidentals	tFlatY	trebleFlatPositionsY
+unified.js	13369	133616	none	local	Global  Global  FuncgetAccidentals	bSharpY	bassSharpPositionsY
+unified.js	13379	133715	none	local	Global  Global  FuncgetAccidentals	bFlatY	bassFlatPositionsY
+unified.js	13389	133813	none	local	Global  Global  FuncgetAccidentals	yArr	accidentalPositionsY
+unified.js	13399	133915	none	local	Global  Global  FuncgetAccidentals	startX	
+unified.js	13409	134016	none	local	Global  Global  FuncgetAccidentals	spacing	accidentalSpacing
+unified.js	134112	134113	none	local	Global  Global  FuncgetAccidentals  For0	i	
+unified.js	134210	134211	none	local	Global  Global  FuncgetAccidentals  For0	x	accidentalX
+unified.js	134310	134311	none	local	Global  Global  FuncgetAccidentals  For0	y	accidentalY
+unified.js	134410	134417	none	local	Global  Global  FuncgetAccidentals  For0	xOffset	
+unified.js	134510	134517	none	local	Global  Global  FuncgetAccidentals  For0	yOffset	
+unified.js	135514	135523	none	param	Global  Global  ClassCoFWidget  Funcconstructor	container	
+unified.js	138262	138264	shorthand	param	Global  Global  ClassCoFWidget  Funcinit  CallforEach  Arg0	el	element
+unified.js	138562	138564	shorthand	param	Global  Global  ClassCoFWidget  Funcinit  CallforEach  Arg1	el	element
+unified.js	140215	140222	none	param	Global  Global  ClassCoFWidget  Func_updateState	prevIdx	previousIndex
+unified.js	14049	140418	none	local	Global  Global  ClassCoFWidget  Func_updateState	nextState	
+unified.js	141820	141825	none	param	Global  Global  ClassCoFWidget  FuncevaluateNextState	state	
+unified.js	14239	142310	none	local	Global  Global  ClassCoFWidget  FuncevaluateNextState	S	cofModelRef
+unified.js	14449	144412	none	local	Global  Global  ClassCoFWidget  Func_updateLabels	set	labelSet
+unified.js	144733	144737	none	param	Global  Global  ClassCoFWidget  Func_updateLabels  CallforEach  Arg0	item	textCacheItem
+unified.js	144833	144837	none	param	Global  Global  ClassCoFWidget  Func_updateLabels  CallforEach  Arg1	item	textCacheItem
+unified.js	14569	145613	none	local	Global  Global  ClassCoFWidget  Func_updateTransform	negR	negativeRotation
+unified.js	14579	145721	none	local	Global  Global  ClassCoFWidget  Func_updateTransform	applyCounter	applyCounterRotation
+unified.js	145725	145726	none	param	Global  Global  ClassCoFWidget  Func_updateTransform  FuncapplyCounter	t	textItem
+unified.js	146511	146516	none	param	Global  Global  ClassCoFWidget  FuncrotateTo	index	
+unified.js	14689	146816	none	local	Global  Global  ClassCoFWidget  FuncrotateTo	normIdx	
+unified.js	14849	148424	none	local	Global  Global  ClassCoFWidget  FuncrotateTo	targetBaseAngle	
+unified.js	14869	148623	none	local	Global  Global  ClassCoFWidget  FuncrotateTo	currentResidue	
+unified.js	14879	148722	none	local	Global  Global  ClassCoFWidget  FuncrotateTo	targetResidue	
+unified.js	14887	148811	none	local	Global  Global  ClassCoFWidget  FuncrotateTo	diff	
+unified.js	14919	149123	none	local	Global  Global  ClassCoFWidget  FuncrotateTo	targetInfinite	
+unified.js	150012	150026	none	param	Global  Global  ClassCoFWidget  FuncanimateTo	targetRotation	
+unified.js	15039	150313	none	local	Global  Global  ClassCoFWidget  FuncanimateTo	loop	animationLoop
+unified.js	150410	150414	none	local	Global  Global  ClassCoFWidget  FuncanimateTo  Funcloop	diff	
+unified.js	15219	152117	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions	getAngle	getAngleFromPointer
+unified.js	15289	152814	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions	start	startDragHandler
+unified.js	15379	153713	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions	move	moveDragHandler
+unified.js	15659	156512	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions	end	endDragHandler
+unified.js	152121	152122	none	param	Global  Global  ClassCoFWidget  Func_setupInteractions  FuncgetAngle	e	event
+unified.js	152210	152214	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  FuncgetAngle	rect	boundingRect
+unified.js	152310	152312	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  FuncgetAngle	cx	centerX
+unified.js	152410	152412	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  FuncgetAngle	cy	centerY
+unified.js	152818	152819	none	param	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcstart	e	event
+unified.js	153210	153212	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcstart	pt	pointerPoint
+unified.js	153717	153718	none	param	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcmove	e	event
+unified.js	154110	154112	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcmove	pt	pointerPoint
+unified.js	154210	154222	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcmove	currentAngle	
+unified.js	15438	154313	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcmove	delta	angleDelta
+unified.js	155310	155315	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcmove	steps	rotationSteps
+unified.js	155410	155423	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcmove	calculatedIdx	calculatedIndex
+unified.js	157010	157020	none	local	Global  Global  ClassCoFWidget  Func_setupInteractions  Funcend	snapTarget	
+unified.js	15909	159011	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM	ns	svgNamespace
+unified.js	15919	159110	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM	C	cofConfig
+unified.js	15969	159613	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM	defs	svgDefs
+unified.js	16369	163611	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM	hG	handleGroup
+unified.js	16379	163711	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM	ky	knobY
+unified.js	16479	164711	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM	cG	centerGroup
+unified.js	16599	165916	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM	cCircle	centerCircle
+unified.js	16659	166514	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM	cText	centerText
+unified.js	160412	160413	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	i	
+unified.js	160510	160511	shorthand	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	g	sectorGroup
+unified.js	160810	160813	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	deg	degrees
+unified.js	160910	160918	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	startAng	startAngle
+unified.js	161010	161016	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	endAng	endAngle
+unified.js	161210	161214	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	pOut	pathOuter
+unified.js	161910	161913	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	pIn	pathInner
+unified.js	162610	162616	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	txtAng	textAngle
+unified.js	162710	162714	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	rOut	radiusOuter
+unified.js	162810	162813	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	rIn	radiusInner
+unified.js	162910	162914	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	tOut	textOuter
+unified.js	163010	163013	none	local	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0	tIn	textInner
+unified.js	161420	161421	none	param	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0  Funconclick	e	event
+unified.js	162119	162120	none	param	Global  Global  ClassCoFWidget  Func_initSVGDOM  For0  Funconclick	e	event
+unified.js	164921	164922	none	param	Global  Global  ClassCoFWidget  Func_initSVGDOM  Funconmousedown	e	event
+unified.js	165022	165023	none	param	Global  Global  ClassCoFWidget  Func_initSVGDOM  Funcontouchstart	e	event
+unified.js	165117	165118	none	param	Global  Global  ClassCoFWidget  Func_initSVGDOM  Funconclick	e	event
+unified.js	168210	168212	none	param	Global  Global  ClassCoFWidget  Func_mkPath	ns	svgNamespace
+unified.js	16839	168310	none	local	Global  Global  ClassCoFWidget  Func_mkPath	p	pathElement
+unified.js	16849	168411	none	local	Global  Global  ClassCoFWidget  Func_mkPath	x1	
+unified.js	16854	16856	none	local	Global  Global  ClassCoFWidget  Func_mkPath	y1	
+unified.js	16869	168611	none	local	Global  Global  ClassCoFWidget  Func_mkPath	x2	
+unified.js	16874	16876	none	local	Global  Global  ClassCoFWidget  Func_mkPath	y2	
+unified.js	16889	168811	none	local	Global  Global  ClassCoFWidget  Func_mkPath	x3	
+unified.js	16894	16896	none	local	Global  Global  ClassCoFWidget  Func_mkPath	y3	
+unified.js	16909	169011	none	local	Global  Global  ClassCoFWidget  Func_mkPath	x4	
+unified.js	16914	16916	none	local	Global  Global  ClassCoFWidget  Func_mkPath	y4	
+unified.js	169610	169612	none	param	Global  Global  ClassCoFWidget  Func_mkText	ns	svgNamespace
+unified.js	16979	169710	none	local	Global  Global  ClassCoFWidget  Func_mkText	t	TBD_t
+unified.js	16989	169810	none	local	Global  Global  ClassCoFWidget  Func_mkText	x	textX
+unified.js	16994	16995	none	local	Global  Global  ClassCoFWidget  Func_mkText	y	textY
+unified.js	170620	170623	shorthand	param	Global  Global  ClassCoFWidget  FunchandleSectorClick	idx	sectorIndex
+unified.js	171616	171624	none	param	Global  Global  ClassCoFWidget  FuncupdateContext	cdkIndex	candidateKeyIndex
+unified.js	17179	171712	none	local	Global  Global  ClassCoFWidget  FuncupdateContext	els	highlightedElements
+unified.js	17199	171914	none	local	Global  Global  ClassCoFWidget  FuncupdateContext	apply	applyHighlight
+unified.js	171815	171817	shorthand	param	Global  Global  ClassCoFWidget  FuncupdateContext  CallforEach  Arg0	el	element
+unified.js	171918	171924	none	param	Global  Global  ClassCoFWidget  FuncupdateContext  Funcapply	offset	
+unified.js	172010	172013	shorthand	local	Global  Global  ClassCoFWidget  FuncupdateContext  Funcapply	idx	highlightIndex
+unified.js	172110	172111	shorthand	local	Global  Global  ClassCoFWidget  FuncupdateContext  Funcapply	g	sectorGroup
+unified.js	172311	172314	none	local	Global  Global  ClassCoFWidget  FuncupdateContext  Funcapply  If0	sel	sectorSelector
+unified.js	172722	172723	none	param	Global  Global  ClassCoFWidget  FuncupdateContext  CallforEach  Arg2	o	offsetValue
+unified.js	172825	172826	none	param	Global  Global  ClassCoFWidget  FuncupdateContext  CallforEach  Arg3	o	offsetValue
+unified.js	172915	172916	none	param	Global  Global  ClassCoFWidget  FuncupdateContext  CallforEach  Arg4	o	offsetValue
+unified.js	173216	173225	none	param	Global  Global  ClassCoFWidget  FunchighlightRoot	rootIndex	
+unified.js	17349	173416	none	local	Global  Global  ClassCoFWidget  FunchighlightRoot	actives	activeHighlights
+unified.js	17409	174018	none	local	Global  Global  ClassCoFWidget  FunchighlightRoot	normIndex	
+unified.js	17439	174320	none	local	Global  Global  ClassCoFWidget  FunchighlightRoot	targetClass	
+unified.js	17459	174515	none	local	Global  Global  ClassCoFWidget  FunchighlightRoot	sector	sectorElement
+unified.js	173519	173521	shorthand	param	Global  Global  ClassCoFWidget  FunchighlightRoot  CallforEach  Arg0	el	element
+unified.js	175016	175025	none	param	Global  Global  ClassCoFWidget  FunchighlightRoot	rootIndex	
+unified.js	17529	175216	none	local	Global  Global  ClassCoFWidget  FunchighlightRoot	actives	activeHighlights
+unified.js	17589	175818	none	local	Global  Global  ClassCoFWidget  FunchighlightRoot	normIndex	
+unified.js	17619	176120	none	local	Global  Global  ClassCoFWidget  FunchighlightRoot	targetClass	
+unified.js	17649	176410	shorthand	local	Global  Global  ClassCoFWidget  FunchighlightRoot	g	sectorGroup
+unified.js	175319	175321	shorthand	param	Global  Global  ClassCoFWidget  FunchighlightRoot  CallforEach  Arg0	el	element
+unified.js	176610	176616	none	local	Global  Global  ClassCoFWidget  FunchighlightRoot  If1	sector	sectorElement
+unified.js	177117	177121	none	param	Global  Global  ClassCoFWidget  FunchighlightChord	root	
+unified.js	17759	177515	none	local	Global  Global  ClassCoFWidget  FunchighlightChord	groups	sectorGroups
+unified.js	17849	178410	none	local	Global  Global  ClassCoFWidget  FunchighlightChord	r	cleanedRoot
+unified.js	17859	178514	none	local	Global  Global  ClassCoFWidget  FunchighlightChord	isMin	isMinorQuality
+unified.js	177618	177619	shorthand	param	Global  Global  ClassCoFWidget  FunchighlightChord  CallforEach  Arg0	g	sectorGroup
+unified.js	17908	179017	none	local	Global  Global  ClassCoFWidget  FunchighlightChord  If1	targetIdx	targetIndex
+unified.js	179611	179612	shorthand	local	Global  Global  ClassCoFWidget  FunchighlightChord  If1  If0	g	sectorGroup
+unified.js	180510	180512	none	local	Global  Global  ClassCoFWidget  FunchighlightChord  If2	rm	rootMinorLabel
+unified.js	18068	180617	none	local	Global  Global  ClassCoFWidget  FunchighlightChord  If2	targetIdx	targetIndex
+unified.js	181011	181012	shorthand	local	Global  Global  ClassCoFWidget  FunchighlightChord  If2  If0	g	sectorGroup
+unified.js	182514	182517	none	param	Global  Global  ClassUIManager  Funcconstructor	app	
+unified.js	18479	184714	none	local	Global  Global  ClassUIManager  Func_injectEditControls	mkBtn	createOptionButton
+unified.js	18639	186318	none	local	Global  Global  ClassUIManager  Func_injectEditControls	qualities	qualityOptions
+unified.js	18649	186417	none	local	Global  Global  ClassUIManager  Func_injectEditControls	tensions	
+unified.js	18659	186514	none	local	Global  Global  ClassUIManager  Func_injectEditControls	omits	omitOptions
+unified.js	18729	187212	none	local	Global  Global  ClassUIManager  Func_injectEditControls	sel	presetSelect
+unified.js	184718	184720	none	param	Global  Global  ClassUIManager  Func_injectEditControls  FuncmkBtn	id	containerId
+unified.js	184810	184811	none	local	Global  Global  ClassUIManager  Func_injectEditControls  FuncmkBtn	b	buttonElement
+unified.js	185121	185122	none	param	Global  Global  ClassUIManager  Func_injectEditControls  FuncmkBtn  Funconmousedown	e	event
+unified.js	185622	185623	none	param	Global  Global  ClassUIManager  Func_injectEditControls  FuncmkBtn  Funcontouchstart	e	event
+unified.js	186721	186722	none	param	Global  Global  ClassUIManager  Func_injectEditControls  CallforEach  Arg1	q	qualityValue
+unified.js	186820	186821	none	param	Global  Global  ClassUIManager  Func_injectEditControls  CallforEach  Arg2	t	tensionName
+unified.js	186917	186918	none	param	Global  Global  ClassUIManager  Func_injectEditControls  CallforEach  Arg3	o	omitValue
+unified.js	188013	188017	none	param	Global  Global  ClassUIManager  FuncrenderPads	pads	
+unified.js	18869	188613	none	local	Global  Global  ClassUIManager  FuncrenderPads	grid	gridElement
+unified.js	189417	189421	none	param	Global  Global  ClassUIManager  FuncrenderPads  CallforEach  Arg1	view	padView
+unified.js	18958	18959	shorthand	local	Global  Global  ClassUIManager  FuncrenderPads  CallforEach  Arg1	d	padElement
+unified.js	190310	190313	none	local	Global  Global  ClassUIManager  FuncrenderPads  CallforEach  Arg1	lbl	labelElement
+unified.js	190810	190818	none	local	Global  Global  ClassUIManager  FuncrenderPads  CallforEach  Arg1	qDisplay	qualityDisplay
+unified.js	192411	192414	none	local	Global  Global  ClassUIManager  FuncrenderPads  CallforEach  Arg1  If3	ind	pskIndicator
+unified.js	192611	192620	none	local	Global  Global  ClassUIManager  FuncrenderPads  CallforEach  Arg1  If3	keyLabels	keyLabels
+unified.js	192711	192719	none	local	Global  Global  ClassUIManager  FuncrenderPads  CallforEach  Arg1  If3	keyLabel	keyLabel
+unified.js	193111	193119	none	local	Global  Global  ClassUIManager  FuncrenderPads  CallforEach  Arg1  If4	existing	existingIndicator
+unified.js	193818	193822	none	param	Global  Global  ClassUIManager  FuncupdateEditPanel	view	padView
+unified.js	19409	194020	none	local	Global  Global  ClassUIManager  FuncupdateEditPanel	mainDisplay	chordMainDisplay
+unified.js	19419	194119	none	local	Global  Global  ClassUIManager  FuncupdateEditPanel	subDisplay	chordSubDisplay
+unified.js	194510	194518	none	local	Global  Global  ClassUIManager  FuncupdateEditPanel  If0	qDisplay	qualityDisplay
+unified.js	19478	194714	none	local	Global  Global  ClassUIManager  FuncupdateEditPanel  If0	suffix	chordSuffix
+unified.js	196910	196923	none	local	Global  Global  ClassUIManager  FuncupdateEditPanel  If1	contextLabels	
+unified.js	197010	197020	none	local	Global  Global  ClassUIManager  FuncupdateEditPanel  If1	contextKey	contextKeyName
+unified.js	198120	198132	none	param	Global  Global  ClassUIManager  FuncupdatePskSelector	cekCandidate	chordEditingKeyCandidate
+unified.js	19849	198416	none	local	Global  Global  ClassUIManager  FuncupdatePskSelector	autoBtn	autoButton
+unified.js	19859	198515	none	local	Global  Global  ClassUIManager  FuncupdatePskSelector	majBtn	majorButton
+unified.js	19869	198615	none	local	Global  Global  ClassUIManager  FuncupdatePskSelector	minBtn	minorButton
+unified.js	200610	200616	none	local	Global  Global  ClassUIManager  FuncupdatePskSelector  If3	labels	
+unified.js	200710	200718	none	local	Global  Global  ClassUIManager  FuncupdatePskSelector  If3	keyLabel	keyLabel
+unified.js	201010	201019	none	local	Global  Global  ClassUIManager  FuncupdatePskSelector  If3	minLabels	minorKeyLabels
+unified.js	201110	201118	none	local	Global  Global  ClassUIManager  FuncupdatePskSelector  If3	minLabel	minorKeyLabel
+unified.js	201923	201937	none	param	Global  Global  ClassUIManager  FuncupdateQualityButtons	currentQuality	
+unified.js	20209	202013	none	local	Global  Global  ClassUIManager  FuncupdateQualityButtons	grid	gridElement
+unified.js	202337	202340	none	param	Global  Global  ClassUIManager  FuncupdateQualityButtons  CallforEach  Arg0	btn	optionButton
+unified.js	203323	203338	none	param	Global  Global  ClassUIManager  FuncupdateTensionButtons	currentTensions	
+unified.js	20349	203413	none	local	Global  Global  ClassUIManager  FuncupdateTensionButtons	grid	gridElement
+unified.js	203737	203740	none	param	Global  Global  ClassUIManager  FuncupdateTensionButtons  CallforEach  Arg0	btn	optionButton
+unified.js	203910	203920	none	local	Global  Global  ClassUIManager  FuncupdateTensionButtons  CallforEach  Arg0	hasTension	
+unified.js	204820	204832	none	param	Global  Global  ClassUIManager  FuncupdateOmitButtons	currentOmits	
+unified.js	20499	204913	none	local	Global  Global  ClassUIManager  FuncupdateOmitButtons	grid	gridElement
+unified.js	205237	205240	none	param	Global  Global  ClassUIManager  FuncupdateOmitButtons  CallforEach  Arg0	btn	optionButton
+unified.js	205410	205417	none	local	Global  Global  ClassUIManager  FuncupdateOmitButtons  CallforEach  Arg0	hasOmit	
+unified.js	20649	206413	none	local	Global  Global  ClassUIManager  Func_setupPadInteraction	grid	gridElement
+unified.js	206840	206841	none	param	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg0	e	event
+unified.js	206910	206913	none	local	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg0	pad	
+unified.js	207310	207312	none	local	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg0	id	padId
+unified.js	207838	207839	none	param	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg1	e	event
+unified.js	207910	207913	none	local	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg1	pad	
+unified.js	208739	208740	none	param	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg2	e	event
+unified.js	208810	208813	none	local	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg2	pad	
+unified.js	209210	209212	none	local	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg2	id	padId
+unified.js	209737	209738	none	param	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg3	e	event
+unified.js	209810	209813	none	local	Global  Global  ClassUIManager  Func_setupPadInteraction  CalladdEventListener  Arg3	pad	
+unified.js	21139	211310	none	local	Global  Global  ClassUIManager  Func_setupKeyboard	l	keyboardLayer
+unified.js	21159	211510	none	local	Global  Global  ClassUIManager  Func_setupKeyboard	w	whiteKeyWidth
+unified.js	21169	211615	none	local	Global  Global  ClassUIManager  Func_setupKeyboard	hRatio	blackKeyHeightRatio
+unified.js	21179	211714	none	local	Global  Global  ClassUIManager  Func_setupKeyboard	notes	noteNames
+unified.js	21429	214216	none	local	Global  Global  ClassUIManager  Func_setupKeyboard	wrapper	wrapperElement
+unified.js	21449	214420	none	local	Global  Global  ClassUIManager  Func_setupKeyboard	handleTouch	handleTouchEvent
+unified.js	212012	212013	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  For0	i	
+unified.js	212110	212114	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  For0	name	noteName
+unified.js	212210	212214	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  For0	isBk	isBlackKey
+unified.js	212310	212311	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  For0	k	keyElement
+unified.js	214424	214425	none	param	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch	e	event
+unified.js	214810	214817	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch	touches	touchList
+unified.js	214910	214920	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch	keyTouches	
+unified.js	215010	215024	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch	gestureTouches	
+unified.js	215320	215321	none	param	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  CallforEach  Arg0	t	touchItem
+unified.js	215411	215413	shorthand	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  CallforEach  Arg0	el	element
+unified.js	216811	216821	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1	currentIds	currentGestureIds
+unified.js	216843	216844	none	param	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  Callmap  Arg0	t	touchItem
+unified.js	217713	217715	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If1  If1	t1	touchPoint1
+unified.js	217813	217815	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If1  If1	t2	touchPoint2
+unified.js	218513	218514	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If0	t	gestureTouch
+unified.js	218613	218615	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If0	dx	deltaX
+unified.js	219113	219115	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If1	t1	touchPoint1
+unified.js	219213	219215	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If1	t2	touchPoint2
+unified.js	219313	219317	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If1	dist	pinchDistance
+unified.js	219614	219619	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If1  If0	scale	pinchScale
+unified.js	219714	219722	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If1  If0	newScale	
+unified.js	220314	220321	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If1  If0	centerX	
+unified.js	220414	220419	none	local	Global  Global  ClassUIManager  Func_setupKeyboard  FunchandleTouch  If1  If2  If1  If0	ratio	scaleRatio
+unified.js	22309	223017	none	local	Global  Global  ClassUIManager  FuncfitKeyboardRange	startIdx	startIndex
+unified.js	22319	223115	none	local	Global  Global  ClassUIManager  FuncfitKeyboardRange	endIdx	endIndex
+unified.js	22339	223320	none	local	Global  Global  ClassUIManager  FuncfitKeyboardRange	targetWidth	
+unified.js	22349	223416	none	local	Global  Global  ClassUIManager  FuncfitKeyboardRange	screenW	screenWidth
+unified.js	22469	224610	shorthand	local	Global  Global  ClassUIManager  Func_setupBassKeyboard	c	bassKeyboardContainer
+unified.js	22489	224814	none	local	Global  Global  ClassUIManager  Func_setupBassKeyboard	notes	noteNames
+unified.js	22497	224911	none	local	Global  Global  ClassUIManager  Func_setupBassKeyboard	wIdx	whiteKeyIndex
+unified.js	225217	225218	none	param	Global  Global  ClassUIManager  Func_setupBassKeyboard  CallforEach  Arg0	n	noteName
+unified.js	225411	225412	none	local	Global  Global  ClassUIManager  Func_setupBassKeyboard  CallforEach  Arg0  If0	k	keyElement
+unified.js	226317	226318	none	param	Global  Global  ClassUIManager  Func_setupBassKeyboard  CallforEach  Arg1	n	noteName
+unified.js	226511	226512	none	local	Global  Global  ClassUIManager  Func_setupBassKeyboard  CallforEach  Arg1  If0	k	keyElement
+unified.js	22779	227712	none	local	Global  Global  ClassUIManager  Func_setupEDButton	btn	editButton
+unified.js	22817	228112	none	local	Global  Global  ClassUIManager  Func_setupEDButton	timer	longPressTimer
+unified.js	22839	228314	none	local	Global  Global  ClassUIManager  Func_setupEDButton	start	
+unified.js	22929	229212	none	local	Global  Global  ClassUIManager  Func_setupEDButton	end	endPressHandler
+unified.js	228318	228319	none	param	Global  Global  ClassUIManager  Func_setupEDButton  Funcstart	e	event
+unified.js	229216	229217	none	param	Global  Global  ClassUIManager  Func_setupEDButton  Funcend	e	event
+unified.js	23129	231213	none	local	Global  Global  ClassUIManager  Func_setupLogoLongPress	logo	logoElement
+unified.js	23159	231519	none	local	Global  Global  ClassUIManager  Func_setupLogoLongPress	startPress	startPressHandler
+unified.js	23249	232417	none	local	Global  Global  ClassUIManager  Func_setupLogoLongPress	endPress	endPressHandler
+unified.js	231523	231524	none	param	Global  Global  ClassUIManager  Func_setupLogoLongPress  FuncstartPress	e	event
+unified.js	232421	232422	none	param	Global  Global  ClassUIManager  Func_setupLogoLongPress  FuncendPress	e	event
+unified.js	23459	234516	none	local	Global  Global  ClassUIManager  Func_copyLogToClipboard	logText	
+unified.js	235412	235415	none	catch	Global  Global  ClassUIManager  Func_copyLogToClipboard  Catch2	err	error
+unified.js	23649	236416	none	local	Global  Global  ClassUIManager  Func_showLogModal	logText	
+unified.js	23659	236514	none	local	Global  Global  ClassUIManager  Func_showLogModal	modal	modalOverlay
+unified.js	23669	236613	none	local	Global  Global  ClassUIManager  Func_showLogModal	text	textArea
+unified.js	23679	236716	none	local	Global  Global  ClassUIManager  Func_showLogModal	actions	actionsContainer
+unified.js	23689	236814	none	local	Global  Global  ClassUIManager  Func_showLogModal	title	titleElement
+unified.js	238220	238221	none	param	Global  Global  ClassUIManager  Func_showLogModal  Funconclick	e	event
+unified.js	23889	238813	none	local	Global  Global  ClassUIManager  Func_copyLogFromModal	text	textArea
+unified.js	239212	239215	none	catch	Global  Global  ClassUIManager  Func_copyLogFromModal  Catch1	err	error
+unified.js	24009	240013	none	local	Global  Global  ClassUIManager  Func_selectAllLog	text	textArea
+unified.js	240512	240516	none	param	Global  Global  ClassUIManager  FuncopenModal	mode	
+unified.js	24069	240614	none	local	Global  Global  ClassUIManager  FuncopenModal	modal	modalOverlay
+unified.js	24079	240714	none	local	Global  Global  ClassUIManager  FuncopenModal	title	titleElement
+unified.js	24089	240812	none	local	Global  Global  ClassUIManager  FuncopenModal	txt	textArea
+unified.js	24099	240916	none	local	Global  Global  ClassUIManager  FuncopenModal	actions	actionsContainer
+unified.js	241710	241717	none	local	Global  Global  ClassUIManager  FuncopenModal  If0	rawData	
+unified.js	24389	243810	none	local	Global  Global  ClassUIManager  FuncselectAllText	t	TBD_t
+unified.js	24439	244310	none	local	Global  Global  ClassUIManager  FunccopyText	t	TBD_t
+unified.js	245120	245123	none	param	Global  Global  ClassUIManager  FunchighlightKeyboard	pad	
+unified.js	24569	245617	none	local	Global  Global  ClassUIManager  FunchighlightKeyboard	rootSemi	
+unified.js	24579	245718	none	local	Global  Global  ClassUIManager  FunchighlightKeyboard	intervals	
+unified.js	24589	245823	none	local	Global  Global  ClassUIManager  FunchighlightKeyboard	tensionChromas	
+unified.js	24629	246221	none	local	Global  Global  ClassUIManager  FunchighlightKeyboard	notesToLight	notesToHighlight
+unified.js	245912	245913	none	param	Global  Global  ClassUIManager  FunchighlightKeyboard  Callfilter  Arg0	i	intervalEntry
+unified.js	24609	246010	none	param	Global  Global  ClassUIManager  FunchighlightKeyboard  Callmap  Arg1	i	intervalEntry
+unified.js	246424	246428	shorthand	param	Global  Global  ClassUIManager  FunchighlightKeyboard  CallforEach  Arg2	midi	midiNote
+unified.js	246510	246515	none	local	Global  Global  ClassUIManager  FunchighlightKeyboard  CallforEach  Arg2	keyEl	keyElement
+unified.js	246710	246716	none	local	Global  Global  ClassUIManager  FunchighlightKeyboard  CallforEach  Arg2	chroma	
+unified.js	247745	247746	none	param	Global  Global  ClassUIManager  FuncclearHighlight  CallforEach  Arg0	k	keyElement
+unified.js	24899	248915	none	local	Global  Global  ClassUIManager  FunctoggleWidgetExpansion	widget	widgetElement
+unified.js	249417	249425	none	param	Global  Global  ClassUIManager  FuncenableDragging	handleId	dragHandleId
+unified.js	24959	249515	none	local	Global  Global  ClassUIManager  FuncenableDragging	handle	handleElement
+unified.js	24969	249615	none	local	Global  Global  ClassUIManager  FuncenableDragging	target	targetElement
+unified.js	24997	249917	none	local	Global  Global  ClassUIManager  FuncenableDragging	isDragging	
+unified.js	25007	250013	none	local	Global  Global  ClassUIManager  FuncenableDragging	startX	
+unified.js	250015	250021	none	local	Global  Global  ClassUIManager  FuncenableDragging	startY	
+unified.js	250023	250034	none	local	Global  Global  ClassUIManager  FuncenableDragging	initialLeft	
+unified.js	250036	250046	none	local	Global  Global  ClassUIManager  FuncenableDragging	initialTop	
+unified.js	25029	250218	none	local	Global  Global  ClassUIManager  FuncenableDragging	startDrag	startDragHandler
+unified.js	25289	252815	none	local	Global  Global  ClassUIManager  FuncenableDragging	onDrag	onDragHandler
+unified.js	25409	254017	none	local	Global  Global  ClassUIManager  FuncenableDragging	stopDrag	stopDragHandler
+unified.js	250222	250223	none	param	Global  Global  ClassUIManager  FuncenableDragging  FuncstartDrag	e	event
+unified.js	250710	250713	none	local	Global  Global  ClassUIManager  FuncenableDragging  FuncstartDrag	evt	eventPoint
+unified.js	251410	251414	none	local	Global  Global  ClassUIManager  FuncenableDragging  FuncstartDrag	rect	boundingRect
+unified.js	252819	252820	none	param	Global  Global  ClassUIManager  FuncenableDragging  FunconDrag	e	event
+unified.js	253010	253013	none	local	Global  Global  ClassUIManager  FuncenableDragging  FunconDrag	evt	eventPoint
+unified.js	253110	253112	none	local	Global  Global  ClassUIManager  FuncenableDragging  FunconDrag	dx	deltaX
+unified.js	253210	253212	none	local	Global  Global  ClassUIManager  FuncenableDragging  FunconDrag	dy	deltaY
+unified.js	262410	262423	none	local	Global  Global  ClassJCSCApp  Funcinit  Try0	pCofContainer	performanceCoFContainer
+unified.js	262510	262523	none	local	Global  Global  ClassJCSCApp  Funcinit  Try0	eCofContainer	editCoFContainer
+unified.js	263410	263415	none	local	Global  Global  ClassJCSCApp  Funcinit  Try0	btnEd	editButtonElement
+unified.js	264110	264122	none	local	Global  Global  ClassJCSCApp  Funcinit  Try0	staffOverlay	staffOverlayElement
+unified.js	264710	264716	none	local	Global  Global  ClassJCSCApp  Funcinit  Try0	select	selectElement
+unified.js	265034	265038	none	param	Global  Global  ClassJCSCApp  Funcinit  Try0  If2  CallforEach  Arg0	name	presetName
+unified.js	265112	265115	none	local	Global  Global  ClassJCSCApp  Funcinit  Try0  If2  CallforEach  Arg0	opt	optionElement
+unified.js	266012	266015	none	catch	Global  Global  ClassJCSCApp  Funcinit  Catch1	err	error
+unified.js	26699	266913	none	local	Global  Global  ClassJCSCApp  Funcrefresh	pads	
+unified.js	267410	267413	none	local	Global  Global  ClassJCSCApp  Funcrefresh  If0	mpk	masterPlayingKey
+unified.js	268110	268118	none	local	Global  Global  ClassJCSCApp  Funcrefresh  If0	sigCount	signatureCount
+unified.js	269320	269325	none	param	Global  Global  ClassJCSCApp  FuncgetSignatureCount	index	
+unified.js	26979	269719	none	local	Global  Global  ClassJCSCApp  FuncgetSignatureCount	isFlatMode	
+unified.js	27169	271613	none	local	Global  Global  ClassJCSCApp  Func_updateUIState	body	bodyElement
+unified.js	27179	271714	none	local	Global  Global  ClassJCSCApp  Func_updateUIState	btnEd	editButtonElement
+unified.js	274824	274830	none	param	Global  Global  ClassJCSCApp  Func_updateWidgetOverlays	keyCtx	keyContextParam
+unified.js	27499	274915	none	local	Global  Global  ClassJCSCApp  Func_updateWidgetOverlays	labels	
+unified.js	27509	275017	none	local	Global  Global  ClassJCSCApp  Func_updateWidgetOverlays	keyLabel	keyLabel
+unified.js	27519	275119	none	local	Global  Global  ClassJCSCApp  Func_updateWidgetOverlays	keyDisplay	keyDisplayElement
+unified.js	27549	275416	none	local	Global  Global  ClassJCSCApp  Func_updateWidgetOverlays	modeBtn	modeButton
+unified.js	278315	278323	none	param	Global  Global  ClassJCSCApp  FunctransitionTo	newState	
+unified.js	279916	279921	none	param	Global  Global  ClassJCSCApp  FuncenterEditMode	padId	
+unified.js	28039	280312	none	local	Global  Global  ClassJCSCApp  FuncenterEditMode	pad	
+unified.js	28239	282312	none	local	Global  Global  ClassJCSCApp  FunccommitEdit	pad	
+unified.js	283815	283820	none	param	Global  Global  ClassJCSCApp  FunchandlePadTap	padId	
+unified.js	28479	284712	none	local	Global  Global  ClassJCSCApp  FunchandlePadTap	pad	
+unified.js	28519	285115	none	local	Global  Global  ClassJCSCApp  FunchandlePadTap	result	
+unified.js	287920	287925	none	param	Global  Global  ClassJCSCApp  FunchandleCoFRotation	index	
+unified.js	288210	288221	none	local	Global  Global  ClassJCSCApp  FunchandleCoFRotation  If0	currentMode	
+unified.js	29049	290413	none	local	Global  Global  ClassJCSCApp  FuncupdateEditPreview	view	padView
+unified.js	291310	291313	none	local	Global  Global  ClassJCSCApp  FuncupdateEditPreview  If0	cdk	TBD_cdk
+unified.js	292610	292618	none	local	Global  Global  ClassJCSCApp  FuncupdateEditPreview  If0	sigCount	signatureCount
+unified.js	293313	293317	none	param	Global  Global  ClassJCSCApp  FuncsetPskMode	mode	
+unified.js	293910	293920	none	local	Global  Global  ClassJCSCApp  FuncsetPskMode  If1	currentIdx	
+unified.js	294516	294523	none	param	Global  Global  ClassJCSCApp  FuncupdateEditPad	changes	
+unified.js	29479	294712	none	local	Global  Global  ClassJCSCApp  FuncupdateEditPad	pad	
+unified.js	295616	295623	none	param	Global  Global  ClassJCSCApp  FunctoggleTension	tension	tensionType
+unified.js	29589	295812	none	local	Global  Global  ClassJCSCApp  FunctoggleTension	pad	
+unified.js	29599	295912	shorthand	local	Global  Global  ClassJCSCApp  FunctoggleTension	idx	tensionIndex
+unified.js	296513	296517	none	param	Global  Global  ClassJCSCApp  FunctoggleOmit	omit	omitType
+unified.js	29679	296712	none	local	Global  Global  ClassJCSCApp  FunctoggleOmit	pad	
+unified.js	29689	296812	shorthand	local	Global  Global  ClassJCSCApp  FunctoggleOmit	idx	omitIndex
+unified.js	29749	297412	none	local	Global  Global  ClassJCSCApp  FuncimportFromText	txt	textArea
+unified.js	29789	297816	none	local	Global  Global  ClassJCSCApp  FuncimportFromText	rawData	
+unified.js	299012	299015	none	catch	Global  Global  ClassJCSCApp  FuncimportFromText  Catch1	err	error
+unified.js	300520	300525	none	param	Global  Global  ClassJCSCApp  FunchandleCoFRotation	index	
+unified.js	30269	302612	none	local	Global  Global  ClassJCSCApp  FunctoggleSC	btn	sustainChordButton
+unified.js	30339	303312	none	local	Global  Global  ClassJCSCApp  FunctoggleSK	btn	sustainKeyButton
+unified.js	30449	304412	none	local	Global  Global  ClassJCSCApp  FunctoggleVC	btn	visualChordButton
+unified.js	30509	305015	none	local	Global  Global  ClassJCSCApp  FunctoggleCoFWidget	widget	widgetElement
+unified.js	30529	305217	none	local	Global  Global  ClassJCSCApp  FunctoggleCoFWidget	isHidden	
+unified.js	30549	305412	none	local	Global  Global  ClassJCSCApp  FunctoggleCoFWidget	btn	cofButton
+unified.js	30609	306020	none	local	Global  Global  ClassJCSCApp  FunctoggleGlobalMode	currentMode	
+unified.js	30619	306116	none	local	Global  Global  ClassJCSCApp  FunctoggleGlobalMode	newMode	
+unified.js	30759	307515	none	local	Global  Global  ClassJCSCApp  FunctoggleWidgetMaximize	widget	widgetElement
+unified.js	308813	308817	none	param	Global  Global  ClassJCSCApp  FuncloadPreset	name	presetName
+unified.js	30899	308913	none	local	Global  Global  ClassJCSCApp  FuncloadPreset	data	presetData
+unified.js	310017	310030	none	param	Global  Global  ClassJCSCApp  FunchandleKeyInput	activeTouches	
+unified.js	31019	310118	none	local	Global  Global  ClassJCSCApp  FunchandleKeyInput	activeIds	
+unified.js	310139	310140	none	param	Global  Global  ClassJCSCApp  FunchandleKeyInput  Callmap  Arg0	t	TBD_t
+unified.js	310445	310448	none	param	Global  Global  ClassJCSCApp  FunchandleKeyInput  CallforEach  Arg1	tid	touchId
+unified.js	310711	310719	none	local	Global  Global  ClassJCSCApp  FunchandleKeyInput  CallforEach  Arg1  If0	lastNote	
+unified.js	310811	310814	none	local	Global  Global  ClassJCSCApp  FunchandleKeyInput  CallforEach  Arg1  If0	vid	voiceId
+unified.js	311925	311930	none	param	Global  Global  ClassJCSCApp  FunchandleKeyInput  CallforEach  Arg2	touch	
+unified.js	312010	312017	none	local	Global  Global  ClassJCSCApp  FunchandleKeyInput  CallforEach  Arg2	oldNote	
+unified.js	312511	312517	none	local	Global  Global  ClassJCSCApp  FunchandleKeyInput  CallforEach  Arg2  If0	newVid	newVoiceId
+unified.js	313811	313815	none	local	Global  Global  ClassJCSCApp  FunchandleKeyInput  CallforEach  Arg2  If0	freq	
+unified.js	313012	313018	none	local	Global  Global  ClassJCSCApp  FunchandleKeyInput  CallforEach  Arg2  If0  If0	oldVid	oldVoiceId
