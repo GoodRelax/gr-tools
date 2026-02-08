@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Secure, privacy-focused URL encoder and decoder. Runs entirely in your browser using JavaScript. No server-side processing.">
+    <meta name="keywords" content="url encoder, url decoder, percent encoding, privacy, client-side, offline tool, dark mode, GoodRelax">
+    <meta name="author" content="GoodRelax">
+    <meta name="robots" content="index, follow">
+    <title>GoodRelax URL Encoder - Secure & Client-side</title>
+    <style>
+        /* CSS Variables for Light Mode */
+        :root {
+            --bg-color: #f4f8fb;
+            --container-bg: #ffffff;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --border-color: #dddddd;
+            --input-bg: #ffffff;
+            --primary-btn: #4facfe;
+            --primary-btn-hover: #00f2fe;
+            --secondary-btn: #43e97b;
+            --secondary-btn-hover: #38f9d7;
+            --copy-btn-bg: #e0e0e0;
+            --copy-btn-text: #333;
+            --copy-btn-hover: #d0d0d0;
+        }
+
+        /* CSS Variables for Dark Mode */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212;
+                --container-bg: #1e1e1e;
+                --text-main: #e0e0e0;
+                --text-sub: #aaaaaa;
+                --border-color: #333333;
+                --input-bg: #2d2d2d;
+                --primary-btn: #2980b9;
+                --primary-btn-hover: #3498db;
+                --secondary-btn: #27ae60;
+                --secondary-btn-hover: #2ecc71;
+                --copy-btn-bg: #333333;
+                --copy-btn-text: #e0e0e0;
+                --copy-btn-hover: #444444;
+            }
+        }
+
+        /* Global Layout: Full Height, No Scroll on Desktop */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            height: 100vh; /* Force full viewport height */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        .container {
+            background: var(--container-bg);
+            width: 100%;
+            max-width: 800px;
+            height: 90vh; /* Take up 90% of screen height */
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column; /* Stack elements vertically */
+        }
+
+        /* Header Section */
+        header {
+            flex-shrink: 0; /* Don't shrink header */
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 0 0 8px 0;
+            color: var(--text-main);
+        }
+
+        .privacy-text {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin: 0;
+            opacity: 0.8;
+        }
+
+        /* Input/Output Wrappers */
+        .io-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1; /* This makes the section grow to fill space */
+            min-height: 0; /* Crucial for nested flex scrolling */
+            position: relative;
+        }
+
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: var(--text-sub);
+            flex-shrink: 0;
+        }
+
+        textarea {
+            width: 100%;
+            flex: 1; /* Textarea grows to fill the section */
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-family: "Monaco", "Menlo", "Consolas", monospace;
+            resize: none; /* Disable manual resize as it's auto-flex */
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-btn);
+            box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.2);
+        }
+
+        /* Clear Button */
+        .clear-btn {
+            position: absolute;
+            top: 28px; /* Aligned with textarea top */
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        /* Middle Action Buttons */
+        .action-buttons {
+            flex-shrink: 0;
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        button {
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+            color: white;
+            padding: 12px;
+        }
+
+        .btn-action {
+            flex: 1;
+        }
+
+        .btn-encode {
+            background: linear-gradient(135deg, var(--primary-btn) 0%, var(--primary-btn-hover) 100%);
+        }
+
+        .btn-decode {
+            background: linear-gradient(135deg, var(--secondary-btn) 0%, var(--secondary-btn-hover) 100%);
+        }
+
+        /* Copy Button */
+        .btn-copy {
+            flex-shrink: 0;
+            background-color: var(--copy-btn-bg);
+            color: var(--copy-btn-text);
+            margin-top: 15px;
+            width: 100%;
+        }
+        .btn-copy:hover {
+            background-color: var(--copy-btn-hover);
+        }
+
+        /* Footer */
+        .footer {
+            flex-shrink: 0;
+            margin-top: 15px;
+            font-size: 11px;
+            text-align: center;
+            color: var(--text-sub);
+            border-top: 1px solid var(--border-color);
+            padding-top: 10px;
+        }
+        .footer a { color: var(--text-sub); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        /* Mobile Adjustments: Revert to scrolling */
+        @media (max-width: 768px) {
+            body {
+                height: auto;
+                overflow: auto;
+                padding: 10px;
+                display: block;
+            }
+            .container {
+                height: auto;
+                min-height: auto;
+            }
+            textarea {
+                height: 120px; /* Fixed height on mobile */
+                flex: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>GoodRelax URL Encoder</h1>
+            <p class="privacy-text">This tool executes entirely within your browser using JavaScript, ensuring your data is never sent to external servers.</p>
+        </header>
+
+        <div class="io-section">
+            <label for="inputUrl">Input URL:</label>
+            <button class="clear-btn" onclick="clearInput()" title="Clear input">&#10005;</button>
+            <textarea id="inputUrl" placeholder="e.g. https://ja.wikipedia.org/wiki/&#x5B87;&#x5B99;&#x5144;&#x5F1F; (Decoded)&#10;OR&#10;https://ja.wikipedia.org/wiki/%E5%AE%87%E5%AE%99%E5%85%84%E5%BC%9F (Encoded)"></textarea>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn-action btn-encode" onclick="processUrl('encode')">Encode to (%)</button>
+            <button class="btn-action btn-decode" onclick="processUrl('decode')">Decode to (Readable)</button>
+        </div>
+
+        <div class="io-section">
+            <label for="outputUrl">Result:</label>
+            <textarea id="outputUrl" readonly placeholder="Result will appear here..."></textarea>
+        </div>
+        
+        <button class="btn-copy" id="copyBtn" onclick="copyToClipboard()">
+            Copy Result to Clipboard
+        </button>
+
+        <div class="footer">
+            &copy; 2026 GoodRelax. MIT License.
+            <a href="https://github.com/GoodRelax" target="_blank" rel="noopener">https://github.com/GoodRelax</a>
+        </div>
+    </div>
+
+<script>
+    // Main Processing Logic
+    function processUrl(action) {
+        const input = document.getElementById('inputUrl').value;
+        const outputField = document.getElementById('outputUrl');
+        
+        if (!input.trim()) {
+            outputField.value = "";
+            return;
+        }
+
+        try {
+            let result = "";
+            if (action === 'encode') {
+                result = encodeURI(input);
+            } else if (action === 'decode') {
+                result = decodeURI(input);
+            }
+            outputField.value = result;
+        } catch (e) {
+            console.error(e);
+            alert("Error: Could not process the URL. Please check the input format.");
+        }
+    }
+
+    // Clear Function
+    function clearInput() {
+        document.getElementById('inputUrl').value = "";
+        document.getElementById('outputUrl').value = "";
+        document.getElementById('inputUrl').focus();
+    }
+
+    // Copy Function
+    async function copyToClipboard() {
+        const outputText = document.getElementById('outputUrl').value;
+        const copyBtn = document.getElementById('copyBtn');
+        const originalText = "Copy Result to Clipboard";
+
+        if (!outputText) return;
+
+        try {
+            await navigator.clipboard.writeText(outputText);
+            
+            // Visual feedback
+            copyBtn.innerText = "Copied!";
+            copyBtn.style.backgroundColor = "#27ae60"; // Success Green
+            copyBtn.style.color = "#fff";
+
+            // Revert after 2 seconds
+            setTimeout(() => {
+                copyBtn.innerText = originalText;
+                copyBtn.style.backgroundColor = "";
+                copyBtn.style.color = "";
+            }, 2000);
+
+        } catch (err) {
+            console.error('Failed to copy: ', err);
+            alert("Failed to copy to clipboard.");
+        }
+    }
+</script>
+
+</body>
+</html>
