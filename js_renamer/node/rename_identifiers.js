@@ -29,25 +29,21 @@ if (!source || !table || !target || !logPath) {
 // Logger
 // ============================
 const logLines = [];
-
 function logInfo(msg) {
   const line = `[INFO]  ${new Date().toISOString()} ${msg}`;
   logLines.push(line);
   console.log(line);
 }
-
 function logWarn(msg) {
   const line = `[WARN]  ${new Date().toISOString()} ${msg}`;
   logLines.push(line);
   console.warn(line);
 }
-
 function logError(msg) {
   const line = `[ERROR] ${new Date().toISOString()} ${msg}`;
   logLines.push(line);
   console.error(line);
 }
-
 function writeLog() {
   try {
     fs.writeFileSync(logPath, logLines.join(os.EOL), "utf8");
@@ -83,8 +79,16 @@ try {
   process.exit(1);
 }
 
-// Attach comments for escodegen
 ast = escodegen.attachComments(ast, ast.comments, ast.tokens);
+
+// ============================
+// Attach Parent Pointers
+// ============================
+estraverse.traverse(ast, {
+  enter: function (node, parent) {
+    node.parent = parent;
+  },
+});
 
 let scopeManager;
 try {
@@ -99,6 +103,197 @@ try {
 }
 
 // ============================
+// Helper: Readable Scope ID
+// (MUST EXACTLY MATCH extract_identifiers.js)
+// ============================
+function makeScopeId(scope) {
+  const chain = [];
+  let current = scope;
+
+  while (current) {
+    const name = getSemanticScopeName(current);
+    if (name) {
+      chain.unshift(name);
+    }
+    current = current.upper;
+  }
+
+  return chain.join(" | ");
+}
+
+function getSemanticScopeName(scope) {
+  if (scope.type === "global" || scope.type === "module") {
+    return "Global";
+  }
+
+  const block = scope.block;
+
+  // FIX: Skip redundant Block scopes that are children of For/ForIn/ForOf scopes
+  if (
+    block.type === "BlockStatement" &&
+    scope.upper &&
+    scope.upper.block === block.parent
+  ) {
+    const pType = block.parent.type;
+    if (
+      pType === "ForStatement" ||
+      pType === "ForInStatement" ||
+      pType === "ForOfStatement"
+    ) {
+      return null;
+    }
+  }
+
+  // 1. Explicitly Named
+  if (block.id && block.id.name) {
+    return `${getTypePrefix(scope)}:${block.id.name}`;
+  }
+
+  // 2. Inferred
+  const inferredName = inferNameFromParent(block);
+  if (inferredName) {
+    return `${getTypePrefix(scope)}:${inferredName}`;
+  }
+
+  // 3. Callback Context
+  const callbackContext = inferCallbackContext(block);
+  if (callbackContext) {
+    const index = getScopeIndex(scope);
+    return `${callbackContext} > Arg:${index}`;
+  }
+
+  // 4. Anonymous/Control Flow
+  let type = getTypePrefix(scope);
+  if (type === "Block" || type === "Scope") {
+    type = getControlFlowType(block);
+  }
+
+  const index = getScopeIndex(scope);
+  return `${type}:${index}`;
+}
+
+function getTypePrefix(scope) {
+  const block = scope.block;
+  if (
+    block.type === "FunctionExpression" ||
+    block.type === "ArrowFunctionExpression" ||
+    block.type === "FunctionDeclaration"
+  ) {
+    if (block.parent && block.parent.type === "PropertyDefinition") {
+      return "Field";
+    }
+    return "Func";
+  }
+  if (scope.type === "class") return "Class";
+  if (scope.type === "catch") return "Catch";
+  return "Block";
+}
+
+function getControlFlowType(node) {
+  switch (node.type) {
+    case "IfStatement":
+      return "If";
+    case "SwitchStatement":
+      return "Switch";
+    case "CatchClause":
+      return "Catch";
+    case "ForStatement":
+      return "For";
+    case "ForInStatement":
+      return "ForIn";
+    case "ForOfStatement":
+      return "ForOf";
+    case "WhileStatement":
+      return "While";
+    case "DoWhileStatement":
+      return "DoWhile";
+  }
+
+  if (node.type === "BlockStatement" && node.parent) {
+    switch (node.parent.type) {
+      case "IfStatement":
+        return "If";
+      case "ForStatement":
+        return "For";
+      case "ForInStatement":
+        return "ForIn";
+      case "ForOfStatement":
+        return "ForOf";
+      case "WhileStatement":
+        return "While";
+      case "DoWhileStatement":
+        return "DoWhile";
+      case "TryStatement":
+        return "Try";
+      case "CatchClause":
+        return "Catch";
+      case "SwitchStatement":
+        return "Switch";
+    }
+  }
+
+  return "Block";
+}
+
+function inferNameFromParent(node) {
+  if (!node.parent) return null;
+  if (
+    node.parent.type === "VariableDeclarator" &&
+    node.parent.id.type === "Identifier"
+  ) {
+    return node.parent.id.name;
+  }
+  if (
+    node.parent.type === "AssignmentExpression" &&
+    node.parent.left.type === "MemberExpression"
+  ) {
+    if (node.parent.left.property.type === "Identifier") {
+      return node.parent.left.property.name;
+    }
+  }
+  if (
+    node.parent.type === "Property" &&
+    node.parent.key.type === "Identifier"
+  ) {
+    return node.parent.key.name;
+  }
+  if (
+    node.parent.type === "MethodDefinition" &&
+    node.parent.key.type === "Identifier"
+  ) {
+    return node.parent.key.name;
+  }
+  if (
+    node.parent.type === "PropertyDefinition" &&
+    node.parent.key.type === "Identifier"
+  ) {
+    return node.parent.key.name;
+  }
+  return null;
+}
+
+function inferCallbackContext(node) {
+  if (!node.parent) return null;
+  if (node.parent.type === "CallExpression") {
+    if (node.parent.callee.type === "Identifier") {
+      return `Call:${node.parent.callee.name}`;
+    }
+    if (
+      node.parent.callee.type === "MemberExpression" &&
+      node.parent.callee.property.type === "Identifier"
+    ) {
+      return `Call:${node.parent.callee.property.name}`;
+    }
+  }
+  return null;
+}
+
+function getScopeIndex(scope) {
+  if (!scope.upper) return 0;
+  return scope.upper.childScopes.indexOf(scope);
+}
+
+// ============================
 // Phase 2: Load TSV
 // ============================
 let tsvContent;
@@ -109,22 +304,20 @@ try {
   process.exit(1);
 }
 
-const renameMap = new Map(); // Key: "scopeId::oldName", Value: "newName"
-const lines = tsvContent.split(/\r?\n/).slice(1); // Skip header
+const renameMap = new Map();
+const lines = tsvContent.split(/\r?\n/).slice(1);
 
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i];
   if (!line.trim()) continue;
 
   const cols = line.split("\t");
-  // Expected columns: file_name, loc_start, loc_end, collision_type, kind, scope, old_name, new_name
   if (cols.length < 8) continue;
 
   const scope = cols[5];
   const oldName = cols[6];
   const newName = cols[7];
 
-  // We only care if new_name is provided by the user
   if (newName && newName.trim() !== "") {
     const key = `${scope}::${oldName}`;
     renameMap.set(key, newName.trim());
@@ -134,107 +327,46 @@ for (let i = 0; i < lines.length; i++) {
 logInfo(`Loaded ${renameMap.size} rename entries from TSV`);
 
 // ============================
-// Helper Functions
-// ============================
-function makeScopeId(scope, ast) {
-  const parts = [];
-  parts.push(scope.type);
-  parts.push(getScopeName(scope) || "");
-  parts.push(getASTPath(scope.block, ast));
-  return parts.join("|");
-}
-
-function getScopeName(scope) {
-  const block = scope.block;
-  if (block.id && block.id.name) return block.id.name;
-  if (block.type === "Program") return "global";
-  return null;
-}
-
-function getASTPath(node, root) {
-  function traverse(current, currentPath) {
-    if (current === node) return currentPath;
-    for (const key in current) {
-      const value = current[key];
-      if (Array.isArray(value)) {
-        for (let i = 0; i < value.length; i++) {
-          if (typeof value[i] === "object" && value[i] !== null) {
-            const result = traverse(value[i], [...currentPath, key, i]);
-            if (result) return result;
-          }
-        }
-      } else if (typeof value === "object" && value !== null) {
-        const result = traverse(value, [...currentPath, key]);
-        if (result) return result;
-      }
-    }
-    return null;
-  }
-  const foundPath = traverse(root, []);
-  return foundPath ? foundPath.join(".") : "";
-}
-
-// ============================
 // Phase 3: Build Node Rename Map
 // ============================
-const nodeRenameMap = new Map(); // key: Identifier Node, value: string (newName)
+const nodeRenameMap = new Map();
 let successCount = 0;
 let collisionCount = 0;
 
-// Helper to check for collisions in the same scope
 function isNameDefinedInScope(scope, name) {
   for (const v of scope.variables) {
-    if (v.name === name) {
-      return true;
-    }
+    if (v.name === name) return true;
   }
   return false;
 }
 
-// Deduplication map to ensure we process a variable only once per scope
 const processedVariables = new Set();
 
 for (const scope of scopeManager.scopes) {
-  const scopeId = makeScopeId(scope, ast);
+  const scopeId = makeScopeId(scope);
 
   for (const variable of scope.variables) {
-    // Unique ID for this variable instance in this scope
     const varKey = `${scopeId}::${variable.name}`;
 
-    // Skip if we already processed this variable (though scope loop should be unique)
     if (processedVariables.has(varKey)) continue;
     processedVariables.add(varKey);
 
-    // Check if there is a rename rule for this variable
     if (renameMap.has(varKey)) {
       const newName = renameMap.get(varKey);
 
-      // 1. Scope Collision Check
-      // Ensure we don't rename 'a' to 'b' if 'b' already exists in the same scope.
-      // This prevents syntax errors (redeclaration) or logic errors (shadowing merges).
       if (isNameDefinedInScope(scope, newName)) {
         logWarn(
-          `Skipped renaming '${variable.name}' -> '${newName}' in scope '${scopeId}'. Reason: '${newName}' is already defined in this scope.`,
+          `Skipped '${variable.name}' -> '${newName}' in '${scopeId}'. Collision detected.`,
         );
         collisionCount++;
         continue;
       }
 
-      // 2. Apply Rename
-      // We rename the definition and ALL references.
-
-      // Rename definition(s)
       variable.defs.forEach((def) => {
-        if (def.name) {
-          nodeRenameMap.set(def.name, newName);
-        }
+        if (def.name) nodeRenameMap.set(def.name, newName);
       });
-
-      // Rename references
       variable.references.forEach((ref) => {
-        if (ref.identifier) {
-          nodeRenameMap.set(ref.identifier, newName);
-        }
+        if (ref.identifier) nodeRenameMap.set(ref.identifier, newName);
       });
 
       successCount++;
@@ -243,7 +375,7 @@ for (const scope of scopeManager.scopes) {
 }
 
 logInfo(`Prepared ${successCount} variables for renaming.`);
-logInfo(`Skipped ${collisionCount} variables due to scope collisions.`);
+logInfo(`Skipped ${collisionCount} collisions.`);
 
 // ============================
 // Phase 4: Execute Rename
@@ -251,11 +383,9 @@ logInfo(`Skipped ${collisionCount} variables due to scope collisions.`);
 estraverse.replace(ast, {
   enter: function (node) {
     if (node.type === "Identifier" && nodeRenameMap.has(node)) {
-      const newName = nodeRenameMap.get(node);
-      // Create a new node to ensure clean replacement
       return {
         ...node,
-        name: newName,
+        name: nodeRenameMap.get(node),
       };
     }
   },
@@ -268,9 +398,7 @@ try {
   const outputCode = escodegen.generate(ast, {
     comment: true,
     format: {
-      indent: {
-        style: "    ", // Default 4 spaces, can be adjusted
-      },
+      indent: { style: "    " },
       quotes: "auto",
     },
   });
@@ -280,7 +408,7 @@ try {
     fs.mkdirSync(dir, { recursive: true });
   }
   fs.writeFileSync(target, outputCode, "utf8");
-  logInfo(`Successfully wrote transformed code to ${target}`);
+  logInfo(`Successfully wrote to ${target}`);
 } catch (e) {
   logError(`Code generation failed: ${e.message}`);
   writeLog();
