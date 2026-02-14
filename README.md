@@ -8,8 +8,9 @@ A collection of utility tools by GoodRelax designed to enhance development workf
 
 ## ⚡ Quick Access
 
-[📂 cat_files](./cat_files/)  
-[🌐 gr-url-endeco](./gr-url-endeco/)  
+[📂 cat_files](./cat_files/)&nbsp;&nbsp;  
+[🖼️ gr-svg-extractor](./gr-svg-extractor/)&nbsp;&nbsp;  
+[🌐 gr-url-endeco](./gr-url-endeco/)&nbsp;&nbsp;  
 [📂 js_renamer](./js_renamer/)
 
 <br>
@@ -23,7 +24,7 @@ A collection of utility tools by GoodRelax designed to enhance development workf
 #### Overview
 
 **File Concatenator for LLM Context**
-A CLI tool that merges multiple source code or log files into a single document with metadata tags. Ideal for preparing context for LLMs like ChatGPT or Claude.
+A CLI tool that merges multiple source code or log files into a single document with metadata tags.
 
 #### Platform / Requirements
 
@@ -33,6 +34,23 @@ A CLI tool that merges multiple source code or log files into a single document 
 #### Details
 
 [Go to cat_files >](./cat_files/)
+
+<br>
+
+### [🖼️ gr-svg-extractor](./gr-svg-extractor/)
+
+#### Overview
+
+**PowerPoint to SVG Extractor**
+A lightweight, single-file web tool that extracts clean, formatted SVGs directly from clipboard data (copied shapes from PowerPoint/Excel). Includes dark mode automation.
+
+#### Platform / Requirements
+
+- Web Browser (Chrome / Edge recommended)
+
+#### Details
+
+[Go to gr-svg-extractor >](./gr-svg-extractor/)
 
 <br>
 
@@ -81,8 +99,8 @@ An AST-based utility to safely rename JavaScript identifiers (variables, functio
 
 #### 概要
 
-**LLMコンテキスト作成用ファイル結合ツール**
-指定したディレクトリ内のソースコードやログを、ファイルパスのメタデータ付きで1つのテキストファイルに結合します。ChatGPTやClaudeへのコード共有に最適です。
+**ファイル結合ツール**
+指定したディレクトリ内のソースコードやログを、ファイルパスのメタデータ付きで1つのテキストファイルに結合します。
 
 #### 動作環境 / 必須要件
 
@@ -92,6 +110,23 @@ An AST-based utility to safely rename JavaScript identifiers (variables, functio
 #### 詳細
 
 [cat_files のフォルダへ >](./cat_files/)
+
+<br>
+
+### [🖼️ gr-svg-extractor](./gr-svg-extractor/)
+
+#### 概要
+
+**PowerPoint用 SVG抽出ツール**
+PowerPointやExcelでコピーした図形データを、きれいなSVGコードとして抽出する単一ファイルのWebツールです。ダークモード用SVGも作成可能です。
+
+#### 動作環境 / 必須要件
+
+- Webブラウザ (Chrome / Edge 推奨)
+
+#### 詳細
+
+[gr-svg-extractor のフォルダへ >](./gr-svg-extractor/)
 
 <br>
 
