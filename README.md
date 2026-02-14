@@ -1,3 +1,7 @@
+---
+layout: default
+---
+
 # gr-tools
 
 A collection of utility tools by GoodRelax designed to enhance development workflows and text processing efficiency.
