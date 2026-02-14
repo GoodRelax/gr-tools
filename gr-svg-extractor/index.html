@@ -322,10 +322,43 @@ body.dark { background: #222; color: #ddd; }
       if (!doc.documentElement.getAttribute('xmlns')) {
         doc.documentElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
       }
+      // Always normalize structure (viewBox, overflow)
+      SvgNormalizer.normalize(doc.documentElement);
       return doc;
     },
     serialize(doc) {
       return new XMLSerializer().serializeToString(doc.documentElement);
+    }
+  };
+
+  // ========== [Domain] SvgNormalizer ==========
+  // Responsibility: Structural normalization of SVG (SRP)
+  // Applied always, regardless of Light/Dark mode.
+  // - Add viewBox if missing (from width/height attributes)
+  // - Remove overflow="hidden" (unnecessary with correct viewBox)
+
+  const SvgNormalizer = {
+    normalize(svg) {
+      this.addViewBox(svg);
+      this.removeOverflow(svg);
+    },
+
+    /** Add viewBox="0 0 {width} {height}" if absent */
+    addViewBox(svg) {
+      if (svg.getAttribute('viewBox')) return; // already has viewBox
+
+      const w = parseFloat(svg.getAttribute('width'));
+      const h = parseFloat(svg.getAttribute('height'));
+      if (w > 0 && h > 0) {
+        svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+      }
+    },
+
+    /** Remove overflow="hidden" (PowerPoint artifact) */
+    removeOverflow(svg) {
+      if (svg.getAttribute('overflow') === 'hidden') {
+        svg.removeAttribute('overflow');
+      }
     }
   };
 
