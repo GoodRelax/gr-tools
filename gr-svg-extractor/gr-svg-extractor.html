@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GR SVG Extractor</title>
+<style>
+/* ========== Base ========== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: #fff;
+  color: #333;
+}
+
+/* ========== Top Bar ========== */
+#topbar {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: #f0f0f0;
+  gap: 12px;
+  border-bottom: 1px solid #ccc;
+  flex: 0 0 auto;
+}
+
+#header-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#title {
+  font-weight: bold;
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+#copyright {
+  font-size: 10px;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+#copyright a { color: blue; text-decoration: underline; }
+
+#controls {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+#controls button {
+  font-family: sans-serif;
+  font-size: 13px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+#status {
+  flex: 1;
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status--success { color: #2a7d2e; }
+.status--error   { color: #c92a2a; }
+.status--info    { color: #1971c2; }
+.status--warn    { color: #e67700; }
+
+/* ========== Preview Section (flex: 1) ========== */
+#preview-section {
+  flex: 5;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #ccc;
+  min-height: 0;
+}
+
+#preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 12px;
+  background: #f8f8f8;
+  border-bottom: 1px solid #e0e0e0;
+  flex: 0 0 auto;
+}
+
+#preview-bar-label {
+  font-size: 11px;
+  font-weight: bold;
+  color: #888;
+}
+
+#zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#zoom-controls button {
+  font-family: monospace;
+  font-size: 12px;
+  height: 22px;
+  padding: 0 6px;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  background: #fff;
+  color: #555;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#zoom-controls button:hover { background: #e8e8e8; }
+
+#zoom-level {
+  font-family: monospace;
+  font-size: 11px;
+  color: #888;
+  min-width: 36px;
+  text-align: center;
+  user-select: none;
+}
+
+/* Preview container: scrollable when zoomed in */
+#preview {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: #ffffff;
+  min-height: 0;
+}
+
+#preview.dark-preview { background: #1a1a1a; }
+
+/* Wrapper sets explicit size so scrolling works. Centered via margin. */
+#preview-canvas {
+  display: block;
+  position: relative;
+}
+
+#preview-canvas svg {
+  display: block;
+  transform-origin: 0 0;
+}
+
+#preview-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+  font-size: 14px;
+}
+
+/* ========== Source Section (flex: 4) ========== */
+#source-section {
+  flex: 4;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#source-label {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 12px;
+  background: #f8f8f8;
+  border-bottom: 1px solid #e0e0e0;
+  flex: 0 0 auto;
+  color: #888;
+}
+
+#svgText {
+  flex: 1;
+  width: 100%;
+  padding: 8px 12px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  border: none;
+  outline: none;
+  resize: none;
+  background: #f4f4f4;
+  color: #333;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+  min-height: 0;
+}
+
+/* ========== Dark Mode ========== */
+body.dark { background: #222; color: #ddd; }
+.dark #topbar { background: #333; border-bottom-color: #444; }
+.dark #copyright a { color: #66b3ff; }
+.dark #preview-bar { background: #2a2a2a; border-bottom-color: #444; }
+.dark #preview-bar-label { color: #777; }
+.dark #source-label { background: #2a2a2a; border-bottom-color: #444; color: #777; }
+.dark #preview-section { border-bottom-color: #444; }
+.dark #preview { background: #1a1a1a; }
+.dark #svgText { background: #2a2a2a; color: #ddd; }
+.dark #preview-placeholder { color: #555; }
+.dark #zoom-controls button { background: #333; border-color: #555; color: #aaa; }
+.dark #zoom-controls button:hover { background: #444; }
+.dark #zoom-level { color: #666; }
+.dark .status--success { color: #51cf66; }
+.dark .status--error   { color: #ff6b6b; }
+.dark .status--info    { color: #66b3ff; }
+.dark .status--warn    { color: #ffd43b; }
+</style>
+</head>
+<body>
+
+<!-- ========== Top Bar ========== -->
+<div id="topbar">
+  <div id="header-group">
+    <div id="title">GR SVG Extractor</div>
+    <div id="copyright">
+      &copy; 2026 GoodRelax. MIT License.
+      <br>
+      <a href="https://github.com/GoodRelax" target="_blank">https://github.com/GoodRelax</a>
+    </div>
+  </div>
+  <div id="controls">
+    <button id="btnExtract">Paste</button>
+    <button id="btnCopy">Copy</button>
+    <button id="btnLight" title="Light mode (no CSS injection)">Light</button>
+    <button id="btnDark" title="Dark mode (inject dark CSS into SVG)">Dark</button>
+    <button id="btnDownload">Download</button>
+  </div>
+  <div id="status"></div>
+</div>
+
+<!-- ========== Preview ========== -->
+<div id="preview-section">
+  <div id="preview-bar">
+    <span id="preview-bar-label">Preview</span>
+    <div id="zoom-controls">
+      <button id="btnZoomFit" title="Fit to view">Fit</button>
+      <button id="btnZoomOut" title="Zoom out">&minus;</button>
+      <span id="zoom-level">Fit</span>
+      <button id="btnZoomIn" title="Zoom in">+</button>
+      <button id="btnZoom100" title="Actual size">1:1</button>
+    </div>
+  </div>
+  <div id="preview">
+    <div id="preview-canvas"></div>
+    <div id="preview-placeholder">Copy shapes in PowerPoint, then click Paste</div>
+  </div>
+</div>
+
+<!-- ========== SVG Source ========== -->
+<div id="source-section">
+  <div id="source-label">SVG Source</div>
+  <textarea id="svgText" readonly spellcheck="false" placeholder="SVG source will appear here..."></textarea>
+</div>
+
+<script>
+// ============================================================
+//  GR SVG Extractor v5
+// ============================================================
+
+(function () {
+  'use strict';
+
+  // ========== [Infrastructure] ClipboardReader ==========
+
+  const ClipboardReader = {
+    async readSvg() {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        throw new Error('Clipboard API not available. Use Chrome or Edge.');
+      }
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        if (item.types.includes('image/svg+xml')) {
+          const blob = await item.getType('image/svg+xml');
+          const text = await blob.text();
+          if (text && text.trim().length > 0) return text;
+        }
+      }
+      return null;
+    }
+  };
+
+  // ========== [Infrastructure] FileDownloader ==========
+
+  const FileDownloader = {
+    download(content, filename) {
+      const blob = new Blob([content], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  // ========== [Domain] SvgCleaner ==========
+
+  const SvgCleaner = {
+    parse(raw) {
+      const doc = new DOMParser().parseFromString(raw, 'image/svg+xml');
+      const err = doc.querySelector('parsererror');
+      if (err) throw new Error('SVG parse error: ' + err.textContent.slice(0, 100));
+      if (!doc.documentElement.getAttribute('xmlns')) {
+        doc.documentElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      }
+      return doc;
+    },
+    serialize(doc) {
+      return new XMLSerializer().serializeToString(doc.documentElement);
+    }
+  };
+
+  // ========== [Domain] SvgEnhancer ==========
+
+  const SvgEnhancer = {
+    CLS_BG: 'gr-bg', CLS_AXIS: 'gr-axis', CLS_STROKE: 'gr-stroke', CLS_TEXT: 'gr-text',
+
+    STYLE_BLOCK:
+        '.gr-bg { fill: #ffffff; }\n'
+      + '  .gr-axis { fill: #333333; }\n'
+      + '  .gr-stroke { stroke: #333333; }\n'
+      + '  .gr-text { fill: #333333; }\n'
+      + '  @media (prefers-color-scheme: dark) {\n'
+      + '    .gr-bg { fill: #1a1a1a; }\n'
+      + '    .gr-axis { fill: #e0e0e0; }\n'
+      + '    .gr-stroke { stroke: #e0e0e0; }\n'
+      + '    .gr-text { fill: #e0e0e0; }\n'
+      + '  }',
+
+    enhance(doc) {
+      const svg = doc.documentElement;
+      const ns = 'http://www.w3.org/2000/svg';
+      this.insertBackground(svg, ns);
+      this.tagAxisElements(svg);
+      this.tagTextElements(svg);
+      this.injectStyle(svg, ns, doc);
+      return doc;
+    },
+
+    insertBackground(svg, ns) {
+      const vb = svg.getAttribute('viewBox');
+      let x = 0, y = 0, w = 0, h = 0;
+      if (vb) {
+        const p = vb.trim().split(/[\s,]+/).map(Number);
+        x = p[0] || 0; y = p[1] || 0; w = p[2] || 0; h = p[3] || 0;
+      }
+      if (!w) w = parseFloat(svg.getAttribute('width')) || 400;
+      if (!h) h = parseFloat(svg.getAttribute('height')) || 300;
+      const rect = svg.ownerDocument.createElementNS(ns, 'rect');
+      rect.setAttribute('class', this.CLS_BG);
+      rect.setAttribute('x', String(x)); rect.setAttribute('y', String(y));
+      rect.setAttribute('width', String(w)); rect.setAttribute('height', String(h));
+      svg.insertBefore(rect, svg.firstChild);
+    },
+
+    tagAxisElements(svg) {
+      for (const el of svg.querySelectorAll('path,line,polyline,polygon,rect,circle,ellipse')) {
+        if (el.classList.contains(this.CLS_BG)) continue;
+
+        const fill = el.getAttribute('fill');
+        const stroke = el.getAttribute('stroke');
+
+        // Tag black fill (absent or explicitly black)
+        if (this.isBlack(fill)) {
+          el.classList.add(this.CLS_AXIS);
+          if (fill) el.removeAttribute('fill');
+        }
+
+        // Tag black stroke (explicitly black)
+        if (this.isBlackExplicit(stroke)) {
+          el.classList.add(this.CLS_STROKE);
+          el.removeAttribute('stroke');
+        }
+      }
+    },
+
+    tagTextElements(svg) {
+      for (const el of svg.querySelectorAll('text')) {
+        const fill = el.getAttribute('fill');
+        const stroke = el.getAttribute('stroke');
+        if (this.isBlack(fill)) {
+          el.classList.add(this.CLS_TEXT);
+          if (fill) el.removeAttribute('fill');
+        }
+        if (this.isBlackExplicit(stroke)) {
+          el.classList.add(this.CLS_STROKE);
+          el.removeAttribute('stroke');
+        }
+      }
+    },
+
+    injectStyle(svg, ns, doc) {
+      let defs = svg.querySelector('defs');
+      if (!defs) { defs = doc.createElementNS(ns, 'defs'); svg.insertBefore(defs, svg.firstChild); }
+      const style = doc.createElementNS(ns, 'style');
+      style.textContent = '\n  ' + this.STYLE_BLOCK + '\n';
+      defs.appendChild(style);
+    },
+
+    /** fill absent OR explicitly black */
+    isBlack(f) {
+      if (!f) return true;
+      const v = f.trim().toLowerCase();
+      return v === '' || v === '#000000' || v === '#000' || v === 'black'
+          || v === 'rgb(0,0,0)' || v === 'rgb(0, 0, 0)';
+    },
+
+    /** stroke explicitly black (not absent -- absent stroke means no stroke) */
+    isBlackExplicit(s) {
+      if (!s) return false;
+      const v = s.trim().toLowerCase();
+      return v === '#000000' || v === '#000' || v === 'black'
+          || v === 'rgb(0,0,0)' || v === 'rgb(0, 0, 0)';
+    }
+  };
+
+  // ========== [Domain] XmlFormatter ==========
+
+  const XmlFormatter = {
+    format(xml) {
+      const IND = '  ', toks = tokenize(xml);
+      let r = '', d = 0;
+      for (let i = 0; i < toks.length; i++) {
+        const t = toks[i];
+        if (t.type === 'text') { const s = t.value.trim(); if (s) r += s; continue; }
+        if (t.type === 'close') { d--; r += '\n' + IND.repeat(d) + t.value; continue; }
+        if (t.type === 'selfClose') { r += '\n' + IND.repeat(d) + t.value; continue; }
+        if (t.type === 'open') {
+          r += '\n' + IND.repeat(d) + t.value;
+          if (i+2 < toks.length && toks[i+1].type === 'text' && toks[i+2].type === 'close') {
+            r += toks[i+1].value.trim() + toks[i+2].value; i += 2; continue;
+          }
+          d++;
+        }
+      }
+      return r.replace(/^\n/, '');
+    }
+  };
+
+  function tokenize(xml) {
+    const t = [], re = /<(\/?)([^>]*?)(\/?)\s*>/g;
+    let l = 0, m;
+    while ((m = re.exec(xml)) !== null) {
+      if (m.index > l) { const s = xml.slice(l, m.index); if (s.trim()) t.push({type:'text',value:s}); }
+      const c = m[1]==='/', s = m[3]==='/'||m[2].endsWith('/');
+      t.push({type: c?'close':s?'selfClose':'open', value:m[0]});
+      l = re.lastIndex;
+    }
+    if (l < xml.length) { const s = xml.slice(l); if (s.trim()) t.push({type:'text',value:s}); }
+    return t;
+  }
+
+  // ========== [Domain] SvgMetrics ==========
+  // Responsibility: Extract intrinsic dimensions from SVG string (SRP)
+
+  const SvgMetrics = {
+    /** Get SVG intrinsic width and height in px.
+     *  Reads viewBox first, then width/height attributes. */
+    getSize(svgString) {
+      const m = svgString.match(/<svg[^>]*>/i);
+      if (!m) return { w: 400, h: 300 };
+      const tag = m[0];
+
+      // Try viewBox
+      const vb = tag.match(/viewBox\s*=\s*"([^"]+)"/i);
+      if (vb) {
+        const p = vb[1].trim().split(/[\s,]+/).map(Number);
+        if (p.length >= 4 && p[2] > 0 && p[3] > 0) {
+          return { w: p[2], h: p[3] };
+        }
+      }
+
+      // Fallback: width/height attributes
+      const wm = tag.match(/\bwidth\s*=\s*"([\d.]+)"/i);
+      const hm = tag.match(/\bheight\s*=\s*"([\d.]+)"/i);
+      return {
+        w: wm ? parseFloat(wm[1]) : 400,
+        h: hm ? parseFloat(hm[1]) : 300
+      };
+    }
+  };
+
+  // ========== [Application] AppController ==========
+
+  const AppController = {
+    rawSvgDoc: null,
+    rawSvgStr: null,
+    darkMode: false,
+
+    async extract() {
+      UI.setStatus('info', 'Reading clipboard...');
+      try {
+        const raw = await readSvgFromClipboard();
+        this.rawSvgStr = raw;
+        this.rawSvgDoc = SvgCleaner.parse(raw);
+        this.render();
+        UI.setStatus('success', 'SVG extracted');
+      } catch (err) {
+        UI.setStatus('error', err.message);
+      }
+    },
+
+    setMode(dark) {
+      this.darkMode = dark;
+      document.body.classList.toggle('dark', dark);
+      if (this.rawSvgDoc) this.render();
+    },
+
+    render() {
+      const clone = this.rawSvgDoc.cloneNode(true);
+      if (this.darkMode) SvgEnhancer.enhance(clone);
+      const svgStr = SvgCleaner.serialize(clone);
+      const formatted = XmlFormatter.format(svgStr);
+      UI.showSvg(svgStr, this.darkMode);
+      UI.displayText(formatted);
+    }
+  };
+
+  async function readSvgFromClipboard() {
+    try {
+      const svg = await ClipboardReader.readSvg();
+      if (svg) return svg;
+    } catch (err) {
+      if (err.name === 'NotAllowedError')
+        throw new Error('Clipboard permission denied. Allow access and retry.');
+      throw err;
+    }
+    throw new Error('No SVG found. Copy shapes in PowerPoint first.');
+  }
+
+  // ========== [UI] UIController ==========
+
+  const UI = {
+    els: null,
+    svgNaturalW: 0,
+    svgNaturalH: 0,
+    currentSvgStr: '',
+    zoomPercent: 0,  // 0 = fit
+
+    init() {
+      this.els = {
+        btnExtract:  document.getElementById('btnExtract'),
+        btnCopy:     document.getElementById('btnCopy'),
+        btnLight:    document.getElementById('btnLight'),
+        btnDark:     document.getElementById('btnDark'),
+        btnDownload: document.getElementById('btnDownload'),
+        preview:     document.getElementById('preview'),
+        canvas:      document.getElementById('preview-canvas'),
+        placeholder: document.getElementById('preview-placeholder'),
+        svgText:     document.getElementById('svgText'),
+        status:      document.getElementById('status'),
+        btnZoomFit:  document.getElementById('btnZoomFit'),
+        btnZoomOut:  document.getElementById('btnZoomOut'),
+        btnZoomIn:   document.getElementById('btnZoomIn'),
+        btnZoom100:  document.getElementById('btnZoom100'),
+        zoomLabel:   document.getElementById('zoom-level')
+      };
+      this.bindEvents();
+      // Recompute fit on window resize
+      window.addEventListener('resize', () => {
+        if (this.zoomPercent === 0 && this.currentSvgStr) this.applyZoom();
+      });
+    },
+
+    bindEvents() {
+      this.els.btnExtract.addEventListener('click', () => AppController.extract());
+      document.addEventListener('paste', (e) => { e.preventDefault(); AppController.extract(); });
+
+      this.els.btnCopy.addEventListener('click', () => {
+        const t = this.els.svgText.value;
+        if (!t) return;
+        navigator.clipboard.writeText(t)
+          .then(() => this.setStatus('success', 'Copied'))
+          .catch(() => { this.els.svgText.select(); document.execCommand('copy'); this.setStatus('success', 'Copied'); });
+      });
+
+      this.els.btnLight.addEventListener('click', () => AppController.setMode(false));
+      this.els.btnDark.addEventListener('click', () => AppController.setMode(true));
+
+      this.els.btnDownload.addEventListener('click', () => {
+        const t = this.els.svgText.value;
+        if (!t) return;
+        FileDownloader.download(t, 'gr-svg-ext.svg');
+        this.setStatus('success', 'Downloaded gr-svg-ext.svg');
+      });
+
+      // Zoom
+      this.els.btnZoomFit.addEventListener('click', () => this.setZoom(0));
+      this.els.btnZoom100.addEventListener('click', () => this.setZoom(100));
+      this.els.btnZoomIn.addEventListener('click', () => {
+        const cur = this.zoomPercent || this.fitPercent();
+        this.setZoom(Math.min(cur + 25, 800));
+      });
+      this.els.btnZoomOut.addEventListener('click', () => {
+        const cur = this.zoomPercent || this.fitPercent();
+        this.setZoom(Math.max(cur - 25, 10));
+      });
+
+      this.els.preview.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        const cur = this.zoomPercent || this.fitPercent();
+        const step = e.deltaY < 0 ? 15 : -15;
+        this.setZoom(Math.max(10, Math.min(cur + step, 800)));
+      }, { passive: false });
+    },
+
+    /** Compute what "Fit" means as a percentage */
+    fitPercent() {
+      if (!this.svgNaturalW || !this.svgNaturalH) return 100;
+      const pad = 16;
+      const boxW = this.els.preview.clientWidth - pad * 2;
+      const boxH = this.els.preview.clientHeight - pad * 2;
+      if (boxW <= 0 || boxH <= 0) return 100;
+      return Math.floor(Math.min(boxW / this.svgNaturalW, boxH / this.svgNaturalH) * 100);
+    },
+
+    setZoom(percent) {
+      this.zoomPercent = percent;
+      this.applyZoom();
+    },
+
+    applyZoom() {
+      if (!this.currentSvgStr) return;
+
+      const svg = this.els.canvas.querySelector('svg');
+      if (!svg) return;
+
+      const effectivePercent = this.zoomPercent === 0 ? this.fitPercent() : this.zoomPercent;
+      const scale = effectivePercent / 100;
+
+      // Set SVG to its natural size (no max-width constraint)
+      svg.style.width = this.svgNaturalW + 'px';
+      svg.style.height = this.svgNaturalH + 'px';
+      svg.style.transform = 'scale(' + scale + ')';
+      svg.style.transformOrigin = '0 0';
+
+      // Canvas wrapper: sized to scaled SVG so scroll works
+      const scaledW = Math.ceil(this.svgNaturalW * scale);
+      const scaledH = Math.ceil(this.svgNaturalH * scale);
+      this.els.canvas.style.width = scaledW + 'px';
+      this.els.canvas.style.height = scaledH + 'px';
+
+      // Center if smaller than preview
+      const pw = this.els.preview.clientWidth;
+      const ph = this.els.preview.clientHeight;
+      const mx = scaledW < pw ? Math.floor((pw - scaledW) / 2) : 0;
+      const my = scaledH < ph ? Math.floor((ph - scaledH) / 2) : 0;
+      this.els.canvas.style.margin = my + 'px ' + mx + 'px';
+
+      // Update label
+      this.els.zoomLabel.textContent = this.zoomPercent === 0
+        ? 'Fit' : effectivePercent + '%';
+    },
+
+    showSvg(svgString, isDark) {
+      // Remove placeholder
+      if (this.els.placeholder) {
+        this.els.placeholder.remove();
+        this.els.placeholder = null;
+      }
+
+      // Store and measure
+      this.currentSvgStr = svgString;
+      const size = SvgMetrics.getSize(svgString);
+      this.svgNaturalW = size.w;
+      this.svgNaturalH = size.h;
+
+      // Insert SVG
+      this.els.canvas.innerHTML = svgString;
+
+      // Theme
+      this.els.preview.classList.toggle('dark-preview', isDark);
+
+      // Reset to fit
+      this.zoomPercent = 0;
+
+      // Apply after a frame so layout is computed
+      requestAnimationFrame(() => this.applyZoom());
+    },
+
+    displayText(svgString) {
+      this.els.svgText.value = svgString;
+    },
+
+    setStatus(level, message) {
+      const el = this.els.status;
+      el.className = 'status--' + level;
+      el.textContent = message;
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => UI.init());
+
+})();
+</script>
+</body>
+</html>
