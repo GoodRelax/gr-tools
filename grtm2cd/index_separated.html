@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRTM2CD — GoodRelax Treasure Map to Cat and Dog</title>
+  <style>
+    /* Ultra-simple minimalist variables */
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+      --text-muted: #666666;
+      --border: #cccccc;
+      --border-focus: #333333;
+      --btn-bg: #f0f0f0;
+      --btn-hover: #e0e0e0;
+      --btn-active-bg: #000000;
+      --btn-active-text: #ffffff;
+      --drop-bg: #fafafa;
+    }
+
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121212;
+        --text: #e0e0e0;
+        --text-muted: #999999;
+        --border: #444444;
+        --border-focus: #888888;
+        --btn-bg: #222222;
+        --btn-hover: #333333;
+        --btn-active-bg: #e0e0e0;
+        --btn-active-text: #000000;
+        --drop-bg: #1a1a1a;
+      }
+    }
+
+    body {
+      font-family: sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      margin: 0 auto;
+      max-width: 900px;
+      padding: 2rem 1rem;
+    }
+
+    /* Title Row */
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95em;
+    }
+
+    .meta {
+      color: var(--text-muted);
+      font-size: 0.85em;
+      margin-left: auto;
+    }
+
+    a {
+      color: var(--text);
+      text-decoration: underline;
+    }
+
+    a:hover {
+      text-decoration: none;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      margin-top: 0;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+
+    h3 {
+      font-size: 1rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      font-weight: normal;
+    }
+
+    p { margin: 0 0 1rem 0; }
+    
+    .help-text { color: var(--text-muted); font-size: 0.9em; }
+
+    /* Header Layout */
+    .header-block {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.5rem;
+      gap: 1rem;
+    }
+
+    .story-block {
+      flex: 1;
+    }
+
+    .story-text {
+      font-size: 0.95em;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+    }
+
+    .tab-btn {
+      background-color: var(--btn-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 1.5rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9em;
+    }
+
+    .tab-btn:hover { background-color: var(--btn-hover); }
+
+    .tab-btn.active {
+      background-color: var(--btn-active-bg);
+      color: var(--btn-active-text);
+      border-color: var(--btn-active-bg);
+    }
+
+    .tab-btn:not(:last-child) { border-right: none; }
+
+    /* Panels */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* UI Elements */
+    .dropzone {
+      border: 1px dashed var(--border);
+      background-color: var(--drop-bg);
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+    .dropzone:hover { border-color: var(--border-focus); }
+
+    .grid-2 {
+      display: flex;
+      gap: 1rem;
+    }
+    .grid-2 > div { flex: 1; }
+
+    .file-info {
+      font-family: monospace;
+      font-size: 0.9em;
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .action-btn {
+      display: block;
+      width: 100%;
+      background-color: var(--btn-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: bold;
+      margin-top: 0.5rem;
+    }
+    .action-btn:hover { background-color: var(--btn-hover); }
+
+    .preview-box {
+      border: 1px solid var(--border);
+      padding: 0.5rem;
+      text-align: center;
+    }
+    .preview-img {
+      width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+      background-color: var(--drop-bg);
+      border: 1px solid var(--border);
+      margin-bottom: 0.5rem;
+      box-sizing: border-box;
+    }
+
+    .status-msg {
+      text-align: center;
+      padding: 1rem 0;
+      font-family: monospace;
+      color: var(--text);
+      display: none;
+    }
+
+    .warning-msg {
+      font-size: 0.9em;
+      color: #b8860b;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .result-area {
+      display: none;
+    }
+
+    /* Hidden file inputs */
+    input[type="file"] { display: none; }
+
+    /* Table */
+    details {
+      margin-top: 2rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+    }
+    summary { cursor: pointer; font-weight: bold; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.9em;
+      font-family: monospace;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+    }
+    th { background-color: var(--drop-bg); font-weight: normal; }
+  </style>
+</head>
+<body>
+
+  <div class="title-row">
+    <h1>GRTM2CD</h1>
+    <span class="subtitle">( GoodRelax Treasure Map to Cat and Dog )</span>
+    <span class="meta">&copy; 2026 GoodRelax. MIT License. <a href="https://github.com/GoodRelax" target="_blank" rel="noopener">https://github.com/GoodRelax</a></span>
+  </div>
+
+  <div class="header-block">
+    <div class="story-block">
+      <p class="story-text">
+        Sometimes we find a treasure map and want to keep it secret.<br>
+        What if the map were split in two, and a cat and a dog each kept a piece?<br>
+        When we want to use the map, we have to call the cat and the dog.<br>
+        This web tool helps in situations like that.<br>
+        Don't worry—this page works only on your computer, and your data is not sent to the web.
+      </p>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="encode" onclick="switchTab('encode')">Encode</button>
+      <button class="tab-btn" data-tab="decode" onclick="switchTab('decode')">Decode</button>
+    </div>
+  </div>
+
+  <!-- ════════════════ ENCODE PANEL ════════════════ -->
+  <div id="encode-panel" class="panel active">
+    <h2>Encode</h2>
+
+    <h3>Step 1: Treasure Map</h3>
+    <div class="dropzone" id="tm-dropzone">
+      [ Drop Treasure Map here — any file ]
+    </div>
+    <input type="file" id="tm-file-input">
+    <div class="file-info" id="tm-info"></div>
+    <p class="help-text" id="tm-min-size"></p>
+
+    <h3>Step 2: Carrier Images</h3>
+    <p class="help-text">
+      Format: JPEG, PNG, WebP, BMP, GIF<br>
+      Output: PNG
+    </p>
+
+    <div class="grid-2">
+      <div>
+        <div class="dropzone" id="cat-dropzone">[ Drop Cat Image here ]</div>
+        <input type="file" id="cat-file-input" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif">
+        <div class="file-info" id="cat-info"></div>
+      </div>
+      <div>
+        <div class="dropzone" id="dog-dropzone">[ Drop Dog Image here ]</div>
+        <input type="file" id="dog-file-input" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif">
+        <div class="file-info" id="dog-info"></div>
+      </div>
+    </div>
+
+    <div class="warning-msg" id="encode-warnings"></div>
+    <div class="status-msg" id="encode-status"></div>
+
+    <div class="result-area grid-2" id="encode-result">
+      <div class="preview-box">
+        <img class="preview-img" id="cat-preview-img" alt="Cat Preview">
+        <button class="action-btn" id="cat-download-btn">Download Cat</button>
+      </div>
+      <div class="preview-box">
+        <img class="preview-img" id="dog-preview-img" alt="Dog Preview">
+        <button class="action-btn" id="dog-download-btn">Download Dog</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ DECODE PANEL ════════════════ -->
+  <div id="decode-panel" class="panel">
+    <h2>Decode</h2>
+    <p class="help-text">Drop 2 carrier images (order and filenames do not matter)</p>
+
+    <div class="grid-2">
+      <div>
+        <div class="dropzone" id="dec1-dropzone">[ Drop Image 1 ]</div>
+        <input type="file" id="dec1-file-input" accept="image/png">
+        <div class="file-info" id="dec1-info"></div>
+      </div>
+      <div>
+        <div class="dropzone" id="dec2-dropzone">[ Drop Image 2 ]</div>
+        <input type="file" id="dec2-file-input" accept="image/png">
+        <div class="file-info" id="dec2-info"></div>
+      </div>
+    </div>
+
+    <div class="status-msg" id="decode-status"></div>
+
+    <div class="result-area" id="decode-result">
+      <button class="action-btn" id="dec-download-btn" style="margin-top: 1.5rem; border: 2px solid var(--text);">
+        Download recovered file
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════ REFERENCE TABLE ════════════════ -->
+  <details>
+    <summary>Reference: Required Carrier Size</summary>
+    <table>
+      <thead>
+        <tr>
+          <th>Compressed Payload</th>
+          <th>Minimum Carrier (each)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>10 KB</td><td>80 × 80 px</td></tr>
+        <tr><td>100 KB</td><td>224 × 224 px</td></tr>
+        <tr><td>500 KB</td><td>480 × 480 px</td></tr>
+        <tr><td>1 MB</td><td>688 × 688 px</td></tr>
+        <tr><td>5 MB</td><td>1,536 × 1,536 px</td></tr>
+        <tr><td>10 MB</td><td>2,160 × 2,160 px</td></tr>
+        <tr><td>35 MB</td><td>4,048 × 4,048 px</td></tr>
+      </tbody>
+    </table>
+    <p class="help-text" style="margin-top: 0.5rem;">
+      * System max: ≈ 36 MB compressed (16,777,216 px limit)
+    </p>
+  </details>
+
+  <!-- pako loaded as global script (non-module) per C-5 -->
+  <script src="js/pako.min.js"></script>
+  <!-- main.js as ES module per C-6 -->
+  <script type="module" src="js/main.js"></script>
+
+</body>
+</html>
