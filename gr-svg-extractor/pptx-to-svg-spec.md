@@ -1,6 +1,7 @@
 ---
 render_with_liquid: false
 ---
+
 # GR SVG Extractor 仕様書
 
 > **GR** = GoodRelax
@@ -22,21 +23,21 @@ PowerPoint上で図形を選択・コピー（Ctrl+C）し、ブラウザ上で�
 
 図形の取捨選択はPowerPoint側で行う。本ツールの責務は「クリップボードの中身を忠実にSVGへ変換すること」のみ。これにより状態管理の複雑さを排除し、Extractorとしての単機能性を保つ。
 
-| 原則 | 根拠 |
-|------|------|
-| KISS | フィルタリングUIと状態管理を排除 |
-| YAGNI | ユーザーはPPT側で選択済み。二重のフィルタは不要 |
-| SRP | 本ツールの責務は「変換」のみ。「選択」はPowerPointの責務 |
-| POLA | ペーストしたもの＝全部出る。驚きがない |
+| 原則  | 根拠                                                     |
+| ----- | -------------------------------------------------------- |
+| KISS  | フィルタリングUIと状態管理を排除                         |
+| YAGNI | ユーザーはPPT側で選択済み。二重のフィルタは不要          |
+| SRP   | 本ツールの責務は「変換」のみ。「選択」はPowerPointの責務 |
+| POLA  | ペーストしたもの＝全部出る。驚きがない                   |
 
 ### 1.3 制約
 
-| 項目 | 内容 |
-|------|------|
-| 実行環境 | モダンブラウザ（Chrome / Edge 推奨） |
-| サーバー依存 | なし。すべてクライアント側で完結 |
+| 項目           | 内容                                  |
+| -------------- | ------------------------------------- |
+| 実行環境       | モダンブラウザ（Chrome / Edge 推奨）  |
+| サーバー依存   | なし。すべてクライアント側で完結      |
 | 外部ライブラリ | なし。Vanilla JS + Clipboard API のみ |
-| ファイル構成 | **単一HTMLファイル**（CSS / JS 内包） |
+| ファイル構成   | **単一HTMLファイル**（CSS / JS 内包） |
 
 ---
 
@@ -46,10 +47,10 @@ PowerPoint上で図形を選択・コピー（Ctrl+C）し、ブラウザ上で�
 
 `paste` イベントの `event.clipboardData` を使用（同期API）。
 
-| 優先度 | MIME type | 内容 | 用途 |
-|--------|-----------|------|------|
-| 1 | `text/html` | HTML断片（VML要素を含む） | 図形構造の主要ソース |
-| 2 | `image/png` | レンダリング済み画像 | フォールバック |
+| 優先度 | MIME type   | 内容                      | 用途                 |
+| ------ | ----------- | ------------------------- | -------------------- |
+| 1      | `text/html` | HTML断片（VML要素を含む） | 図形構造の主要ソース |
+| 2      | `image/png` | レンダリング済み画像      | フォールバック       |
 
 ### 2.2 HTMLフラグメントから得られるVML要素
 
@@ -74,19 +75,19 @@ PowerPoint上で図形を選択・コピー（Ctrl+C）し、ブラウザ上で�
 
 ### 3.1 対応する図形（v1.0）
 
-| カテゴリ | 図形 | VMLソース |
-|----------|------|-----------|
-| 基本図形 | 矩形 | `<v:rect>`, `<v:roundrect>` |
-| 基本図形 | 楕円・円 | `<v:oval>` |
-| 基本図形 | 直線・矢印 | `<v:line>` |
-| 基本図形 | 多角形・フリーフォーム | `<v:polyline>`, `<v:shape>` (path) |
-| テキスト | テキスト付き図形 | `<v:textbox>` |
-| 装飾 | 単色塗りつぶし | `<v:fill type="solid">` |
-| 装飾 | グラデーション | `<v:fill type="gradient" / "gradientRadial">` |
-| 装飾 | 線スタイル（色, 太さ, 破線） | `<v:stroke>` |
-| 装飾 | 影 | `<v:shadow>` |
-| 構造 | グループ化 | `<v:group>` |
-| 構造 | コネクタ | `<v:line>` + 矢印マーカー |
+| カテゴリ | 図形                         | VMLソース                                     |
+| -------- | ---------------------------- | --------------------------------------------- |
+| 基本図形 | 矩形                         | `<v:rect>`, `<v:roundrect>`                   |
+| 基本図形 | 楕円・円                     | `<v:oval>`                                    |
+| 基本図形 | 直線・矢印                   | `<v:line>`                                    |
+| 基本図形 | 多角形・フリーフォーム       | `<v:polyline>`, `<v:shape>` (path)            |
+| テキスト | テキスト付き図形             | `<v:textbox>`                                 |
+| 装飾     | 単色塗りつぶし               | `<v:fill type="solid">`                       |
+| 装飾     | グラデーション               | `<v:fill type="gradient" / "gradientRadial">` |
+| 装飾     | 線スタイル（色, 太さ, 破線） | `<v:stroke>`                                  |
+| 装飾     | 影                           | `<v:shadow>`                                  |
+| 構造     | グループ化                   | `<v:group>`                                   |
+| 構造     | コネクタ                     | `<v:line>` + 矢印マーカー                     |
 
 ### 3.2 対応しない図形（v1.0）
 
@@ -111,32 +112,32 @@ SmartArt, グラフ / チャート, 3D効果, アニメーション, 埋め込�
 
 ### 4.2 SVG要素マッピング
 
-| VML | SVG |
-|-----|-----|
-| `<v:rect>` | `<rect>` |
-| `<v:roundrect>` | `<rect rx="..." ry="...">` |
-| `<v:oval>` | `<ellipse>` |
-| `<v:line>` | `<line>` |
-| `<v:polyline>` | `<polyline>` / `<polygon>` |
-| `<v:shape>` (path) | `<path>` |
-| `<v:group>` | `<g>` |
-| `<v:textbox>` | `<text>` / `<foreignObject>` |
-| `<v:fill type="gradient">` | `<linearGradient>` / `<radialGradient>` |
-| `<v:stroke>` | `stroke`, `stroke-width`, `stroke-dasharray` 属性 |
-| `<v:shadow>` | `<filter>` (feDropShadow) |
-| 矢印 | `<marker>` |
+| VML                        | SVG                                               |
+| -------------------------- | ------------------------------------------------- |
+| `<v:rect>`                 | `<rect>`                                          |
+| `<v:roundrect>`            | `<rect rx="..." ry="...">`                        |
+| `<v:oval>`                 | `<ellipse>`                                       |
+| `<v:line>`                 | `<line>`                                          |
+| `<v:polyline>`             | `<polyline>` / `<polygon>`                        |
+| `<v:shape>` (path)         | `<path>`                                          |
+| `<v:group>`                | `<g>`                                             |
+| `<v:textbox>`              | `<text>` / `<foreignObject>`                      |
+| `<v:fill type="gradient">` | `<linearGradient>` / `<radialGradient>`           |
+| `<v:stroke>`               | `stroke`, `stroke-width`, `stroke-dasharray` 属性 |
+| `<v:shadow>`               | `<filter>` (feDropShadow)                         |
+| 矢印                       | `<marker>`                                        |
 
 ### 4.3 XML整形ルール
 
 出力するSVGは人間が読みやすい形に整形する。
 
-| ルール | 内容 |
-|--------|------|
-| インデント | スペース2個 |
-| 改行 | 要素ごとに改行 |
-| 属性順序 | 構造属性（id, class）→ 座標属性（x, y, width, height）→ スタイル属性（fill, stroke） |
-| `<defs>` | 先頭にまとめて配置 |
-| 空要素 | 自己閉じタグ `<rect ... />` |
+| ルール     | 内容                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------ |
+| インデント | スペース2個                                                                          |
+| 改行       | 要素ごとに改行                                                                       |
+| 属性順序   | 構造属性（id, class）→ 座標属性（x, y, width, height）→ スタイル属性（fill, stroke） |
+| `<defs>`   | 先頭にまとめて配置                                                                   |
+| 空要素     | 自己閉じタグ `<rect ... />`                                                          |
 
 整形例:
 
@@ -171,11 +172,11 @@ VMLが取得できない場合、`image/png` をBase64で `<image>` 要素に埋
 
 ### 4.5 ダウンロード
 
-| 項目 | 内容 |
-|------|------|
-| ファイル名 | `gr-svg-ext.svg` （固定） |
-| MIME type | `image/svg+xml` |
-| 方式 | Blob URL + `<a download>` による即時ダウンロード |
+| 項目       | 内容                                             |
+| ---------- | ------------------------------------------------ |
+| ファイル名 | `gr-svg-ext.svg` （固定）                        |
+| MIME type  | `image/svg+xml`                                  |
+| 方式       | Blob URL + `<a download>` による即時ダウンロード |
 
 ---
 
@@ -207,12 +208,12 @@ VMLが取得できない場合、`image/png` をBase64で `<image>` 要素に埋
 
 ### 5.2 インタラクション
 
-| アクション | 結果 |
-|------------|------|
-| Ctrl+V | クリップボード読み取り → 変換 → プレビュー + テキスト表示 |
-| ［コピー］ | textareaのSVGテキストをクリップボードにコピー |
-| ［ダウンロード］ | `gr-svg-ext.svg` としてファイル保存ダイアログ |
-| 変換失敗時 | ステータスバーにエラーメッセージ表示 |
+| アクション       | 結果                                                      |
+| ---------------- | --------------------------------------------------------- |
+| Ctrl+V           | クリップボード読み取り → 変換 → プレビュー + テキスト表示 |
+| ［コピー］       | textareaのSVGテキストをクリップボードにコピー             |
+| ［ダウンロード］ | `gr-svg-ext.svg` としてファイル保存ダイアログ             |
+| 変換失敗時       | ステータスバーにエラーメッセージ表示                      |
 
 ### 5.3 初期状態
 
@@ -278,8 +279,11 @@ VML HTML ──→ [VmlParser] ──→ ShapeModel[] ──→ [SvgBuilder] ─
  *  @property {number} height
  *  @property {number} [rx]                // roundRect
  *  @property {string} [pathData]          // path の d 属性
+ * {% raw %}
  *  @property {{x:number,y:number}[]} [points]
  *  @property {{x1:number,y1:number,x2:number,y2:number}} [line]
+{% endraw %}
+ * 
  */
 
 /** @typedef {Object} FillModel
@@ -323,24 +327,24 @@ VML HTML ──→ [VmlParser] ──→ ShapeModel[] ──→ [SvgBuilder] ─
 
 ### 6.3 SW工学原則の適用マップ
 
-| 原則 | 適用箇所 | 設計判断 |
-|------|----------|----------|
-| **SRP** | 各モジュール | `VmlParser` = パースのみ, `SvgBuilder` = 生成のみ, `XmlFormatter` = 整形のみ |
-| **OCP** | 図形タイプ拡張 | `parseXxx()` / `buildXxx()` の追加のみ。既存コード無修正 |
-| **LSP** | ShapeModel | 全図形タイプが同一インターフェースを満たす |
-| **ISP** | ClipboardReader | `readHtml()` と `readImage()` を分離 |
-| **DIP** | Parser / Builder | App層は中間モデルにのみ依存 |
-| **SoC** | レイヤー分離 | UI / フロー / ドメイン / I/O が完全分離 |
-| **SLAP** | 関数内 | `convert()` 内は `parse()` → `build()` → `format()` の同一抽象度 |
-| **DRY** | 共通関数 | `parseColor()`, `emuToPx()` を共通化 |
-| **CQS** | Query/Command | `parse()` = Query（モデル返却）, `renderPreview()` = Command（DOM更新） |
-| **LOD** | モジュール間 | `SvgBuilder` は `ShapeModel` のみ参照。VML内部構造を知らない |
-| **POLA** | UI / 全体 | ペースト→全変換→表示。フィルタなしで驚きなし |
-| **KISS** | 全体 | 単一HTML, 外部依存なし, フィルタなし |
-| **YAGNI** | スコープ | SmartArt・3D・フィルタリング機能は作らない |
-| **PIE** | コード | 型定義と命名で意図を明示 |
-| **Naming** | 全体 | `GR SVG Extractor`, `VmlParser`, `SvgBuilder`, `XmlFormatter` |
-| **CA** | 依存方向 | UI → App → Domain ← Infra |
+| 原則       | 適用箇所         | 設計判断                                                                     |
+| ---------- | ---------------- | ---------------------------------------------------------------------------- |
+| **SRP**    | 各モジュール     | `VmlParser` = パースのみ, `SvgBuilder` = 生成のみ, `XmlFormatter` = 整形のみ |
+| **OCP**    | 図形タイプ拡張   | `parseXxx()` / `buildXxx()` の追加のみ。既存コード無修正                     |
+| **LSP**    | ShapeModel       | 全図形タイプが同一インターフェースを満たす                                   |
+| **ISP**    | ClipboardReader  | `readHtml()` と `readImage()` を分離                                         |
+| **DIP**    | Parser / Builder | App層は中間モデルにのみ依存                                                  |
+| **SoC**    | レイヤー分離     | UI / フロー / ドメイン / I/O が完全分離                                      |
+| **SLAP**   | 関数内           | `convert()` 内は `parse()` → `build()` → `format()` の同一抽象度             |
+| **DRY**    | 共通関数         | `parseColor()`, `emuToPx()` を共通化                                         |
+| **CQS**    | Query/Command    | `parse()` = Query（モデル返却）, `renderPreview()` = Command（DOM更新）      |
+| **LOD**    | モジュール間     | `SvgBuilder` は `ShapeModel` のみ参照。VML内部構造を知らない                 |
+| **POLA**   | UI / 全体        | ペースト→全変換→表示。フィルタなしで驚きなし                                 |
+| **KISS**   | 全体             | 単一HTML, 外部依存なし, フィルタなし                                         |
+| **YAGNI**  | スコープ         | SmartArt・3D・フィルタリング機能は作らない                                   |
+| **PIE**    | コード           | 型定義と命名で意図を明示                                                     |
+| **Naming** | 全体             | `GR SVG Extractor`, `VmlParser`, `SvgBuilder`, `XmlFormatter`                |
+| **CA**     | 依存方向         | UI → App → Domain ← Infra                                                    |
 
 ---
 
@@ -390,13 +394,13 @@ User ──→  │ ［コピー］    │ ──→ Clipboard.writeText(svgText
 
 ## 8. エラーハンドリング
 
-| 状況 | 対処 | ユーザーへの表示 |
-|------|------|-----------------|
-| クリップボードにHTMLなし | PNGフォールバック | 「画像として取り込みました（ベクター変換不可）」 |
-| クリップボードにデータなし | 処理中止 | 「貼り付けデータが見つかりません」 |
-| VMLパース失敗 | PNGフォールバック | 「図形の解析に失敗。画像として取り込みます」 |
-| PNGも取得不可 | 処理中止 | 「対応するデータ形式が見つかりません」 |
-| 未対応図形タイプ | スキップして続行 | 「一部の図形は変換できませんでした」 |
+| 状況                       | 対処              | ユーザーへの表示                                 |
+| -------------------------- | ----------------- | ------------------------------------------------ |
+| クリップボードにHTMLなし   | PNGフォールバック | 「画像として取り込みました（ベクター変換不可）」 |
+| クリップボードにデータなし | 処理中止          | 「貼り付けデータが見つかりません」               |
+| VMLパース失敗              | PNGフォールバック | 「図形の解析に失敗。画像として取り込みます」     |
+| PNGも取得不可              | 処理中止          | 「対応するデータ形式が見つかりません」           |
+| 未対応図形タイプ           | スキップして続行  | 「一部の図形は変換できませんでした」             |
 
 ---
 
@@ -405,28 +409,28 @@ User ──→  │ ［コピー］    │ ──→ Clipboard.writeText(svgText
 ```html
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <title>GR SVG Extractor</title>
-  <style>
-    /* ========== UI Styles ========== */
-  </style>
-</head>
-<body>
-  <!-- ========== UI Markup ========== -->
+  <head>
+    <meta charset="UTF-8" />
+    <title>GR SVG Extractor</title>
+    <style>
+      /* ========== UI Styles ========== */
+    </style>
+  </head>
+  <body>
+    <!-- ========== UI Markup ========== -->
 
-  <script>
-  // ========== [Infrastructure] ClipboardReader ==========
-  // ========== [Infrastructure] FileDownloader ==========
-  // ========== [Domain] ShapeModel (JSDoc型定義) ==========
-  // ========== [Domain] VmlParser ==========
-  // ========== [Domain] SvgBuilder ==========
-  // ========== [Domain] XmlFormatter ==========
-  // ========== [Application] AppController ==========
-  // ========== [UI] UIController ==========
-  // ========== [Bootstrap] ==========
-  </script>
-</body>
+    <script>
+      // ========== [Infrastructure] ClipboardReader ==========
+      // ========== [Infrastructure] FileDownloader ==========
+      // ========== [Domain] ShapeModel (JSDoc型定義) ==========
+      // ========== [Domain] VmlParser ==========
+      // ========== [Domain] SvgBuilder ==========
+      // ========== [Domain] XmlFormatter ==========
+      // ========== [Application] AppController ==========
+      // ========== [UI] UIController ==========
+      // ========== [Bootstrap] ==========
+    </script>
+  </body>
 </html>
 ```
 
@@ -434,11 +438,11 @@ User ──→  │ ［コピー］    │ ──→ Clipboard.writeText(svgText
 
 ## 10. 技術リスクと対策
 
-| リスク | 影響 | 対策 |
-|--------|------|------|
-| PPTのクリップボード出力がブラウザ/OS/バージョンで異なる | VMLが取得できない環境 | PNGフォールバック常備。Chrome/Edge + Windows を推奨 |
-| VML仕様のカバレッジ | 複雑な図形で変換精度低下 | 段階的に対応追加。未対応は明示的にスキップ |
-| Clipboard API のブラウザ制限 | Firefox等で挙動差異 | `paste` イベントの同期APIを使用 |
+| リスク                                                  | 影響                     | 対策                                                |
+| ------------------------------------------------------- | ------------------------ | --------------------------------------------------- |
+| PPTのクリップボード出力がブラウザ/OS/バージョンで異なる | VMLが取得できない環境    | PNGフォールバック常備。Chrome/Edge + Windows を推奨 |
+| VML仕様のカバレッジ                                     | 複雑な図形で変換精度低下 | 段階的に対応追加。未対応は明示的にスキップ          |
+| Clipboard API のブラウザ制限                            | Firefox等で挙動差異      | `paste` イベントの同期APIを使用                     |
 
 ---
 
