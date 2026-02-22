@@ -1,3 +1,6 @@
+---
+render_with_liquid: false
+---
 # GR SVG Extractor 仕様書
 
 > **GR** = GoodRelax
