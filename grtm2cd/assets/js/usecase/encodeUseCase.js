@@ -1,6 +1,6 @@
 /**
  * @file encodeUseCase.js
- * @description Encode business flow orchestration (SRS 8.2.1)
+ * @description Encode business flow orchestration (SRS §8.2.1)
  * SRP: Orchestrates the full encode pipeline.
  * Imports only from Domain layer. Adapters injected via deps.
  */
@@ -12,7 +12,11 @@ import {
   packLayer2,
   packLayer1,
 } from "../domain/matryoshkaPacker.js";
-import { calculateTargetDimensions } from "../domain/capacityCalc.js";
+import {
+  selectResolution,
+  AES_OVERHEAD_BYTES,
+  CARRIER_ID_TOTAL_BYTES,
+} from "../domain/capacityCalc.js";
 import { GrtmError } from "../domain/errors.js";
 
 /**
@@ -21,13 +25,13 @@ import { GrtmError } from "../domain/errors.js";
  * @param {string}     params.fileName   - Original Treasure Map filename
  * @param {Uint8Array} params.catRaw     - Original Cat Image raw file bytes
  * @param {Uint8Array} params.dogRaw     - Original Dog Image raw file bytes
- * @param {number}     params.catWidth   - Original Cat Image width in pixels
- * @param {number}     params.catHeight  - Original Cat Image height in pixels
+ * @param {number}     params.catWidth   - Original Cat Image width in pixels (after downscale if applied)
+ * @param {number}     params.catHeight  - Original Cat Image height in pixels (after downscale if applied)
  * @param {Object}     params.deps       - Injected dependencies
  * @param {Object}     params.deps.compressor    - { compress(Uint8Array) → Uint8Array }
- * @param {Object}     params.deps.imageAdapter  - { resizeKeepAspect(...), resizeStretch(...) }
+ * @param {Object}     params.deps.imageAdapter  - { resizeStretch(...) }
  * @param {Object}     params.deps.cryptoAdapter - { encrypt(Uint8Array), getRandomValues(number) }
- * @returns {Promise<{catStegoPixels: Uint8Array, dogStegoPixels: Uint8Array, width: number, height: number, compressedSize: number}>}
+ * @returns {Promise<{catStegoPixels: Uint8Array, dogStegoPixels: Uint8Array, width: number, height: number, compressedSize: number, label: string}>}
  * @throws {GrtmError} ERR_EMPTY_PAYLOAD, ERR_PAYLOAD_TOO_LARGE, ERR_FILENAME_TOO_LONG
  */
 export async function execute({
@@ -42,7 +46,7 @@ export async function execute({
   if (tmBytes.length === 0) {
     throw new GrtmError(
       "ERR_EMPTY_PAYLOAD",
-      "Treasure Map file is empty. Please select a file with content."
+      "Treasure Map file is empty. Please select a file with content.",
     );
   }
 
@@ -50,42 +54,39 @@ export async function execute({
   if (fileNameBytes.length > 255) {
     throw new GrtmError(
       "ERR_FILENAME_TOO_LONG",
-      `Filename is too long (${fileNameBytes.length} bytes). Maximum is 255 UTF-8 bytes.`
+      `Filename is too long (${fileNameBytes.length} bytes). Maximum is 255 UTF-8 bytes.`,
     );
   }
 
   // 1. Compress
   const compressedTM = compressor.compress(tmBytes);
 
-  // 2. Calculate target dimensions (may throw ERR_PAYLOAD_TOO_LARGE)
-  const { newWidth, newHeight, totalCapacityBytes } =
-    calculateTargetDimensions(
-      compressedTM.length,
-      fileNameBytes.length,
-      catWidth,
-      catHeight
-    );
+  // 2. Select standard resolution (may throw ERR_PAYLOAD_TOO_LARGE)
+  const { newWidth, newHeight, capacityPerCarrier, label } = selectResolution(
+    compressedTM.length,
+    fileNameBytes.length,
+    catWidth,
+    catHeight,
+  );
 
-  // 3. Resize carriers
-  const resizedCatPixels = await imageAdapter.resizeKeepAspect(
+  // 3. Stretch both carriers to selected standard resolution (ADR-24)
+  const resizedCatPixels = await imageAdapter.resizeStretch(
     catRaw,
     newWidth,
-    newHeight
+    newHeight,
   );
   const resizedDogPixels = await imageAdapter.resizeStretch(
     dogRaw,
     newWidth,
-    newHeight
+    newHeight,
   );
 
-  // 4. Layer 3: Pack plaintext with noise padding
+  // 4. Layer 3: Pack plaintext with zero padding (§4.3).
+  // layer3Capacity fills exactly both carriers to 100% capacity (§4.2.3, ADR-28).
+  const layer3Capacity =
+    2 * capacityPerCarrier - AES_OVERHEAD_BYTES - CARRIER_ID_TOTAL_BYTES;
   const randGen = cryptoAdapter.getRandomValues;
-  const plaintext = packLayer3(
-    compressedTM,
-    fileName,
-    totalCapacityBytes,
-    randGen
-  );
+  const plaintext = packLayer3(compressedTM, fileName, layer3Capacity);
 
   // 5. Layer 2: AES-256-GCM encryption
   const { key, iv, ciphertext } = await cryptoAdapter.encrypt(plaintext);
@@ -106,5 +107,6 @@ export async function execute({
     width: newWidth,
     height: newHeight,
     compressedSize: compressedTM.length,
+    label,
   };
 }

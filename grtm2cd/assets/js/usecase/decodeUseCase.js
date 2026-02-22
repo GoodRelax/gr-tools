@@ -1,6 +1,6 @@
 /**
  * @file decodeUseCase.js
- * @description Decode business flow orchestration (SRS 8.2.2)
+ * @description Decode business flow orchestration (SRS §8.2.2)
  * SRP: Orchestrates the full decode pipeline.
  * Imports only from Domain layer. Adapters injected via deps.
  */
@@ -13,6 +13,7 @@ import {
   unpackLayer2,
   unpackLayer3,
 } from "../domain/matryoshkaPacker.js";
+import { N_LSB, CHANNELS } from "../domain/capacityCalc.js";
 import { GrtmError } from "../domain/errors.js";
 
 /**
@@ -39,23 +40,23 @@ export async function execute({
   const { catPixels, dogPixels } = unpackLayer1Id(
     img1.pixels,
     img2.pixels,
-    lsbDeinterleave
+    lsbDeinterleave,
   );
 
-  // 3. Extract full LSB streams
-  // totalBits = number of pixels × 3 channels × 3 LSBs
-  const catPixelCount = catPixels.length / 4;
-  const dogPixelCount = dogPixels.length / 4;
-  const catTotalBits = catPixelCount * 3 * 3;
-  const dogTotalBits = dogPixelCount * 3 * 3;
-  const catLsbBytes = lsbDeinterleave(catPixels, catTotalBits, 3);
-  const dogLsbBytes = lsbDeinterleave(dogPixels, dogTotalBits, 3);
+  // 3. Extract full LSB streams.
+  // numBits = floor(pixels.length / 4) × CHANNELS × N_LSB
+  // (pixels.length / 4 = pixel count in RGBA; floor guards non-multiple-of-4 edge cases)
+  const catTotalBits = Math.floor(catPixels.length / 4) * CHANNELS * N_LSB;
+  const dogTotalBits = Math.floor(dogPixels.length / 4) * CHANNELS * N_LSB;
+  const catLsbBytes = lsbDeinterleave(catPixels, catTotalBits, N_LSB);
+  const dogLsbBytes = lsbDeinterleave(dogPixels, dogTotalBits, N_LSB);
 
   // 4. Strip Carrier ID prefix
   const catStripedData = unpackLayer1Data(catLsbBytes);
   const dogStripedData = unpackLayer1Data(dogLsbBytes);
 
-  // 5. Weave striped data back together
+  // 5. Weave striped data back together.
+  // Result length = 2 × capacityPerCarrier − 2 = exact encryptedStream length (§4.2.3).
   const encryptedStream = weave(catStripedData, dogStripedData);
 
   // 6. Unpack Layer 2

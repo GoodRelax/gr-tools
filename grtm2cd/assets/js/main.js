@@ -1,6 +1,6 @@
 /**
  * @file main.js
- * @description Composition Root + DOM event handling (SRS 5.4)
+ * @description Composition Root + DOM event handling (SRS §5.4)
  * Responsibilities:
  *   1. Listen to DOM events (file drops, button clicks)
  *   2. Gather raw inputs (file bytes, filenames)
@@ -8,6 +8,8 @@
  *   4. Invoke UseCases with injected Adapter dependencies
  *   5. Receive results and update the DOM
  *   6. Catch GrtmError exceptions and display error messages
+ *   7. After TM drop, call compressor.compress and capacityCalc.findMinimumEntry
+ *      to display the compressed size and minimum required resolution hint (§6.1 Step 2)
  */
 
 document.addEventListener("dragover", (e) => e.preventDefault());
@@ -21,15 +23,18 @@ import { createCryptoAdapter } from "./adapter/cryptoAdapter.js";
 import { GrtmError } from "./domain/errors.js";
 import {
   availableBytes,
+  findMinimumEntry,
+  STANDARD_RESOLUTIONS,
   MAX_CARRIER_PIXELS,
   HEADER_BYTES,
   AES_OVERHEAD_BYTES,
   CARRIER_ID_TOTAL_BYTES,
-  SNAP_UNIT,
+  AR_BOUNDARY_LOW,
+  AR_BOUNDARY_HIGH,
 } from "./domain/capacityCalc.js";
 
 // ── Adapters (instantiated once) ──
-const compressor = createCompressorAdapter(window.pako);
+const compressor   = createCompressorAdapter(window.pako);
 const imageAdapter = createImageAdapter();
 const cryptoAdapter = createCryptoAdapter();
 
@@ -37,47 +42,48 @@ const cryptoAdapter = createCryptoAdapter();
 const $ = (id) => document.getElementById(id);
 
 // Encode panel
-const tmDropzone = $("tm-dropzone");
-const tmFileInput = $("tm-file-input");
-const tmInfo = $("tm-info");
-const tmMinSize = $("tm-min-size");
-const catDropzone = $("cat-dropzone");
-const catFileInput = $("cat-file-input");
-const dogDropzone = $("dog-dropzone");
-const dogFileInput = $("dog-file-input");
-const catInfo = $("cat-info");
-const dogInfo = $("dog-info");
-const encodeStatus = $("encode-status");
-const encodeResult = $("encode-result");
-const catPreviewImg = $("cat-preview-img");
-const dogPreviewImg = $("dog-preview-img");
+const tmDropzone     = $("tm-dropzone");
+const tmFileInput    = $("tm-file-input");
+const tmInfo         = $("tm-info");
+const tmMinSize      = $("tm-min-size");
+const catDropzone    = $("cat-dropzone");
+const catFileInput   = $("cat-file-input");
+const dogDropzone    = $("dog-dropzone");
+const dogFileInput   = $("dog-file-input");
+const catInfo        = $("cat-info");
+const dogInfo        = $("dog-info");
+const encodeStatus   = $("encode-status");
+const encodeResult   = $("encode-result");
+const catPreviewImg  = $("cat-preview-img");
+const dogPreviewImg  = $("dog-preview-img");
 const catDownloadBtn = $("cat-download-btn");
 const dogDownloadBtn = $("dog-download-btn");
 const encodeWarnings = $("encode-warnings");
+const encodeNotify   = $("encode-notify");
 
 // Decode panel
-const dec1Dropzone = $("dec1-dropzone");
-const dec1FileInput = $("dec1-file-input");
-const dec2Dropzone = $("dec2-dropzone");
-const dec2FileInput = $("dec2-file-input");
-const dec1Info = $("dec1-info");
-const dec2Info = $("dec2-info");
-const decodeStatus = $("decode-status");
-const decodeResult = $("decode-result");
+const dec1Dropzone   = $("dec1-dropzone");
+const dec1FileInput  = $("dec1-file-input");
+const dec2Dropzone   = $("dec2-dropzone");
+const dec2FileInput  = $("dec2-file-input");
+const dec1Info       = $("dec1-info");
+const dec2Info       = $("dec2-info");
+const decodeStatus   = $("decode-status");
+const decodeResult   = $("decode-result");
 const decDownloadBtn = $("dec-download-btn");
 
 // ── State ──
-let tmFile = null; // { name, bytes }
-let catFile = null; // { name, bytes, width, height }
-let dogFile = null; // { name, bytes, width, height }
+let tmFile       = null; // { name, bytes }
+let catFile      = null; // { name, bytes, width, height }
+let dogFile      = null; // { name, bytes, width, height }
 let compressedSize = 0;
-let dec1File = null; // { name, bytes }
-let dec2File = null; // { name, bytes }
+let dec1File     = null; // { name, bytes }
+let dec2File     = null; // { name, bytes }
 
 // ── Helpers ──
 function formatSize(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024)             return `${bytes} B`;
+  if (bytes < 1024 * 1024)      return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -95,47 +101,14 @@ function showError(statusEl, msg) {
   statusEl.style.color = "red";
 }
 
-function hideEl(el) {
-  el.style.display = "none";
-}
-function showEl(el) {
-  el.style.display = "block";
-}
-
-/**
- * Calculate and display minimum carrier size after compression.
- */
-function updateMinSize() {
-  if (compressedSize <= 0) {
-    tmMinSize.textContent = "";
-    return;
-  }
-  const fileNameByteLen = tmFile
-    ? new TextEncoder().encode(tmFile.name).length
-    : 10;
-  const minTotal =
-    HEADER_BYTES +
-    fileNameByteLen +
-    compressedSize +
-    AES_OVERHEAD_BYTES +
-    CARRIER_ID_TOTAL_BYTES;
-  const bytesPerCarrier = Math.ceil(minTotal / 2);
-  const minPixels = Math.ceil((bytesPerCarrier * 8) / 9);
-  const side = Math.ceil(Math.sqrt(minPixels));
-  const snapped = Math.ceil(side / SNAP_UNIT) * SNAP_UNIT;
-  tmMinSize.textContent = `Minimum required: ≈ ${snapped} × ${snapped} px each`;
-}
+function hideEl(el) { el.style.display = "none"; }
+function showEl(el)  { el.style.display = "block"; }
 
 // ── Tab switching ──
 window.switchTab = function (tabId) {
-  document
-    .querySelectorAll(".panel")
-    .forEach((p) => p.classList.remove("active"));
-  document
-    .querySelectorAll(".tab-btn")
-    .forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
   $(tabId + "-panel").classList.add("active");
-  // Find the clicked button
   document.querySelectorAll(".tab-btn").forEach((b) => {
     if (b.dataset.tab === tabId) b.classList.add("active");
   });
@@ -154,9 +127,7 @@ function setupDropzone(dropzoneEl, fileInputEl, handler) {
   dropzoneEl.addEventListener("drop", (e) => {
     e.preventDefault();
     dropzoneEl.style.borderColor = "";
-    if (e.dataTransfer.files.length > 0) {
-      handler(e.dataTransfer.files[0]);
-    }
+    if (e.dataTransfer.files.length > 0) handler(e.dataTransfer.files[0]);
   });
   fileInputEl.addEventListener("change", () => {
     if (fileInputEl.files.length > 0) {
@@ -164,6 +135,30 @@ function setupDropzone(dropzoneEl, fileInputEl, handler) {
       fileInputEl.value = "";
     }
   });
+}
+
+// ── Minimum resolution hint (§5.4, §6.1 Step 2) ──
+function updateMinSize() {
+  if (compressedSize <= 0) {
+    tmMinSize.textContent = "";
+    return;
+  }
+  const fileNameByteLen = tmFile
+    ? new TextEncoder().encode(tmFile.name).length
+    : 10;
+  const minTotal =
+    HEADER_BYTES +
+    fileNameByteLen +
+    compressedSize +
+    AES_OVERHEAD_BYTES +
+    CARRIER_ID_TOTAL_BYTES;
+  const bytesPerCarrier = Math.ceil(minTotal / 2);
+  const entry = findMinimumEntry(bytesPerCarrier);
+  if (entry === null) {
+    tmMinSize.textContent = "Payload is too large for any resolution.";
+  } else {
+    tmMinSize.textContent = `Required: ≥ ${entry.label} (${entry.w}×${entry.h})`;
+  }
 }
 
 // ── Treasure Map handler ──
@@ -176,7 +171,6 @@ async function handleTreasureMap(file) {
     );
     return;
   }
-  // Compress immediately
   try {
     const compressed = compressor.compress(bytes);
     compressedSize = compressed.length;
@@ -186,6 +180,7 @@ async function handleTreasureMap(file) {
     updateMinSize();
     hideEl(encodeStatus);
     hideEl(encodeResult);
+    hideEl(encodeNotify);
     tryEncode();
   } catch (e) {
     showError(encodeStatus, e.message || "Compression failed.");
@@ -196,22 +191,13 @@ async function handleTreasureMap(file) {
 async function handleCarrier(file, which) {
   const bytes = await readFile(file);
   try {
-    const result = await imageAdapter.downscaleToLimit(
-      bytes,
-      MAX_CARRIER_PIXELS,
-    );
+    const result = await imageAdapter.downscaleToLimit(bytes, MAX_CARRIER_PIXELS);
     const info = {
       name: file.name,
       bytes,
-      width: result.width,
+      width:  result.width,
       height: result.height,
     };
-    const warnings = [];
-    if (result.downscaled) {
-      warnings.push(
-        `${which === "cat" ? "Cat" : "Dog"}: Image exceeds maximum pixel count. It will be automatically downscaled.`,
-      );
-    }
 
     if (which === "cat") {
       catFile = info;
@@ -223,19 +209,10 @@ async function handleCarrier(file, which) {
       showEl(dogInfo);
     }
 
-    // Check aspect ratio warning
-    if (catFile && dogFile) {
-      const catAR = catFile.width / catFile.height;
-      const dogAR = dogFile.width / dogFile.height;
-      if (Math.abs(catAR - dogAR) > 0.01) {
-        warnings.push(
-          "Dog Image aspect ratio differs from Cat Image. Dog will be stretched to match.",
-        );
-      }
-    }
-
-    if (warnings.length > 0) {
-      encodeWarnings.textContent = warnings.join(" | ");
+    // Downscale warning (§10.2)
+    if (result.downscaled) {
+      encodeWarnings.textContent =
+        `${which === "cat" ? "Cat" : "Dog"}: Image exceeds maximum pixel count. It will be automatically downscaled.`;
       showEl(encodeWarnings);
     } else {
       hideEl(encodeWarnings);
@@ -243,6 +220,7 @@ async function handleCarrier(file, which) {
 
     hideEl(encodeStatus);
     hideEl(encodeResult);
+    hideEl(encodeNotify);
     tryEncode();
   } catch (e) {
     if (e instanceof GrtmError) {
@@ -261,49 +239,45 @@ async function tryEncode() {
   encodeStatus.style.color = "";
   showEl(encodeStatus);
   hideEl(encodeResult);
+  hideEl(encodeNotify);
 
   // Yield to UI
   await new Promise((r) => setTimeout(r, 50));
 
   try {
     const result = await encodeExecute({
-      tmBytes: tmFile.bytes,
-      fileName: tmFile.name,
-      catRaw: catFile.bytes,
-      dogRaw: dogFile.bytes,
-      catWidth: catFile.width,
+      tmBytes:   tmFile.bytes,
+      fileName:  tmFile.name,
+      catRaw:    catFile.bytes,
+      dogRaw:    dogFile.bytes,
+      catWidth:  catFile.width,
       catHeight: catFile.height,
       deps: { compressor, imageAdapter, cryptoAdapter },
     });
 
     // Create PNG blobs
-    const catBlob = await imageAdapter.toBlob(
-      result.catStegoPixels,
-      result.width,
-      result.height,
-    );
-    const dogBlob = await imageAdapter.toBlob(
-      result.dogStegoPixels,
-      result.width,
-      result.height,
-    );
+    const catBlob = await imageAdapter.toBlob(result.catStegoPixels, result.width, result.height);
+    const dogBlob = await imageAdapter.toBlob(result.dogStegoPixels, result.width, result.height);
 
     // Set previews
-    const catUrl = URL.createObjectURL(catBlob);
-    const dogUrl = URL.createObjectURL(dogBlob);
-    catPreviewImg.src = catUrl;
-    dogPreviewImg.src = dogUrl;
+    catPreviewImg.src = URL.createObjectURL(catBlob);
+    dogPreviewImg.src = URL.createObjectURL(dogBlob);
 
-    // Strip extension from carrier filenames for output naming
+    // Output filenames: c_{OriginalCatFilename}.png and d_{OriginalDogFilename}.png
     const catBaseName = catFile.name.replace(/\.[^.]+$/, "");
     const dogBaseName = dogFile.name.replace(/\.[^.]+$/, "");
-    const catOutName = `c_${catBaseName}.png`;
-    const dogOutName = `d_${dogBaseName}.png`;
+    const catOutName  = `c_${catBaseName}.png`;
+    const dogOutName  = `d_${dogBaseName}.png`;
 
     catDownloadBtn.textContent = `Download ${catOutName}`;
     catDownloadBtn.onclick = () => downloadBlob(catBlob, catOutName);
     dogDownloadBtn.textContent = `Download ${dogOutName}`;
     dogDownloadBtn.onclick = () => downloadBlob(dogBlob, dogOutName);
+
+    // Resolution notification — always shown (ADR-29, §10.2)
+    encodeNotify.textContent =
+      `Output: ${result.label} (${result.width}×${result.height}) — Both images will be stretched to this resolution.`;
+    showEl(encodeNotify);
 
     hideEl(encodeStatus);
     showEl(encodeResult);
@@ -377,8 +351,56 @@ function downloadBlob(blob, filename) {
 }
 
 // ── Wire up dropzones ──
-setupDropzone(tmDropzone, tmFileInput, handleTreasureMap);
+setupDropzone(tmDropzone,  tmFileInput,  handleTreasureMap);
 setupDropzone(catDropzone, catFileInput, (f) => handleCarrier(f, "cat"));
 setupDropzone(dogDropzone, dogFileInput, (f) => handleCarrier(f, "dog"));
 setupDropzone(dec1Dropzone, dec1FileInput, (f) => handleDecFile(f, 1));
 setupDropzone(dec2Dropzone, dec2FileInput, (f) => handleDecFile(f, 2));
+
+// ── Render Standard Resolution Table on page load (§6.3) ──
+(function renderResolutionTable() {
+  const table = $("res-table");
+  if (!table) return;
+
+  // Partition entries into the three AR categories
+  const cat43  = [];
+  const cat169 = [];
+  const cat11  = [];
+
+  for (const entry of STANDARD_RESOLUTIONS) {
+    const ar = entry.w / entry.h;
+    if (ar < AR_BOUNDARY_LOW) {
+      cat11.push(entry);
+    } else if (ar < AR_BOUNDARY_HIGH) {
+      cat43.push(entry);
+    } else {
+      cat169.push(entry);
+    }
+  }
+
+  const maxRows = Math.max(cat43.length, cat169.length, cat11.length);
+
+  // Helper: format one cell
+  function cellText(entry) {
+    return entry ? `${entry.label}  ${entry.w}×${entry.h}` : "";
+  }
+
+  // thead
+  const thead = document.createElement("thead");
+  thead.innerHTML =
+    "<tr><th>4:3</th><th>16:9</th><th>1:1</th></tr>";
+  table.appendChild(thead);
+
+  // tbody
+  const tbody = document.createElement("tbody");
+  for (let i = 0; i < maxRows; i++) {
+    const tr = document.createElement("tr");
+    [cat43[i], cat169[i], cat11[i]].forEach((entry) => {
+      const td = document.createElement("td");
+      td.textContent = cellText(entry);
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+})();

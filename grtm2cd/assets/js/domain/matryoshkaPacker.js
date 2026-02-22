@@ -2,7 +2,6 @@
  * @file matryoshkaPacker.js
  * @description Matryoshka binary frame construction and parsing for all 3 layers (SRS 8.1.4)
  * SRP: Binary frame management for the nested Matryoshka structure.
- * Pure functions — randGen injected as parameter.
  */
 
 import { GrtmError } from "./errors.js";
@@ -15,33 +14,23 @@ import { N_LSB } from "./capacityCalc.js";
 
 /**
  * Construct Layer 3 frame (plaintext payload).
- * Layout: actualLen(4 BE) + nameLen(1) + fileName + compressedTM + randomPadding
+ * Layout: actualLen(4 BE) + nameLen(1) + fileName + compressedTM + zeroPadding
+ * Total size = layer3Capacity (pre-computed by encodeUseCase per §4.2.3).
+ * Zero padding is statistically indistinguishable from white noise after AES-GCM encryption.
  *
- * @param {Uint8Array} compressedTM      - Compressed Treasure Map
- * @param {string}     fileName          - Original filename
- * @param {number}     totalCapacityBytes - Total LSB capacity of ONE carrier
- * @param {Function}   randGen           - (n) → Uint8Array of n random bytes
+ * @param {Uint8Array} compressedTM   - Compressed Treasure Map
+ * @param {string}     fileName       - Original filename
+ * @param {number}     layer3Capacity - Frame size = 2×capacityPerCarrier − 62 (§4.2.3)
  * @returns {Uint8Array}
  */
-export function packLayer3(compressedTM, fileName, totalCapacityBytes, randGen) {
+export function packLayer3(compressedTM, fileName, layer3Capacity) {
   const fileNameBytes = new TextEncoder().encode(fileName);
   const nameLen = fileNameBytes.length;
   const actualLen = 1 + nameLen + compressedTM.length; // nameLen(1) + fileName + compressedTM
 
-  // The plaintext fills the entire capacity of ONE carrier (since after encryption
-  // it will be striped into two carriers). Actually, totalCapacityBytes is per-carrier.
-  // The encrypted stream = key(32) + iv(12) + ciphertext.
-  // Ciphertext = plaintext + authTag(16).
-  // Striped: each carrier gets 1 byte ID + half of encrypted stream.
-  // So: carrierPayload = 1 + ceil(encryptedStream.length / 2)
-  // encryptedStream = 32 + 12 + (plaintextLen + 16) = plaintextLen + 60
-  // carrierPayload = 1 + ceil((plaintextLen + 60) / 2)
-  // We need: carrierPayload ≤ totalCapacityBytes
-  // So: plaintextLen ≤ (totalCapacityBytes - 1) * 2 - 60
-  const maxPlaintextLen = (totalCapacityBytes - 1) * 2 - 60;
-
-  // Build frame
-  const frame = new Uint8Array(maxPlaintextLen);
+  // Build frame — size is layer3Capacity (passed directly, ADR-28)
+  // Uint8Array initializes to zero; remainder is zero padding (§4.3)
+  const frame = new Uint8Array(layer3Capacity);
   const view = new DataView(frame.buffer);
 
   // actualLen (4 bytes, uint32 BE)
@@ -55,13 +44,6 @@ export function packLayer3(compressedTM, fileName, totalCapacityBytes, randGen) 
 
   // compressedTM
   frame.set(compressedTM, 5 + nameLen);
-
-  // Random padding fills the remainder
-  const dataEnd = 5 + nameLen + compressedTM.length;
-  if (dataEnd < maxPlaintextLen) {
-    const padding = randGen(maxPlaintextLen - dataEnd);
-    frame.set(padding, dataEnd);
-  }
 
   return frame;
 }
