@@ -18,14 +18,14 @@ When enabled, Claude checks your English in every message before executing your 
 Paste the following into your Claude Code chat:
 
 ```
-Download the skill from the link below and save it to ~/.claude/commands/en.md
-https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/en.md
+Download the skill from the link below and save it to ~/.claude/skills/en/SKILL.md
+https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/SKILL.md
 ```
 
 ### Option 2: Manual
 
-1. Download [en.md](https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/en.md)
-2. Place it in `~/.claude/commands/en.md`
+1. Download [SKILL.md](https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/SKILL.md)
+2. Place it in `~/.claude/skills/en/SKILL.md`
 
 ## How to use
 
@@ -70,14 +70,14 @@ Claude Code のスキルで、コーディングしながら英語の練習が�
 Claude に下記を指示する：
 
 ```
-下記リンクのスキルを手に入れろ
-https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/en.md
+下記リンクのスキルをダウンロードして ~/.claude/skills/en/SKILL.md に保存せよ
+https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/SKILL.md
 ```
 
 #### 方法2: 手動
 
-1. [en.md](https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/en.md) をダウンロード
-2. `~/.claude/commands/en.md` に配置
+1. [SKILL.md](https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/SKILL.md) をダウンロード
+2. `~/.claude/skills/en/SKILL.md` に配置
 
 ### 使い方
 
