@@ -1,4 +1,5 @@
 ---
+name: en
 description: "Toggle English Learning Mode. Use /en on to enable, /en off to disable. When enabled, Claude corrects the user's English and confirms intent before executing tasks."
 ---
 
