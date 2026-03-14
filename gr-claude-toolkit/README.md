@@ -38,7 +38,13 @@ Checks 11 items across the entire Claude ecosystem:
 
 **Usage:** Double-click `diagnose-claude.bat` or run from command prompt.
 
-**Spec:** See `Claude_Diagnostic_Spec-en.md` / `Claude_Diagnostic_Spec-ja.md`
+**Spec:** See `claude-diagnostic-spec-en.md` / `claude-diagnostic-spec-ja.md`
+
+### docs/
+
+**claude-ecosystem-guide-ja.md** — Complete guide to the Claude ecosystem on Windows 11.
+
+Covers all Claude clients (Web, Desktop, CLI, VS Code), installation, settings files, MCP configuration, and how they relate to each other.
 
 ---
 
@@ -97,7 +103,13 @@ Claude エコシステム全体を 11 項目でチェック:
 
 **使い方:** `diagnose-claude.bat` をダブルクリック、またはコマンドプロンプトから実行。
 
-**仕様書:** `Claude_Diagnostic_Spec-ja.md` / `Claude_Diagnostic_Spec-en.md` を参照
+**仕様書:** `claude-diagnostic-spec-ja.md` / `claude-diagnostic-spec-en.md` を参照
+
+### docs/
+
+**claude-ecosystem-guide-ja.md** — Windows 11 での Claude エコシステム完全ガイド
+
+Claude の全クライアント (Web, Desktop, CLI, VS Code)、インストール、設定ファイル、MCP 構成、相互関係を網羅。
 
 ---
 
