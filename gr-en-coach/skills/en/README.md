@@ -18,8 +18,9 @@ When enabled, Claude checks your English in every message before executing your 
 1. Paste the following prompt:
 
 ```
-Output the skill from the link below as SKILL.md.
-I will copy the result to my skills and use it as /en.
+Output the skill from the link below without any modifications, using `SKILL.md` as the filename.
+Set the `name:` field in the YAML Front Matter to `en`.
+The user will copy the output to their skills to use it as the custom command `/en`.
 https://raw.githubusercontent.com/GoodRelax/gr-tools/refs/heads/main/gr-en-coach/skills/en/SKILL.md
 ```
 
