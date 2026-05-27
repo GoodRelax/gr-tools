@@ -1,0 +1,34 @@
+[DOCUMENT]
+TITLE: StrictDocStarter Sample - Design Notes
+
+[TEXT]
+STATEMENT: >>>
+HELLO-XXX 要求に対する設計事項を 2 件示します。
+traceability の例として、 DESIGN-001 / DESIGN-002 は
+`01-hello.sdoc` 内の HELLO-001 を `Parent` リレーションで参照します。
+
+Web UI 上で HELLO-001 を開くと「Children」 として
+DESIGN-001 / DESIGN-002 が逆向きに表示されることを確認できます。
+<<<
+
+[REQUIREMENT]
+UID: DESIGN-001
+TITLE: 言語標準の出力関数を使用
+STATEMENT: >>>
+メッセージ表示は、 各実装言語の標準出力関数 (例: C の printf、 Python の print、
+C# の Console.WriteLine 等) を使用すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: HELLO-001
+
+[REQUIREMENT]
+UID: DESIGN-002
+TITLE: メッセージ文字列のハードコード許容
+STATEMENT: >>>
+"Hello, World" 文字列はソースコード内にハードコードしてよい。
+国際化 (i18n) 対応は本サンプルでは要求しない。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: HELLO-001

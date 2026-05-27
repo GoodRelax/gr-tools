@@ -1,0 +1,370 @@
+[DOCUMENT]
+TITLE: SOVD Vehicle Data Access Requirements
+
+[GRAMMAR]
+ELEMENTS:
+- TAG: REQUIREMENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TYPE
+    TYPE: SingleChoice(Functional, Non-Functional, Constraint, Restriction, UseCase)
+    REQUIRED: True
+  - TITLE: ASIL
+    TYPE: SingleChoice(QM, A, B, C, D)
+    REQUIRED: True
+  - TITLE: LAYER
+    TYPE: SingleChoice(L0_Stakeholder, L1_System, L2_ECU_SW, L3_Unit)
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RATIONALE
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+  - TYPE: Child
+
+[TEXT]
+STATEMENT: >>>
+車両データ識別子 (DID) ・周期データ・スナップショット・バルクダウンロードの
+読み出し要求。 認証要求は 01-auth.sdoc を前提とする。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L0 - ステークホルダ要求
+<<<
+
+[REQUIREMENT]
+UID: DATA-L0-001
+TYPE: UseCase
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 車両状態データの読み取り
+STATEMENT: >>>
+整備士は車両の現在状態 (走行距離、 バッテリ電圧、 各 ECU 温度等) を
+SOVD クライアントで読み取れること。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L0-002
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 周期的なデータサンプリング
+STATEMENT: >>>
+ユーザは指定した DID リストを 100 ms 〜 60 s の周期で連続取得できること。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L0-003
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: スナップショットの一括取得
+STATEMENT: >>>
+ユーザは特定時刻における車両の全 DID 値スナップショットを 1 トランザクションで
+取得できること。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L0-004
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 大量データ転送
+STATEMENT: >>>
+ロギングデータや録画フレーム等の数百 MB 規模のデータも、 中断・再開可能な方式で
+転送できること。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L0-005
+TYPE: Restriction
+ASIL: B
+LAYER: L0_Stakeholder
+TITLE: 書き込み権限の分離
+STATEMENT: >>>
+読み出しトークンでは DID 値の書き込み (writeDataByIdentifier 相当) は
+一切できないこと。 読み出しと書き込みは別スコープで管理する。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L1 - システム要求
+<<<
+
+[REQUIREMENT]
+UID: DATA-L1-001
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: DID ベースのデータ識別
+STATEMENT: >>>
+全車両データは 16-bit DID (Data Identifier) で識別され、 SOVD API を介して
+GET /vehicle/data/{did_hex} で取得できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
+
+[REQUIREMENT]
+UID: DATA-L1-002
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: 周期データストリーム
+STATEMENT: >>>
+クライアントは Server-Sent Events または WebSocket で複数 DID を購読し、
+車両ゲートウェイから周期的にプッシュ受信できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-002
+
+[REQUIREMENT]
+UID: DATA-L1-003
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: バルクダウンロード API
+STATEMENT: >>>
+車両は POST /vehicle/data/bulk エンドポイントを提供し、 HTTP Range ヘッダによる
+レジューム可能ダウンロードをサポートすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-004
+
+[REQUIREMENT]
+UID: DATA-L1-004
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: JSON ペイロード形式
+STATEMENT: >>>
+DID 値の応答は JSON で返却し、 スキーマは ASAM SOVD 仕様 Part 2 (Data Model)
+に準拠すること。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L1-005
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: 読み出しレイテンシ
+STATEMENT: >>>
+単一 DID 読み出しのレスポンス時間は 95 パーセンタイルで 500 ms 以内。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L1-006
+TYPE: Functional
+ASIL: B
+LAYER: L1_System
+TITLE: スコープによるデータマスキング
+STATEMENT: >>>
+個人情報を含む DID (オーナー氏名等) は OEMEngineer ロールのみアクセス可、
+Mechanic ロールには HTTP 403 を返すこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-005
+
+[REQUIREMENT]
+UID: DATA-L1-007
+TYPE: Constraint
+ASIL: QM
+LAYER: L1_System
+TITLE: ASAM SOVD 準拠
+STATEMENT: >>>
+データアクセス API は ASAM SOVD v1.0 Part 2 のデータ識別子モデルに準拠すること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L2 - ECU ソフトウェア要求
+<<<
+
+[REQUIREMENT]
+UID: DATA-L2-001
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: DID Resolver
+STATEMENT: >>>
+ゲートウェイ ECU は DID から物理 ECU (CAN node) へのマッピングテーブルを保持し、
+受信した DID 番号を担当 ECU へルーティングすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-001
+
+[REQUIREMENT]
+UID: DATA-L2-002
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: UDS ReadDataByIdentifier ブリッジ
+STATEMENT: >>>
+ゲートウェイ ECU は SOVD GET 要求を受信したら、 担当 ECU に対して UDS
+ReadDataByIdentifier (0x22) を送信し、 応答を JSON に変換して返すこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-001
+
+[REQUIREMENT]
+UID: DATA-L2-003
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: 周期データキャッシュ
+STATEMENT: >>>
+頻繁にアクセスされる DID 値は 100 ms TTL の LRU キャッシュに保持し、
+ECU 通信回数を削減すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-005
+
+[REQUIREMENT]
+UID: DATA-L2-004
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: WebSocket サブスクリプション
+STATEMENT: >>>
+ゲートウェイ ECU は WebSocket /vehicle/data/stream エンドポイントを提供し、
+クライアント当たり最大 32 DID の同時購読を許容すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-002
+
+[REQUIREMENT]
+UID: DATA-L2-005
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: バルクデータ圧縮
+STATEMENT: >>>
+バルクダウンロード時、 サーバは Content-Encoding: gzip による圧縮転送を
+サポートすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-003
+
+[REQUIREMENT]
+UID: DATA-L2-006
+TYPE: Functional
+ASIL: B
+LAYER: L2_ECU_SW
+TITLE: スコープ評価ミドルウェア
+STATEMENT: >>>
+各 DID にはアクセス可能スコープを記したメタデータが付随し、 リクエスト処理時に
+ScopeAuthorizer (AUTH-L3-002) でチェックすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-006
+
+[REQUIREMENT]
+UID: DATA-L2-007
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: メモリ使用上限
+STATEMENT: >>>
+データアクセス機能全体のヒープ使用量は 4 MB 以内とすること。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L2-008
+TYPE: Constraint
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: スレッドモデル
+STATEMENT: >>>
+データ取得はノンブロッキング I/O (epoll 系) で実装し、 同時 100 接続を
+シングルスレッドで処理可能とすること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L3 - ユニット要求
+<<<
+
+[REQUIREMENT]
+UID: DATA-L3-001
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: DidResolverTable ユニット
+STATEMENT: >>>
+DidResolverTable は (did_number) -> (ecu_address, parameter_layout) の
+マッピング検索を O(1) で行うハッシュテーブル実装とすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L2-001
+
+[REQUIREMENT]
+UID: DATA-L3-002
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: UdsClient ユニット
+STATEMENT: >>>
+UdsClient ユニットは ISO 14229-1 準拠の UDS フレーム送受信を担当し、
+タイムアウト・リトライ・NRC ハンドリングを提供すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L2-002
+
+[REQUIREMENT]
+UID: DATA-L3-003
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: DataCache ユニット
+STATEMENT: >>>
+DataCache ユニットは LRU + TTL ベースのキャッシュを提供。 容量・TTL は
+コンストラクタ引数で設定可能とする。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L2-003
+
+[REQUIREMENT]
+UID: DATA-L3-004
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: JsonSerializer ユニット
+STATEMENT: >>>
+JsonSerializer ユニットは DID 値 (整数・浮動小数・文字列・バイト列) を
+ASAM SOVD JSON 形式に変換すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-004
+
+[REQUIREMENT]
+UID: DATA-L3-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L3_Unit
+TITLE: 浮動小数点表現
+STATEMENT: >>>
+JSON 出力時の浮動小数点値は IEEE 754 double で、 NaN / Infinity は
+null として表現すること (RFC 8259 準拠)。
+<<<

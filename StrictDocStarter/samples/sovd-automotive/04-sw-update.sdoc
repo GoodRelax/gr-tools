@@ -1,0 +1,383 @@
+[DOCUMENT]
+TITLE: SOVD Software Update Requirements
+
+[GRAMMAR]
+ELEMENTS:
+- TAG: REQUIREMENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TYPE
+    TYPE: SingleChoice(Functional, Non-Functional, Constraint, Restriction, UseCase)
+    REQUIRED: True
+  - TITLE: ASIL
+    TYPE: SingleChoice(QM, A, B, C, D)
+    REQUIRED: True
+  - TITLE: LAYER
+    TYPE: SingleChoice(L0_Stakeholder, L1_System, L2_ECU_SW, L3_Unit)
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RATIONALE
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+  - TYPE: Child
+
+[TEXT]
+STATEMENT: >>>
+OTA (Over-The-Air) ソフトウェア更新要求。 ダウンロード・署名検証・インストール・
+ロールバックの 4 フェーズと、 機能安全 (ISO 26262) 関連 ECU の更新時保護を含む。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L0 - ステークホルダ要求
+<<<
+
+[REQUIREMENT]
+UID: SWU-L0-001
+TYPE: UseCase
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: OTA でのソフトウェア更新
+STATEMENT: >>>
+OEM は車両 ECU のソフトウェアを OTA (無線) 経由で更新できること。
+ユーザは更新の進捗を SOVD クライアントで確認できる。
+<<<
+
+[REQUIREMENT]
+UID: SWU-L0-002
+TYPE: Functional
+ASIL: D
+LAYER: L0_Stakeholder
+TITLE: 改ざん検知
+STATEMENT: >>>
+更新パッケージはデジタル署名され、 改ざん・偽造を 100% 検知できること。
+署名検証に失敗したパッケージはインストールしないこと。
+<<<
+RATIONALE: >>>
+不正なファームウェアの注入は安全関連 ECU の機能喪失に直結するため。
+<<<
+
+[REQUIREMENT]
+UID: SWU-L0-003
+TYPE: Functional
+ASIL: C
+LAYER: L0_Stakeholder
+TITLE: ロールバック対応
+STATEMENT: >>>
+更新後に異常が検出された場合、 直前のバージョンに自動または手動で
+ロールバックできること。
+<<<
+
+[REQUIREMENT]
+UID: SWU-L0-004
+TYPE: Restriction
+ASIL: D
+LAYER: L0_Stakeholder
+TITLE: 走行中の更新禁止
+STATEMENT: >>>
+車両 IG-ON かつ車速 > 0 の状態では、 ECU フラッシュ書込を絶対に開始しないこと。
+ダウンロードのみ走行中も許容。
+<<<
+
+[REQUIREMENT]
+UID: SWU-L0-005
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 更新所要時間
+STATEMENT: >>>
+1 ECU 当たりの平均更新時間 (検証 + 書込 + 再起動) は 5 分以内とすること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L1 - システム要求
+<<<
+
+[REQUIREMENT]
+UID: SWU-L1-001
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: 更新パッケージ ダウンロード
+STATEMENT: >>>
+車両は POST /vehicle/update/download エンドポイントを提供し、 OEM サーバから
+更新パッケージ (バイナリ + マニフェスト + 署名) を取得すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-001
+
+[REQUIREMENT]
+UID: SWU-L1-002
+TYPE: Functional
+ASIL: D
+LAYER: L1_System
+TITLE: パッケージ署名検証
+STATEMENT: >>>
+ダウンロードしたパッケージは OEM ルート証明書チェーンで RSA-PSS 2048-bit 以上の
+署名を検証し、 失敗時は破棄すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-002
+
+[REQUIREMENT]
+UID: SWU-L1-003
+TYPE: Functional
+ASIL: D
+LAYER: L1_System
+TITLE: A/B パーティション切替
+STATEMENT: >>>
+ECU は A/B パーティション構成を持ち、 新ファームウェアは非アクティブ
+パーティションに書込み、 ブートローダ経由で切替えること。 失敗時は前パーティション
+を維持。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-003
+
+[REQUIREMENT]
+UID: SWU-L1-004
+TYPE: Functional
+ASIL: D
+LAYER: L1_System
+TITLE: 走行状態ガード
+STATEMENT: >>>
+フラッシュ書込開始前に車両状態が以下の全てを満たすことを確認: (a) 車速 == 0、
+(b) パーキングブレーキ ON、 (c) シフト P、 (d) IG-OFF or ACC 状態。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-004
+
+[REQUIREMENT]
+UID: SWU-L1-005
+TYPE: Functional
+ASIL: C
+LAYER: L1_System
+TITLE: ロールバック API
+STATEMENT: >>>
+POST /vehicle/update/rollback で前バージョンへの即時ロールバックを実行できること。
+ロールバック中は車両機能を制限する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-003
+
+[REQUIREMENT]
+UID: SWU-L1-006
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: 更新進捗ストリーム
+STATEMENT: >>>
+GET /vehicle/update/progress (Server-Sent Events) で、 各 ECU の更新進捗
+(0..100%) と現フェーズを SOVD クライアントへプッシュ通知すること。
+<<<
+
+[REQUIREMENT]
+UID: SWU-L1-007
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: 中断耐性
+STATEMENT: >>>
+更新中の電源断・通信切断後、 再開時にはダウンロード中であれば再開、
+書込中であれば最初からリトライ、 完了済であればスキップとすること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L2 - ECU ソフトウェア要求
+<<<
+
+[REQUIREMENT]
+UID: SWU-L2-001
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: パッケージダウンロードマネージャ
+STATEMENT: >>>
+ゲートウェイ ECU は DownloadManager コンポーネントを実装し、 HTTPS Range
+リクエストによる分割ダウンロード・進捗報告・整合性チェック (SHA-256) を行うこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-001
+
+[REQUIREMENT]
+UID: SWU-L2-002
+TYPE: Functional
+ASIL: D
+LAYER: L2_ECU_SW
+TITLE: 署名検証エンジン
+STATEMENT: >>>
+SignatureVerifier コンポーネントは ECDSA P-256 + RSA-PSS 2048 の両方を
+サポートし、 OEM ルート CA で署名チェーンを検証すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-002
+
+[REQUIREMENT]
+UID: SWU-L2-003
+TYPE: Functional
+ASIL: D
+LAYER: L2_ECU_SW
+TITLE: フラッシュ書込ドライバ
+STATEMENT: >>>
+FlashWriter コンポーネントは ECU 内 NOR フラッシュへの書込を担当し、
+書込後に CRC32 ベリファイを必須とすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-003
+
+[REQUIREMENT]
+UID: SWU-L2-004
+TYPE: Functional
+ASIL: D
+LAYER: L2_ECU_SW
+TITLE: VehicleStateGuard
+STATEMENT: >>>
+VehicleStateGuard コンポーネントは更新開始前に L1-004 の 4 条件を 50 ms 周期で
+監視し、 1 つでも崩れたら書込を緊急中断すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-004
+
+[REQUIREMENT]
+UID: SWU-L2-005
+TYPE: Functional
+ASIL: C
+LAYER: L2_ECU_SW
+TITLE: ロールバックマネージャ
+STATEMENT: >>>
+RollbackManager は前バージョンのパーティション情報を保持し、 ロールバック要求時に
+ブートローダパラメータを書き換えて再起動を要求すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-005
+
+[REQUIREMENT]
+UID: SWU-L2-006
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: 進捗イベントバス
+STATEMENT: >>>
+各更新フェーズ (download/verify/write/finalize) は ProgressEventBus に
+イベントを publish し、 SSE エンドポイントが subscribe して配信すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-006
+
+[REQUIREMENT]
+UID: SWU-L2-007
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: 再開可能ステートマシン
+STATEMENT: >>>
+更新ステートマシンの状態は不揮発領域に保存され、 電源断後の再起動で
+最後の安全状態から再開できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-007
+
+[REQUIREMENT]
+UID: SWU-L2-008
+TYPE: Constraint
+ASIL: D
+LAYER: L2_ECU_SW
+TITLE: ASIL D 開発プロセス
+STATEMENT: >>>
+SignatureVerifier / FlashWriter / VehicleStateGuard は ISO 26262 ASIL D 準拠の
+開発プロセスで構築し、 ユニットテスト カバレッジ 100% を達成すること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L3 - ユニット要求
+<<<
+
+[REQUIREMENT]
+UID: SWU-L3-001
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: ChunkedDownloader ユニット
+STATEMENT: >>>
+ChunkedDownloader ユニットは 1 MB チャンク単位の HTTPS Range ダウンロードを
+実装、 失敗時のリトライ (指数バックオフ 1s..30s) を提供すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L2-001
+
+[REQUIREMENT]
+UID: SWU-L3-002
+TYPE: Functional
+ASIL: D
+LAYER: L3_Unit
+TITLE: EcdsaVerifier ユニット
+STATEMENT: >>>
+EcdsaVerifier ユニットは OpenSSL EVP_DigestVerify を用い、 P-256 curve で
+署名を検証。 内部状態を持たない純粋関数として実装すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L2-002
+
+[REQUIREMENT]
+UID: SWU-L3-003
+TYPE: Functional
+ASIL: D
+LAYER: L3_Unit
+TITLE: FlashSector ユニット
+STATEMENT: >>>
+FlashSector ユニットは 64 KB セクタ消去・書込・CRC32 計算を提供。 write 操作は
+事前にセクタ消去を必須とし、 失敗時は ERROR_FLASH_VERIFY を返す。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L2-003
+
+[REQUIREMENT]
+UID: SWU-L3-004
+TYPE: Functional
+ASIL: D
+LAYER: L3_Unit
+TITLE: StateMonitor ユニット
+STATEMENT: >>>
+StateMonitor ユニットは車速・パーキングブレーキ・シフト・IG 信号を CAN から
+読み出し、 すべて条件を満たす場合のみ TRUE を返す。 ASIL D 認定。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L2-004
+
+[REQUIREMENT]
+UID: SWU-L3-005
+TYPE: Constraint
+ASIL: D
+LAYER: L3_Unit
+TITLE: 開発言語制限
+STATEMENT: >>>
+ASIL D 認定ユニットは Misra C:2012 準拠の C 言語のみで実装。 dynamic memory
+allocation 禁止、 再帰呼出禁止、 全関数の循環的複雑度 <= 10。
+<<<

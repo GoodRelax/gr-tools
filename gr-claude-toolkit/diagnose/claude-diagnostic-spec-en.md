@@ -365,15 +365,15 @@ After outputting diagnostic results, the following actions are offered in order.
 [A2] Open MCP config folder in Explorer? (yes/no): yes
 
   Available MCP config locations:
-    1. Desktop config: C:\Users\good_\AppData\Roaming\Claude
-    2. Project MCP: C:\Users\good_\...\claude-code-full-auto-dev
+    1. Desktop config: C:\Users\your-username\AppData\Roaming\Claude
+    2. Project MCP: C:\Users\your-username\...\claude-code-full-auto-dev
     0. Exit
 
   Enter number (0 to exit): 1
-  Opening: C:\Users\good_\AppData\Roaming\Claude
+  Opening: C:\Users\your-username\AppData\Roaming\Claude
 
   Enter number (0 to exit): 2
-  Opening: C:\Users\good_\...\claude-code-full-auto-dev
+  Opening: C:\Users\your-username\...\claude-code-full-auto-dev
 
   Enter number (0 to exit): 0
   Done.
@@ -404,7 +404,7 @@ After outputting diagnostic results, the following actions are offered in order.
 [C2] CLI Installation
   Status  : OK
   Version : 2.1.76
-  Path    : C:\Users\good_\AppData\Roaming\npm\claude.cmd
+  Path    : C:\Users\your-username\AppData\Roaming\npm\claude.cmd
 
 [C3] VS Code Extension
   Status  : OK
@@ -417,7 +417,7 @@ After outputting diagnostic results, the following actions are offered in order.
 
 [C5] Global settings.json
   Status  : WARNING
-  Path    : C:\Users\good_\.claude\settings.json
+  Path    : C:\Users\your-username\.claude\settings.json
   Allow entries    : 47
   Deny entries     : 0
   Additional dirs  : 2
@@ -428,18 +428,18 @@ After outputting diagnostic results, the following actions are offered in order.
 
 [C6] Project settings.json
   Found 3 project settings:
-    - C:\Users\good_\...\articles\.claude\settings.json (12 entries)
-    - C:\Users\good_\...\gr-simple-md-renderer\.claude\settings.json (3 entries)
-    - C:\Users\good_\...\claude-code-full-auto-dev\.claude\settings.json (1 entry)
+    - C:\Users\your-username\...\articles\.claude\settings.json (12 entries)
+    - C:\Users\your-username\...\gr-simple-md-renderer\.claude\settings.json (3 entries)
+    - C:\Users\your-username\...\claude-code-full-auto-dev\.claude\settings.json (1 entry)
 
 [C7] Desktop Config
   Status  : OK
-  Path    : C:\Users\good_\AppData\Roaming\Claude\claude_desktop_config.json
+  Path    : C:\Users\your-username\AppData\Roaming\Claude\claude_desktop_config.json
   MCP servers: 0
 
 [C8] PATH Check
   Status  : OK
-  npm global: C:\Users\good_\AppData\Roaming\npm (EXISTS in PATH)
+  npm global: C:\Users\your-username\AppData\Roaming\npm (EXISTS in PATH)
   Node.js   : C:\Program Files\nodejs (EXISTS in PATH)
 
 [C9] claude.exe Binary Scan
@@ -463,7 +463,7 @@ After outputting diagnostic results, the following actions are offered in order.
   Desktop config: EXISTS [2 servers: filesystem, jira]
   Global MCP    : NOT FOUND
   Project MCP   :
-    - C:\Users\good_\...\my-project\.mcp.json [1 server: jira]
+    - C:\Users\your-username\...\my-project\.mcp.json [1 server: jira]
   Jira servers found: 2 locations
 
 =============================================================
@@ -842,8 +842,8 @@ Checking [C11] MCP Config Files...       OK [Jira: 2 locations]
 =============================================================
 
 Output files:
-  Summary : C:\Users\good_\diagnosis-summary.txt
-  Log     : C:\Users\good_\diagnosis-for-claude.json
+  Summary : C:\Users\your-username\diagnosis-summary.txt
+  Log     : C:\Users\your-username\diagnosis-for-claude.json
 
 -------------------------------------------------------------
 To get improvement suggestions from Claude, copy the prompt
@@ -868,12 +868,12 @@ below and paste it into Claude along with the log file:
 [A2] Open MCP config folder in Explorer? (yes/no): yes
 
   Available MCP config locations:
-    1. Desktop config: C:\Users\good_\AppData\Roaming\Claude
-    2. Project MCP: C:\Users\good_\...\claude-code-full-auto-dev
+    1. Desktop config: C:\Users\your-username\AppData\Roaming\Claude
+    2. Project MCP: C:\Users\your-username\...\claude-code-full-auto-dev
     0. Exit
 
   Enter number (0 to exit): 1
-  Opening: C:\Users\good_\AppData\Roaming\Claude
+  Opening: C:\Users\your-username\AppData\Roaming\Claude
 
   Enter number (0 to exit): 0
   Done.

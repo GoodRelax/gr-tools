@@ -1,0 +1,379 @@
+[DOCUMENT]
+TITLE: SOVD 認証・認可要求
+
+[GRAMMAR]
+ELEMENTS:
+- TAG: REQUIREMENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TYPE
+    TYPE: SingleChoice(Functional, Non-Functional, Constraint, Restriction, UseCase)
+    REQUIRED: True
+  - TITLE: ASIL
+    TYPE: SingleChoice(QM, A, B, C, D)
+    REQUIRED: True
+  - TITLE: LAYER
+    TYPE: SingleChoice(L0_Stakeholder, L1_System, L2_ECU_SW, L3_Unit)
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RATIONALE
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+  - TYPE: Child
+
+[TEXT]
+STATEMENT: >>>
+SOVD (Service-Oriented Vehicle Diagnostics、 ASAM SOVD / ISO 17978) における
+認証・認可要求。 L0 (ステークホルダ要求) から L3 (個別ソフトユニット要求) まで
+の階層を traceability で連鎖。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L0 — ステークホルダ要求 (Stakeholder Requirements)
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L0-001
+TYPE: UseCase
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 整備士が車両に診断アクセスする
+STATEMENT: >>>
+整備工場の整備士は、 認証された状態で SOVD クライアントを使い、
+対象車両の診断データにアクセスできること。
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L0-002
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 整備士の役割に応じた権限制限
+STATEMENT: >>>
+整備士・OEM エンジニア・サードパーティ等の役割に応じて、 アクセスできる
+診断機能 (読み出し / 書き込み / アクチュエータ駆動等) を制限できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-001
+
+[REQUIREMENT]
+UID: AUTH-L0-003
+TYPE: Non-Functional
+ASIL: B
+LAYER: L0_Stakeholder
+TITLE: 認証情報の漏洩防止
+STATEMENT: >>>
+診断アクセスの認証に使用するクレデンシャル (パスワード、 トークン、 証明書) は、
+通信路上および保管時に第三者に漏洩しないこと。
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L0-004
+TYPE: Restriction
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 未認証アクセスの拒否
+STATEMENT: >>>
+認証されていないクライアントからの SOVD サービス呼び出しは、
+診断データの読み出しを含め、 一切受け付けないこと。
+<<<
+RATIONALE: >>>
+SOVD は HTTP ベースで悪意ある外部からの直接接続リスクが従来 UDS より高い。
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L0-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: ASAM SOVD 仕様準拠
+STATEMENT: >>>
+認証・認可機能は ASAM SOVD v1.0 仕様 (Part 1: Common) の認証要件に準拠すること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L1 — システム要求 (System Requirements)
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L1-001
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: OAuth 2.0 認証フロー対応
+STATEMENT: >>>
+車両は OAuth 2.0 Authorization Code Flow with PKCE を用いた
+クライアント認証フローをサポートすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-001
+
+[REQUIREMENT]
+UID: AUTH-L1-002
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: アクセストークン発行
+STATEMENT: >>>
+認証成功後、 車両は JWT 形式のアクセストークンを発行すること。
+トークンには有効期限・スコープ・サブジェクト ID を含める。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-001
+
+[REQUIREMENT]
+UID: AUTH-L1-003
+TYPE: Functional
+ASIL: B
+LAYER: L1_System
+TITLE: ロールベースアクセス制御 (RBAC)
+STATEMENT: >>>
+スコープに対応する権限 (read:dtc, write:did, exec:actuator 等) を
+ロール (Mechanic / OEMEngineer / FleetOperator) ごとに割り当て可能とすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-002
+
+[REQUIREMENT]
+UID: AUTH-L1-004
+TYPE: Non-Functional
+ASIL: B
+LAYER: L1_System
+TITLE: TLS 1.3 必須
+STATEMENT: >>>
+SOVD クライアントと車両ゲートウェイ間の通信は TLS 1.3 以上で暗号化すること。
+TLS 1.2 以下にダウングレード可能としてはならない。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-003
+
+[REQUIREMENT]
+UID: AUTH-L1-005
+TYPE: Functional
+ASIL: B
+LAYER: L1_System
+TITLE: 相互 TLS (mTLS) 対応
+STATEMENT: >>>
+OEM 内部接続では、 クライアント証明書 (X.509) を用いた相互 TLS 認証も
+追加でサポートすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-003
+
+[REQUIREMENT]
+UID: AUTH-L1-006
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: アクセストークン有効期限
+STATEMENT: >>>
+発行されたアクセストークンの有効期限はデフォルト 30 分とし、
+60 分を超えてはならない。
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L1-007
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: トークン失効
+STATEMENT: >>>
+認証サーバは発行済アクセストークンを取り消す API を提供すること。
+失効後のトークンを用いたアクセスは即座に拒否すること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L2 — ECU ソフトウェア要求 (ECU Software Requirements)
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L2-001
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: ゲートウェイ ECU の認証エンドポイント
+STATEMENT: >>>
+ゲートウェイ ECU は HTTPS POST /auth/token エンドポイントを実装し、
+OAuth 2.0 Token Request を受け付けること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-001
+
+[REQUIREMENT]
+UID: AUTH-L2-002
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: JWT 検証ライブラリの組込み
+STATEMENT: >>>
+ゲートウェイ ECU は RFC 7519 準拠の JWT 検証ライブラリを組込み、
+受信トークンの署名・有効期限・スコープを検証すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-002
+
+[REQUIREMENT]
+UID: AUTH-L2-003
+TYPE: Functional
+ASIL: B
+LAYER: L2_ECU_SW
+TITLE: 権限スコープのチェックポイント
+STATEMENT: >>>
+診断 API ハンドラは、 リクエスト処理前にアクセストークンのスコープを
+チェックし、 必要スコープを含まない場合は HTTP 403 を返すこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-003
+
+[REQUIREMENT]
+UID: AUTH-L2-004
+TYPE: Functional
+ASIL: B
+LAYER: L2_ECU_SW
+TITLE: TLS 終端処理
+STATEMENT: >>>
+ゲートウェイ ECU は外部 IF で TLS 1.3 終端を行い、 内部車載ネットワーク
+(CAN/Ethernet) へは平文転送する場合でも、 認証コンテキストを内部メッセージに付与すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-004
+
+[REQUIREMENT]
+UID: AUTH-L2-005
+TYPE: Functional
+ASIL: B
+LAYER: L2_ECU_SW
+TITLE: クライアント証明書ストア
+STATEMENT: >>>
+ゲートウェイ ECU は信頼するクライアント CA の証明書チェーンを
+保管する不揮発領域を持ち、 起動時に整合性を検証すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-005
+
+[REQUIREMENT]
+UID: AUTH-L2-006
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: 認証処理レイテンシ
+STATEMENT: >>>
+トークン検証 + スコープチェックの合計レイテンシは 50 ms 以内とすること。
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L2-007
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: 失効リスト同期
+STATEMENT: >>>
+ゲートウェイ ECU は車両起動時および 1 時間ごとに OEM 認証サーバから
+失効トークンリストを取得し、 ローカルキャッシュを更新すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-007
+
+[REQUIREMENT]
+UID: AUTH-L2-008
+TYPE: Constraint
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: 認証ログ保管
+STATEMENT: >>>
+すべての認証試行 (成功・失敗) はゲートウェイ ECU 内 NVRAM に
+最低 30 日間ログ保管すること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L3 — ユニット (ソフトウェアコンポーネント) 要求
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L3-001
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: TokenVerifier ユニット
+STATEMENT: >>>
+TokenVerifier ユニットは JWT 文字列を入力として受け取り、
+署名検証・期限チェック・claim 解析の結果を返す純粋関数として実装すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L2-002
+
+[REQUIREMENT]
+UID: AUTH-L3-002
+TYPE: Functional
+ASIL: B
+LAYER: L3_Unit
+TITLE: ScopeAuthorizer ユニット
+STATEMENT: >>>
+ScopeAuthorizer ユニットは (required_scope, token_scopes) を入力に
+許可・拒否を返す。 拒否時は理由コード (insufficient_scope / expired 等) も返す。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L2-003
+
+[REQUIREMENT]
+UID: AUTH-L3-003
+TYPE: Functional
+ASIL: B
+LAYER: L3_Unit
+TITLE: TlsTerminator ユニット
+STATEMENT: >>>
+TlsTerminator ユニットは OpenSSL ベースの TLS 終端を提供。 起動時に
+信頼ストアを load し、 ハンドシェイク失敗を上位にイベント通知する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L2-004
+
+[REQUIREMENT]
+UID: AUTH-L3-004
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: TokenCache ユニットの容量
+STATEMENT: >>>
+TokenCache ユニットは最大 1024 件の検証済トークンを LRU で保持し、
+メモリ使用量は 256 KB 以内とすること。
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L3-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L3_Unit
+TITLE: ライブラリ依存制限
+STATEMENT: >>>
+認証関連ユニットは Misra C:2012 準拠の C 言語で実装し、
+外部依存は OpenSSL / cJSON のみとすること。
+<<<

@@ -12,7 +12,8 @@ A collection of utility tools by GoodRelax designed to enhance development workf
 [🗺️ grtm2cd](./grtm2cd/)&nbsp;&nbsp;  
 [🖼️ gr-svg-extractor](./gr-svg-extractor/)&nbsp;&nbsp;  
 [📂 js_renamer](./js_renamer/)&nbsp;&nbsp;  
-[📂 cat_files](./cat_files/)&nbsp;&nbsp;
+[📂 cat_files](./cat_files/)&nbsp;&nbsp;  
+[🚀 StrictDocStarter](./StrictDocStarter/)&nbsp;&nbsp;
 
 <br>
 
@@ -107,6 +108,25 @@ A CLI tool that merges multiple source code or log files into a single document 
 
 [Go to cat_files >](./cat_files/)
 
+<br>
+
+### [🚀 StrictDocStarter](./StrictDocStarter/)
+
+#### Overview
+
+**StrictDoc Development Environment Starter Kit**
+A one-click installer that sets up a clean Windows 11 PC with the full StrictDoc + Claude Code development environment in under 30 minutes. Installs Git, Python, GitHub CLI, StrictDoc, VS Code + the Claude Code extension, plus optional tools (Obsidian, Windows Terminal, PowerShell 7, ripgrep, jq). Includes UAC self-elevation, Mark-of-the-Web handling, idempotent re-runs, two-stage install verification, and a built-in 5-scenario test suite.
+
+#### Platform / Requirements
+
+- Windows 11 + winget (built-in)
+- Administrator privileges (UAC self-elevation)
+- Internet connection (for winget / pip / git downloads)
+
+#### Details
+
+[Go to StrictDocStarter >](./StrictDocStarter/)
+
 ## <br>
 
 ## Japanese Description
@@ -198,6 +218,25 @@ HTMLファイル内に埋め込まれたJavaScriptの変数や関数名を、AST
 #### 詳細
 
 [cat_files のフォルダへ >](./cat_files/)
+
+<br>
+
+### [🚀 StrictDocStarter](./StrictDocStarter/)
+
+#### 概要
+
+**StrictDoc 開発環境スターターキット**
+クリーンな Windows 11 PC に、 StrictDoc + Claude Code の開発環境を 30 分以内に一発セットアップするツール。 Git / Python / GitHub CLI / StrictDoc / VS Code + Claude Code 拡張、 + 任意ツール (Obsidian / Windows Terminal / PowerShell 7 / ripgrep / jq) を winget / pip で自動導入します。 UAC 自昇格、 Mark-of-the-Web 対策、 冪等な再実行、 二段防御 install 検証、 5 シナリオ自動テスト同梱。
+
+#### 動作環境 / 必須要件
+
+- Windows 11 + winget (標準搭載)
+- 管理者権限 (UAC で自己昇格)
+- インターネット接続 (winget / pip / git ダウンロード用)
+
+#### 詳細
+
+[StrictDocStarter のフォルダへ >](./StrictDocStarter/)
 
 <br>
 

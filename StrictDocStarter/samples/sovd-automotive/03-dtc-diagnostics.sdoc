@@ -1,0 +1,370 @@
+[DOCUMENT]
+TITLE: SOVD DTC and Diagnostic Trouble Codes Requirements
+
+[GRAMMAR]
+ELEMENTS:
+- TAG: REQUIREMENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TYPE
+    TYPE: SingleChoice(Functional, Non-Functional, Constraint, Restriction, UseCase)
+    REQUIRED: True
+  - TITLE: ASIL
+    TYPE: SingleChoice(QM, A, B, C, D)
+    REQUIRED: True
+  - TITLE: LAYER
+    TYPE: SingleChoice(L0_Stakeholder, L1_System, L2_ECU_SW, L3_Unit)
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RATIONALE
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+  - TYPE: Child
+
+[TEXT]
+STATEMENT: >>>
+診断トラブルコード (DTC) ・フリーズフレーム・スナップショットの読出・クリア要求。
+ISO 14229 (UDS) 0x19 系サービスを SOVD でラップ。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L0 - ステークホルダ要求
+<<<
+
+[REQUIREMENT]
+UID: DTC-L0-001
+TYPE: UseCase
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 故障コード一覧の取得
+STATEMENT: >>>
+整備士は車両に記録された全 DTC (Diagnostic Trouble Code) 一覧を、
+ステータスマスクとともに取得できること。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L0-002
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: フリーズフレームデータの取得
+STATEMENT: >>>
+DTC 発生時刻のスナップショット (フリーズフレーム) を取得できること。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L0-003
+TYPE: Functional
+ASIL: B
+LAYER: L0_Stakeholder
+TITLE: DTC のクリア
+STATEMENT: >>>
+整備士は修理完了後に対象 DTC をクリアできること。 ただし安全関連 DTC は
+追加権限を要する。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L0-004
+TYPE: Restriction
+ASIL: C
+LAYER: L0_Stakeholder
+TITLE: 走行中の DTC クリア禁止
+STATEMENT: >>>
+車両速度が 0 km/h でない場合、 DTC クリア要求は拒否すること。
+<<<
+RATIONALE: >>>
+誤って ASIL 関連 DTC を消すと走行中の機能安全評価に影響するため。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L0-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: ISO 14229 準拠
+STATEMENT: >>>
+DTC 機能は ISO 14229-1 (UDS) Service 0x19 (ReadDTCInformation) および
+0x14 (ClearDiagnosticInformation) のセマンティクスを保つこと。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L1 - システム要求
+<<<
+
+[REQUIREMENT]
+UID: DTC-L1-001
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: DTC リスト取得 API
+STATEMENT: >>>
+車両は GET /vehicle/dtc エンドポイントを提供し、 ステータスマスク
+(active/pending/confirmed/permanent) でフィルタ可能とする。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-001
+
+[REQUIREMENT]
+UID: DTC-L1-002
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: フリーズフレーム取得 API
+STATEMENT: >>>
+GET /vehicle/dtc/{dtc_code}/freeze-frame で、 指定 DTC のフリーズフレーム
+(発生時の DID 値スナップショット) を JSON で返却すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-002
+
+[REQUIREMENT]
+UID: DTC-L1-003
+TYPE: Functional
+ASIL: B
+LAYER: L1_System
+TITLE: DTC クリア API
+STATEMENT: >>>
+DELETE /vehicle/dtc/{dtc_code} で DTC をクリアできること。 認証スコープ
+'write:dtc' を要求する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
+
+[REQUIREMENT]
+UID: DTC-L1-004
+TYPE: Functional
+ASIL: C
+LAYER: L1_System
+TITLE: 車速ゼロチェック
+STATEMENT: >>>
+DELETE 要求受信時、 車両ゲートウェイは現在の車速 (DID 0xF40D) を
+読み出し、 0 km/h でなければ HTTP 409 Conflict を返すこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-004
+
+[REQUIREMENT]
+UID: DTC-L1-005
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: 全 DTC クリア API
+STATEMENT: >>>
+DELETE /vehicle/dtc で全 DTC を一括クリアできること (車速ゼロ条件は L1-004 と同じ)。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L1-006
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: DTC レスポンス時間
+STATEMENT: >>>
+DTC リスト取得は 95 パーセンタイルで 1 秒以内に応答すること。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L1-007
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: DTC スナップショット履歴
+STATEMENT: >>>
+車両は過去 24 時間分の DTC 発生履歴を最低 100 件保持し、 GET /vehicle/dtc/history
+で取得できること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L2 - ECU ソフトウェア要求
+<<<
+
+[REQUIREMENT]
+UID: DTC-L2-001
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: UDS 0x19 ReadDTCInformation ブリッジ
+STATEMENT: >>>
+ゲートウェイ ECU は SOVD GET /vehicle/dtc 要求を受けると、 担当 ECU 群に
+UDS Service 0x19 SubFunction 0x02 (reportDTCByStatusMask) を発行し、
+結果を集約して JSON で返却すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-001
+
+[REQUIREMENT]
+UID: DTC-L2-002
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: フリーズフレーム取得
+STATEMENT: >>>
+ゲートウェイは UDS 0x19 SubFunction 0x04 (reportDTCSnapshotRecordByDTCNumber)
+を用いてフリーズフレームを取得すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-002
+
+[REQUIREMENT]
+UID: DTC-L2-003
+TYPE: Functional
+ASIL: B
+LAYER: L2_ECU_SW
+TITLE: UDS 0x14 ClearDiagnosticInformation
+STATEMENT: >>>
+DTC クリア要求は UDS Service 0x14 でターゲット ECU に対して発行すること。
+発行前に車速チェック (L2-004) を必ず実行する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-003
+
+[REQUIREMENT]
+UID: DTC-L2-004
+TYPE: Functional
+ASIL: C
+LAYER: L2_ECU_SW
+TITLE: VehicleSpeedGuard
+STATEMENT: >>>
+ゲートウェイは VehicleSpeedGuard ミドルウェアを実装し、 全 DTC クリア要求の前に
+車速 == 0 を 100 ms 以内に検証すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-004
+
+[REQUIREMENT]
+UID: DTC-L2-005
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: DTC マスタテーブル
+STATEMENT: >>>
+ゲートウェイは OEM 提供の DTC マスタテーブル (DTC コード -> 説明 / 推奨対処)
+を NVRAM に保持し、 API レスポンスに同梱すること。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L2-006
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: DTC 履歴循環バッファ
+STATEMENT: >>>
+ゲートウェイ ECU は最大 1024 件の DTC 履歴を循環バッファで保持。
+タイムスタンプ + DTC + status mask を 1 エントリとする。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-007
+
+[REQUIREMENT]
+UID: DTC-L2-007
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: UDS タイムアウト
+STATEMENT: >>>
+UDS 要求の P2 タイムアウトは 50 ms、 P2* タイムアウトは 500 ms を採用すること。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L2-008
+TYPE: Constraint
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: NRC ハンドリング
+STATEMENT: >>>
+UDS Negative Response Code (NRC) を受けたら、 SOVD クライアントには
+HTTP 502 + JSON ボディに NRC コードを含めて返すこと。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## L3 - ユニット要求
+<<<
+
+[REQUIREMENT]
+UID: DTC-L3-001
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: DtcParser ユニット
+STATEMENT: >>>
+DtcParser ユニットは UDS 0x19 のバイナリ応答を解析し、 (dtc_code, status_byte)
+のリストを返すこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-001
+
+[REQUIREMENT]
+UID: DTC-L3-002
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: FreezeFrameDecoder ユニット
+STATEMENT: >>>
+FreezeFrameDecoder ユニットは UDS 0x19/0x04 のフリーズフレーム
+バイナリペイロードを (did, value) のリストに変換すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-002
+
+[REQUIREMENT]
+UID: DTC-L3-003
+TYPE: Functional
+ASIL: C
+LAYER: L3_Unit
+TITLE: SpeedReader ユニット
+STATEMENT: >>>
+SpeedReader ユニットは ASIL C 認定のリアルタイムタスクとして実装し、
+DID 0xF40D を毎 10 ms 周期で更新、 最新値を const アクセスで提供すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-004
+
+[REQUIREMENT]
+UID: DTC-L3-004
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: DtcHistoryBuffer ユニット
+STATEMENT: >>>
+DtcHistoryBuffer ユニットはロックフリーリングバッファ (Single Producer
+Multiple Consumer) として実装、 サイズ 1024 を NVRAM 上に確保すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-006
+
+[REQUIREMENT]
+UID: DTC-L3-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L3_Unit
+TITLE: NVRAM 摩耗保護
+STATEMENT: >>>
+DTC 履歴の NVRAM 書込は wear-leveling アルゴリズム (例: log-structured)
+を採用し、 同一セクタへの連続書込を避けること。
+<<<
