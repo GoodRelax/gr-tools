@@ -113,6 +113,33 @@ STATEMENT: >>>
 <<<
 
 [[SECTION]]
+TITLE: 0. 最上位要求 (System Goal)
+
+[TEXT]
+STATEMENT: >>>
+本システムの存在意義を 1 つの最上位要求として定義する。 以下の 4 つのユースケース
+(UC1 認証 / UC2 データ / UC3 DTC / UC4 OTA) は、 すべてこの最上位要求 SYS-L0-001 を
+実現するために存在し、 Parent 関係で SYS-L0-001 へ収束する (4→1)。
+<<<
+
+[REQUIREMENT]
+UID: SYS-L0-001
+TYPE: UseCase
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 認可された関係者による車両の遠隔診断・更新
+STATEMENT: >>>
+本システム (SOVD 遠隔診断システム) は、 整備士・OEM エンジニア・フリート運用者が、
+認可された範囲で対象車両を遠隔から安全に診断・更新できる統合的な仕組みを提供すること。
+<<<
+VERIFICATION: >>>
+4 つの主要ユースケース (認証付きアクセス・データ読取・DTC 診断・OTA 更新) が認可された
+関係者により遠隔で実行でき、 未認可のアクセスは拒否されること。
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
 TITLE: UC1 認証・認可 (Authentication & Authorization)
 
 [TEXT]
@@ -139,6 +166,9 @@ VERIFICATION: >>>
 認証済みクライアントで診断リソースの GET が HTTP 200 を返し、 対象データが
 取得できること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
 
 [REQUIREMENT]
 UID: AUTH-L0-002
@@ -243,6 +273,9 @@ STATEMENT: >>>
 VERIFICATION: >>>
 認可されたクライアントで代表的な DID 群が取得でき、 未認可の項目は返らないこと。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
 
 [REQUIREMENT]
 UID: DATA-L0-002
@@ -331,6 +364,9 @@ STATEMENT: >>>
 VERIFICATION: >>>
 代表的な DTC が、 status (active/pending/confirmed/permanent) 付きで取得できること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
 
 [REQUIREMENT]
 UID: DTC-L0-002
@@ -421,6 +457,9 @@ VERIFICATION: >>>
 署名付きパッケージの配信 → 適用 → 進捗確認が一連で行え、 適用後に新バージョンで
 起動すること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
 
 [REQUIREMENT]
 UID: SWU-L0-002
