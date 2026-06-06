@@ -28,11 +28,15 @@ def create_config() -> ProjectConfig:
             "TRACEABILITY_SCREEN",
             "DEEP_TRACEABILITY_SCREEN",
             "SEARCH",
-            # Stable. Enabled for the math in 05-notation-rst.sdoc (.. math::).
+            # Stable. Enabled for the math (.. math:: / :math:) in 01-auth.sdoc.
             "MATHJAX",
-            # Experimental. Enabled so Mermaid diagrams render: RST raw-html
-            # <pre class="mermaid"> (all versions) and, on strictdoc 0.23.0+,
-            # Markdown ```mermaid fences (see 05-/06-notation-*.sdoc).
+            # Experimental. Mermaid diagrams: RST raw-html <pre class="mermaid">
+            # (all versions, used in 00-04/06) and Markdown ```mermaid fences
+            # (strictdoc 0.23.0+, used in 90-appendix-notation.sdoc).
             "MERMAID",
+            # Experimental. Requirement x design/test coverage matrix screen.
+            # Surfaces which requirements are implemented/verified and their test
+            # results across the V-model (Implements/Satisfies/Verifies/ResultOf).
+            "TRACEABILITY_MATRIX_SCREEN",
         ],
     )

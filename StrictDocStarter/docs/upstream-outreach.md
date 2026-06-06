@@ -91,3 +91,22 @@ maintainer は雑な物にはリンクしない。最低限：
 - スコープ・設計判断: [`improvement-items.md`](improvement-items.md)（**D-5** 公式委譲、**O-1/O-4** 版テスト、**D-9** サンプル）
 - companion レベル整理: **L1**=自 repo のまま / **L2**=org 傘下の別 repo（任意・打診） / **L3**=本体パッケージへ merge（やらない）
 - 仕様: [`serve-spec.md`](serve-spec.md) / [`setup-spec.md`](setup-spec.md)（v1.1・可視ウィンドウ方式）
+
+---
+
+## 6. 候補コントリビューション #1: ダークモード対応 (prefers-color-scheme) — PR は後日
+
+- 記録日: 2026-06-07。きっかけ: サンプル閲覧時、ブラウザがダークでも StrictDoc 出力が白くまぶしい。
+- 現状確認 (2026-06-07): StrictDoc 0.23.1 に **ダークモード/テーマ切替/カスタムCSS注入の設定は無い**（インストール済みコード・公式 user guide で確認）。GitHub issues にも dark mode/theme/color-scheme の **issue/PR は無し**。配色は `export/html/_static/base.css` の `:root` に **CSS 変数で集約済み**。
+- **推奨アプローチ（最もマージされやすい）**: `base.css` に **`@media (prefers-color-scheme: dark) { :root { …色変数を上書き… } }` を1ブロック追加するだけ**。JS/UI/設定/依存を増やさず、既存の `:root` 変数設計に素直に乗る。ライト派に無影響（OS/ブラウザがダークの時だけ発動）。Web 標準・アクセシビリティ的にも推奨。
+  - 不採用: 🌓トグルボタン案（JS+UI+localStorage＝レビュー摩擦が高い）。欲しい人向けの後続に回す。
+  - 後続（任意の追PR）: Mermaid を `mermaid.initialize({theme})` で prefers-color-scheme 連動、Pygments のダーク配色。
+- 進め方: 本件は **Phase 1「手土産 docs/feature PR」候補として最適**（自己宣伝でなくエコシステム貢献として認知される）。まず issue で意図共有 → 小さな `base.css` PR。**merge されれば StrictDocStarter 側はパッチ不要＝D-5（公式委譲）に完全合致**。
+- 用意できる素材: (a) issue 文面ドラフト / (b) `base.css` 用の完成版 `@media` ダークCSS / (c) 本メモ。← (b) は手元 PoC 済みの色変数あり。
+- **ステータス: PR は後日**（本メモに記録のみ）。
+
+### PR 受理までの暫定対策
+
+- **採用（推奨）: README/docs に「ダークモードで見るには」節を追記**（実施済 2026-06-07, README）し、ユーザー各自が **(1) ブラウザ標準の強制ダーク（拡張不要）**＝Edge: `edge://flags/#enable-force-dark` / Chrome: `chrome://flags/#enable-force-dark` の "Auto Dark Mode for Web Contents" を Enabled、または **(2) Dark Reader 拡張**（1クリックでサイト単位トグル）で切り替える、と案内する。注意: ブラウザ「設定→外観」のダークは UI のみ・Web ページは暗くならない。フラグは実験的（一律反転で崩れうる）。
+  - 理由: **StrictDoc を一切改変しない** → 上流PRが入ったら注記を消すだけ（**後始末ゼロ・前方互換**）。各ユーザーが好みで ON/OFF。「暫定なのに小さなフォークを保守」になるのを避ける（D-5 合致）。
+- **不採用（重い）: manage-strictdoc 起動時に `base.css` へ同じ `@media` を自動注入**（OS追従ダークをツール内で即実現できるが、site-packages 改変・`pip upgrade` で再注入要・PR後に重複/不要）。拡張なしの自動ダークがどうしても要る場合のみ検討。

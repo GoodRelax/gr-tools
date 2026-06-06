@@ -1,55 +1,45 @@
 [DOCUMENT]
-TITLE: SOVD Vehicle Data Access Requirements
+TITLE: SOVD 車両データアクセス 要求仕様 (Vehicle Data Access)
 
 [GRAMMAR]
-ELEMENTS:
-- TAG: REQUIREMENT
-  FIELDS:
-  - TITLE: UID
-    TYPE: String
-    REQUIRED: True
-  - TITLE: TYPE
-    TYPE: SingleChoice(Functional, Non-Functional, Constraint, Restriction, UseCase)
-    REQUIRED: True
-  - TITLE: ASIL
-    TYPE: SingleChoice(QM, A, B, C, D)
-    REQUIRED: True
-  - TITLE: LAYER
-    TYPE: SingleChoice(L0_Stakeholder, L1_System, L2_ECU_SW, L3_Unit)
-    REQUIRED: True
-  - TITLE: TITLE
-    TYPE: String
-    REQUIRED: True
-  - TITLE: STATEMENT
-    TYPE: String
-    REQUIRED: True
-  - TITLE: RATIONALE
-    TYPE: String
-    REQUIRED: False
-  RELATIONS:
-  - TYPE: Parent
-  - TYPE: Child
+IMPORT_FROM_FILE: sovd-grammar.sgra
 
 [TEXT]
 STATEMENT: >>>
-車両データ識別子 (DID) ・周期データ・スナップショット・バルクダウンロードの
-読み出し要求。 認証要求は 01-auth.sdoc を前提とする。
+本書は SOVD の **車両データアクセス** (DID 読み出し・周期データ・スナップショット・
+バルク転送) の要求を L0→L3 で定義する。 共有の前付け (背景ストーリー・用語・表記規約・
+ASIL/CAL の使い分け) は `00-overview.sdoc` を参照。 認証・認可は `01-auth.sdoc` を前提とする。
+
+データ読み出しは安全機能ではないため原則 **ASIL=QM**。 ただし「誰がどのデータを読めるか」
+の **アクセス制御はセキュリティ事項** なので、 該当要求には **CAL** を付与する。
 <<<
 
+[[SECTION]]
+TITLE: L0 — ステークホルダ要求 (Stakeholder Requirements)
+
 [TEXT]
 STATEMENT: >>>
-## L0 - ステークホルダ要求
+**ストーリー:** 「最近燃費が悪い」「警告灯が点いた」というとき、 昔は車を工場へ入れ、
+整備士が OBD ポートに有線で診断機をつないで、 走行距離・バッテリ電圧・各 ECU 温度などの
+車両データを読み出して状態を確認した。 SOVD ではこれを **遠隔で**、 かつ **認可された
+範囲だけ** 安全に読めるようにする。 本章はその「車両データ読み出し」のステークホルダ
+要求を定義する。
 <<<
 
 [REQUIREMENT]
 UID: DATA-L0-001
 TYPE: UseCase
 ASIL: QM
+CAL: CAL2
 LAYER: L0_Stakeholder
-TITLE: 車両状態データの読み取り
+TITLE: 車両状態データの遠隔読み取り
 STATEMENT: >>>
-整備士は車両の現在状態 (走行距離、 バッテリ電圧、 各 ECU 温度等) を
-SOVD クライアントで読み取れること。
+整備士や OEM エンジニアが遠隔の SOVD クライアントから車両の現在状態 (走行距離・
+バッテリ電圧・各 ECU 温度等) の取得を要求したとき、 本システムは認可された範囲で
+そのデータを返すこと。
+<<<
+VERIFICATION: >>>
+認可されたクライアントで代表的な DID 群が取得でき、 未認可の項目は返らないこと。
 <<<
 
 [REQUIREMENT]
@@ -59,8 +49,12 @@ ASIL: QM
 LAYER: L0_Stakeholder
 TITLE: 周期的なデータサンプリング
 STATEMENT: >>>
-ユーザは指定した DID リストを 100 ms 〜 60 s の周期で連続取得できること。
+本システムは、 利用者が指定した DID リストを 100 ms 〜 60 s の周期で連続取得できる
+ようにすること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
 
 [REQUIREMENT]
 UID: DATA-L0-003
@@ -69,35 +63,70 @@ ASIL: QM
 LAYER: L0_Stakeholder
 TITLE: スナップショットの一括取得
 STATEMENT: >>>
-ユーザは特定時刻における車両の全 DID 値スナップショットを 1 トランザクションで
-取得できること。
+本システムは、 特定時刻における車両の全 DID 値スナップショットを 1 トランザクションで
+取得できるようにすること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
 
 [REQUIREMENT]
 UID: DATA-L0-004
 TYPE: Non-Functional
 ASIL: QM
 LAYER: L0_Stakeholder
-TITLE: 大量データ転送
+TITLE: 大量データの中断・再開可能な転送
 STATEMENT: >>>
-ロギングデータや録画フレーム等の数百 MB 規模のデータも、 中断・再開可能な方式で
-転送できること。
+本システムは、 ロギングデータや録画フレーム等の数百 MB 規模のデータを、 中断・再開
+可能な方式で転送できること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
 
 [REQUIREMENT]
 UID: DATA-L0-005
 TYPE: Restriction
-ASIL: B
+ASIL: QM
+CAL: CAL3
 LAYER: L0_Stakeholder
-TITLE: 書き込み権限の分離
+TITLE: 読み出し権限と書き込み権限の分離
 STATEMENT: >>>
-読み出しトークンでは DID 値の書き込み (writeDataByIdentifier 相当) は
-一切できないこと。 読み出しと書き込みは別スコープで管理する。
+もし読み出し専用トークンで DID 値の書き込み (writeDataByIdentifier 相当) が要求された
+場合、 本システムはこれを拒否すること。
 <<<
+RATIONALE: >>>
+読み出しと書き込みを別スコープで管理し、 誤書込・悪用を防ぐ。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: L1 — システム要求 (System Requirements)
 
 [TEXT]
 STATEMENT: >>>
-## L1 - システム要求
+**L1 代表シーケンス: DID 読み出しの SOVD↔UDS 変換**
+
+クライアントの SOVD (HTTP) 要求を、 ゲートウェイがスコープ検証のうえ UDS
+ReadDataByIdentifier に変換し、 結果を JSON で返す。
+
+.. raw:: html
+
+    <pre class="mermaid">
+    sequenceDiagram
+        participant C as SOVD Client
+        participant G as Gateway ECU
+        participant E as Engine ECU
+        C->>G: GET /components/engine/data/rpm (Bearer JWT)
+        G->>G: verify scope read:did / resolve DID 0xF40C
+        G->>E: UDS ReadDataByIdentifier (0x22 F40C)
+        E-->>G: 0x62 F40C 0338
+        G-->>C: 200 OK {"rpm": 824}
+    </pre>
 <<<
 
 [REQUIREMENT]
@@ -107,8 +136,8 @@ ASIL: QM
 LAYER: L1_System
 TITLE: DID ベースのデータ識別
 STATEMENT: >>>
-全車両データは 16-bit DID (Data Identifier) で識別され、 SOVD API を介して
-GET /vehicle/data/{did_hex} で取得できること。
+車両は、 全車両データを 16-bit DID (Data Identifier) で識別し、 SOVD API
+(GET /components/{ecu}/data/{did}) で取得できるようにすること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -121,8 +150,8 @@ ASIL: QM
 LAYER: L1_System
 TITLE: 周期データストリーム
 STATEMENT: >>>
-クライアントは Server-Sent Events または WebSocket で複数 DID を購読し、
-車両ゲートウェイから周期的にプッシュ受信できること。
+クライアントが複数 DID を購読したとき、 車両は Server-Sent Events または WebSocket で
+周期的にプッシュ配信すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -135,8 +164,8 @@ ASIL: QM
 LAYER: L1_System
 TITLE: バルクダウンロード API
 STATEMENT: >>>
-車両は POST /vehicle/data/bulk エンドポイントを提供し、 HTTP Range ヘッダによる
-レジューム可能ダウンロードをサポートすること。
+車両は、 HTTP Range ヘッダによるレジューム可能なバルクダウンロード API を
+提供すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -144,14 +173,17 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: DATA-L1-004
-TYPE: Functional
+TYPE: Constraint
 ASIL: QM
 LAYER: L1_System
 TITLE: JSON ペイロード形式
 STATEMENT: >>>
-DID 値の応答は JSON で返却し、 スキーマは ASAM SOVD 仕様 Part 2 (Data Model)
-に準拠すること。
+車両が返す DID 値の応答は、 JSON 形式とし、 スキーマは ASAM SOVD 仕様 Part 2
+(Data Model) に準拠すること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
 
 [REQUIREMENT]
 UID: DATA-L1-005
@@ -160,18 +192,28 @@ ASIL: QM
 LAYER: L1_System
 TITLE: 読み出しレイテンシ
 STATEMENT: >>>
-単一 DID 読み出しのレスポンス時間は 95 パーセンタイルで 500 ms 以内。
+車両の単一 DID 読み出しの応答時間は、 95 パーセンタイルで 500 ms 以内であること。
 <<<
+VERIFICATION: >>>
+代表負荷下で、 単一 DID の GET 応答の p95 が 500 ms 以内であること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-001
 
 [REQUIREMENT]
 UID: DATA-L1-006
 TYPE: Functional
-ASIL: B
+ASIL: QM
+CAL: CAL3
 LAYER: L1_System
 TITLE: スコープによるデータマスキング
 STATEMENT: >>>
-個人情報を含む DID (オーナー氏名等) は OEMEngineer ロールのみアクセス可、
-Mechanic ロールには HTTP 403 を返すこと。
+もし個人情報を含む DID (オーナー氏名等) へ Mechanic ロールがアクセスした場合、
+車両は HTTP 403 を返すこと (OEMEngineer ロールのみアクセス可)。
+<<<
+RATIONALE: >>>
+個人情報の保護。 役割に応じた最小権限を徹底する。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -182,25 +224,26 @@ UID: DATA-L1-007
 TYPE: Constraint
 ASIL: QM
 LAYER: L1_System
-TITLE: ASAM SOVD 準拠
+TITLE: ASAM SOVD データモデル準拠
 STATEMENT: >>>
-データアクセス API は ASAM SOVD v1.0 Part 2 のデータ識別子モデルに準拠すること。
+車両のデータアクセス API は、 ASAM SOVD v1.0 Part 2 のデータ識別子モデルに
+準拠すること。
 <<<
 
-[TEXT]
-STATEMENT: >>>
-## L2 - ECU ソフトウェア要求
-<<<
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: L2 — ECU ソフトウェア要求 (ECU Software Requirements)
 
 [REQUIREMENT]
 UID: DATA-L2-001
 TYPE: Functional
 ASIL: QM
 LAYER: L2_ECU_SW
-TITLE: DID Resolver
+TITLE: DID リゾルバ
 STATEMENT: >>>
-ゲートウェイ ECU は DID から物理 ECU (CAN node) へのマッピングテーブルを保持し、
-受信した DID 番号を担当 ECU へルーティングすること。
+ゲートウェイ ECU は、 DID から物理 ECU (CAN node) へのマッピングテーブルを保持し、
+受信した DID を担当 ECU へルーティングすること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -213,7 +256,7 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: UDS ReadDataByIdentifier ブリッジ
 STATEMENT: >>>
-ゲートウェイ ECU は SOVD GET 要求を受信したら、 担当 ECU に対して UDS
+SOVD GET 要求を受信したとき、 ゲートウェイ ECU は担当 ECU へ UDS
 ReadDataByIdentifier (0x22) を送信し、 応答を JSON に変換して返すこと。
 <<<
 RELATIONS:
@@ -222,13 +265,13 @@ RELATIONS:
 
 [REQUIREMENT]
 UID: DATA-L2-003
-TYPE: Functional
+TYPE: Non-Functional
 ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: 周期データキャッシュ
 STATEMENT: >>>
-頻繁にアクセスされる DID 値は 100 ms TTL の LRU キャッシュに保持し、
-ECU 通信回数を削減すること。
+ゲートウェイ ECU は、 頻繁にアクセスされる DID 値を 100 ms TTL の LRU キャッシュに
+保持し、 ECU 通信回数を削減すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -241,8 +284,8 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: WebSocket サブスクリプション
 STATEMENT: >>>
-ゲートウェイ ECU は WebSocket /vehicle/data/stream エンドポイントを提供し、
-クライアント当たり最大 32 DID の同時購読を許容すること。
+ゲートウェイ ECU は WebSocket エンドポイントを提供し、 クライアント当たり最大
+32 DID の同時購読を許容すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -255,7 +298,7 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: バルクデータ圧縮
 STATEMENT: >>>
-バルクダウンロード時、 サーバは Content-Encoding: gzip による圧縮転送を
+バルクダウンロード時、 ゲートウェイ ECU は Content-Encoding: gzip による圧縮転送を
 サポートすること。
 <<<
 RELATIONS:
@@ -265,12 +308,13 @@ RELATIONS:
 [REQUIREMENT]
 UID: DATA-L2-006
 TYPE: Functional
-ASIL: B
+ASIL: QM
+CAL: CAL3
 LAYER: L2_ECU_SW
 TITLE: スコープ評価ミドルウェア
 STATEMENT: >>>
-各 DID にはアクセス可能スコープを記したメタデータが付随し、 リクエスト処理時に
-ScopeAuthorizer (AUTH-L3-002) でチェックすること。
+ゲートウェイ ECU は、 各 DID にアクセス可能スコープのメタデータを付随させ、
+リクエスト処理時に ScopeAuthorizer (PLAT-L3-002) でチェックすること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -283,52 +327,44 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: メモリ使用上限
 STATEMENT: >>>
-データアクセス機能全体のヒープ使用量は 4 MB 以内とすること。
+ゲートウェイ ECU のデータアクセス機能全体のヒープ使用量は、 4 MB 以内とすること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L2-002
 
 [REQUIREMENT]
 UID: DATA-L2-008
 TYPE: Constraint
 ASIL: QM
 LAYER: L2_ECU_SW
-TITLE: スレッドモデル
+TITLE: ノンブロッキング I/O スレッドモデル
 STATEMENT: >>>
-データ取得はノンブロッキング I/O (epoll 系) で実装し、 同時 100 接続を
-シングルスレッドで処理可能とすること。
+ゲートウェイ ECU のデータ取得はノンブロッキング I/O (epoll 系) で実装し、 同時
+100 接続をシングルスレッドで処理可能とすること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-005
 
-[TEXT]
-STATEMENT: >>>
-## L3 - ユニット要求
-<<<
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: L3 — ユニット要求 (Unit / Software Component Requirements)
 
 [REQUIREMENT]
 UID: DATA-L3-001
 TYPE: Functional
 ASIL: QM
 LAYER: L3_Unit
-TITLE: DidResolverTable ユニット
+TITLE: DidResolver ユニット
 STATEMENT: >>>
-DidResolverTable は (did_number) -> (ecu_address, parameter_layout) の
-マッピング検索を O(1) で行うハッシュテーブル実装とすること。
+DidResolver ユニットは、 (did_number) → (ecu_address, parameter_layout) の
+マッピング検索を O(1) のハッシュテーブルで行うこと。
 <<<
 RELATIONS:
 - TYPE: Parent
   VALUE: DATA-L2-001
-
-[REQUIREMENT]
-UID: DATA-L3-002
-TYPE: Functional
-ASIL: QM
-LAYER: L3_Unit
-TITLE: UdsClient ユニット
-STATEMENT: >>>
-UdsClient ユニットは ISO 14229-1 準拠の UDS フレーム送受信を担当し、
-タイムアウト・リトライ・NRC ハンドリングを提供すること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DATA-L2-002
 
 [REQUIREMENT]
 UID: DATA-L3-003
@@ -337,34 +373,25 @@ ASIL: QM
 LAYER: L3_Unit
 TITLE: DataCache ユニット
 STATEMENT: >>>
-DataCache ユニットは LRU + TTL ベースのキャッシュを提供。 容量・TTL は
-コンストラクタ引数で設定可能とする。
+DataCache ユニットは、 LRU + TTL ベースのキャッシュを提供し、 容量・TTL を
+コンストラクタ引数で設定可能とすること。
 <<<
 RELATIONS:
 - TYPE: Parent
   VALUE: DATA-L2-003
 
 [REQUIREMENT]
-UID: DATA-L3-004
-TYPE: Functional
-ASIL: QM
-LAYER: L3_Unit
-TITLE: JsonSerializer ユニット
-STATEMENT: >>>
-JsonSerializer ユニットは DID 値 (整数・浮動小数・文字列・バイト列) を
-ASAM SOVD JSON 形式に変換すること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DATA-L1-004
-
-[REQUIREMENT]
 UID: DATA-L3-005
 TYPE: Constraint
 ASIL: QM
 LAYER: L3_Unit
-TITLE: 浮動小数点表現
+TITLE: 浮動小数点の表現
 STATEMENT: >>>
-JSON 出力時の浮動小数点値は IEEE 754 double で、 NaN / Infinity は
-null として表現すること (RFC 8259 準拠)。
+JsonSerializer の浮動小数点出力は IEEE 754 double とし、 NaN / Infinity は null として
+表現すること (RFC 8259 準拠)。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: PLAT-L3-004
+
+[[/SECTION]]

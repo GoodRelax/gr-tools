@@ -159,6 +159,7 @@
 - **O-5（コア）**: `install.ps1` の Phase B/C/D/E スタブ完成（D-5 でブートストラップが主役）。
 - **O-6**: README/docs 更新（Mermaid/TeX、feature On/Off、設定の置き場所、可視ウィンドウ運用、`strictdoc new` 案内）。
 - **O-7（v1.2 任意・公式レビュー指摘）**: serve-spec.md の v1.0 隠れデーモン記述（§2.1.3-2.1.7 / §3.4 / §4.1 SC-101.. / §5.2 T1-T10）を Appendix B "superseded" へ物理移動し本文を可視ウィンドウ一本に整理（FR番号維持で traceability 保持）。可読性向上・非ブロッカー。
+- **O-8（おまけ・任意・後でやる）: ブラウザのダーク/ライト表示切替（公式 StrictDoc 無改変・分離）**: manage の「Open browser」を `server.config.json` の **`browser_theme: auto|light|dark`（既定 `auto`＝現状の既定ブラウザ起動で挙動不変）** で拡張。`light`/`dark` 時のみ Edge/Chrome を**専用プロファイル**（`--user-data-dir=%LOCALAPPDATA%\StrictDocStarter\viewer` ＋ `--no-first-run --no-default-browser-check` ＋ `--app=<url>`）で開き、dark は `--enable-features=WebContentsForceDark` を付与。**理由**: 起動中ブラウザにフラグは効かない（新URLを既存プロセスに丸投げ）ため別インスタンス必須。**制約**: Edge/Chrome 限定（Firefox 等は既定ブラウザへフォールバック）、強制ダークは一律反転で Mermaid 図が崩れうる、専用プロファイルは拡張/ログイン無し。**StrictDoc は一切無改変**（テーマの本筋＝prefers-color-scheme 対応は upstream-outreach.md §6 の PR）。当面の暫定はブラウザ標準フラグ案内（README「ダークモードで見るには」に記載済）。
 
 ---
 
@@ -187,6 +188,46 @@
 - config を各 project_path 直下へ配置（`samples/sovd-automotive/strictdoc_config.py`・`samples/hello-strictdoc/strictdoc_config.py`、MERMAID/MATHJAX 有効・`strictdoc new` 準拠の薄いラッパ）。
 - hello-strictdoc を 01/02 に最小化（`03-try.sdoc`・`04-mermaid.sdoc` 削除、`01-hello.sdoc` の壊れた markdown 画像参照を除去、orphan な `_assets/` 削除）。
 - strictdoc 0.23.1 で export 検証済（O-4）: 05=`class="mermaid"`×2 + math + SVG `<object>`、06=` ```mermaid ` フェンス + 表 + コードハイライト + PNG `<img>`。
+
+### Phase 2（2026-06-06, サンプル品質リライト / D-9b・S-1 後継 / strictdoc 0.23.1）
+- `samples/sovd-automotive/` を ANMS テンプレート準拠の「自然な仕様書」へ全面リライト（`gr-sw-maker/process-rules` の spec-template-ja / review-standards-ja に準拠）。
+- **記法デモ廃止**: `05-notation-rst.sdoc` / `06-notation-markdown.sdoc` を削除（「仕様書として不自然」=ツール解説と要求の混在）。図/数式は本来の要求文書へ統合（認証シーケンス→01、SOVD↔UDS→02、DTC ガード→03、OTA 状態機械→04、構成図→00）。記法カバレッジは付録 `90-appendix-notation.sdoc`（Markdown マークアップで RST/Markdown 両記法を実演、` ```mermaid ` フェンス描画確認）へ集約。
+- **前付け新設** `00-overview.sdoc`: 遠隔診断（昔は工場で有線 UDS → SOVD+TCU で遠隔）の背景ストーリーを起点に、目的/範囲/用語集/参照規格/表記規約/前提/改訂履歴 + 構成図（Mermaid: クラウド→TCU→ゲートウェイ→ECU）。
+- **要求の質**: 全要求を EARS 化・単一要求化、受入基準フィールド `VERIFICATION` を追加、各 L0 をストーリーに紐づけ、L1–L3 のトレース孤立を解消。
+- **安全/セキュリティの分離**: フィールド `CAL`（ISO/SAE 21434）を追加し、ASIL（ISO 26262・安全）と区別（00-overview §6.3）。認証等の純セキュリティ要求は ASIL=QM + CAL、走行中フラッシュ禁止等は ASIL D、署名検証は ASIL D + CAL4。
+- **文法共通化**: `sovd-grammar.sgra` に切り出し、全 .sdoc が `[GRAMMAR] / IMPORT_FROM_FILE` で参照（ボイラープレート削減・整合の構造的保証）。セクションは 0.23.1 で廃止の `[SECTION]` 後継 `[[SECTION]]`（`IS_COMPOSITE: True`）。
+- **収束 (N→1) パス**: 分解 (1→N) の逆向き＝1 つの下位要求が複数の上位要求を実現する「共有要求」を多親リンクで明示（SW 工学の再利用観点）。適用: ScopeAuthorizer (AUTH-L3-002 ← AUTH-L2-003 + DATA-L2-006)、UdsClient (DATA-L3-002 ← DATA-L2-002 + DTC-L2-001 + DTC-L2-003)、OTA 状態機械 (SWU-L1-008 ← SWU-L0-002 + SWU-L0-003)、データ返却順序 (AUTH-L1-011 ← AUTH-L0-004 + AUTH-L0-002)。TLS/認証は「前提」、TokenCache/DataCache は別インスタンスのため意図的に非リンク（グラフ過結合の回避）。
+- **共通基盤くくり出し (D-9c)**: 機能横断で再利用される共有ユニット（UdsClient/ScopeAuthorizer/TlsTerminator/JsonSerializer）を `05-common-platform.sdoc`（`PLAT-` 名前空間）へ移設し、各機能の L2 要求がそこへ収束する形にした。依存方向を「機能→基盤」に統一し、兄弟機能間の依存（例: DTC が data-access 文書の UdsClient に依存）を解消（Clean Architecture / SoC / プロダクトラインの共通要素管理）。01/02 から該当ユニットを除去し、参照（DATA-L3-005 の親、DATA-L2-006 の本文）を更新。L3_Unit のまま PLAT- に再採番（旧 UID は欠番＝移設の痕跡）。次段（SW設計）で本書にクラス図/コンポーネント図/API 定義を付与予定。
+- **検証**: strictdoc 0.23.1 で `strictdoc export` クリーン（警告ゼロ）、全図（Mermaid×7）/数式（MathJax）/表（list-table・Markdown 表）/画像（SVG・PNG）/コードハイライト/トレース描画確認。`strictdoc server` でも目視確認。
+- **副次修正**: ドキュメント TITLE の em dash `—`(U+2014) が cp932 コンソール出力でクラッシュ印字する問題を回避（TITLE は cp932 安全文字に統一）。
+- **docs 整合**: `serve-spec.md` §3.3（ファイル一覧）/§6.8（D-9b 追記）/Glossary（samples/）を更新。**D-9 は D-9b により supersede**（hello-strictdoc 最小化は維持）。
+
+### Phase 3（2026-06-06, 設計→API→テスト層 / D-9d / strictdoc 0.23.1）
+- 要求 (01-05) の下流に V 字の残りを追加し、「要求→設計→API→受入テスト→結果」を一気通貫にトレース。
+- **文法拡張** (`sovd-grammar.sgra`): 要素 `COMPONENT`（CA_LAYER/MODULE、`Implements`）・`API`（METHOD/PATH/SCOPE/RESPONSE、`Satisfies`）・`TEST`（LEVEL=Unit/Integration/System/Acceptance、`Verifies`）・`TEST_RESULT`（RESULT/EXECUTED_ON/ENVIRONMENT、`ResultOf`）を追加。関係 ROLE 機能を使用。**仕様と結果は別要素・別文書**に分離。
+- **`06-architecture.sdoc`（1本に集約・システム全体視点）**: ANMS Ch3 順（3.1 方式＋CA レジェンド → 3.2 **COMPONENT ノード17（全ドメイン網羅、Implements→要求、振る舞いは EARS）** → 3.3 モジュール構成 → 3.4 クラス図×3 → 3.5 システムシーケンス → 3.6 ADR×4）。
+- **`07-api.sdoc`（独立文書＝他との契約）**: SOVD HTTP API 10 本。**STATEMENT を EARS 化**（Ubiquitous=スコープ / Event=正常系 / Unwanted=異常系）、METHOD/PATH/RESPONSE はデータ宣言。Satisfies→要求。
+- **`08-test-spec.sdoc`**: テスト戦略（V字レベル対応）＋ **全レベルのテスト仕様35本**（単体16=各COMPONENTをVerifies / 結合6→L2 / システム4→L1 / 受入9 Gherkin→L0/API）。
+- **`09-test-results.sdoc`（仕様と分離）**: `TEST_RESULT` 35件（各テストへ ResultOf）。PASS/CONDITIONAL×3/FAIL×1/SKIP×2 の実行記録。DEEP TRACE で「要求→設計→API→テスト→結果」被覆と未達(FAIL/SKIP)を一望。**`TEST_RESULT` に TITLE を追加し判定を先頭表示**（例 `[FAIL] ChunkedDownloader 単体`）→ トレーサビリティツリーで OK/NG が一目（meta フィールドの RESULT はツリーに出ないため）。
+- **EARS 一貫化の方針**: 振る舞い（API/コンポーネントのメソッド挙動）は EARS、構造（METHOD/PATH、has-property/method）は宣言・クラス図で表現。
+- **D-9e SRP/粒度リファイン (テスト=シナリオ単位・コンポ単一責務・命名)**: (1) **テスト粒度を「1 シナリオ=1 テスト=1 結果」**へ（Cucumber/ISTQB 準拠。関連テストの一部 PASS/一部 FAIL を個別表現可能に）。テスト/結果は 50→**約75**。データ違いのみ Scenario Outline で1ノード集約。(2) **COMPONENT を単一責務(1文)＋責務ベース命名**へ（EARS 振る舞いは削除しテストへ移譲＝ADR-005）。実装漏れ命名を改名: DidResolverTable→DidResolver / DtcHistoryBuffer→DtcHistoryStore / ChunkedDownloader→PackageDownloader / FlashSector→FlashSectorWriter / StateMonitor→VehicleStateMonitor / DataReadHandler→DataReadUseCase（対応 L3 要求名・図・モジュールも整合）。(3) **EcdsaVerifier→SignatureVerifier** に統一し ECDSA P-256＋RSA-PSS 2048 両対応（SWU-L2-002 との不整合を解消）。文法 `TEST_RESULT` に TITLE 追加済（判定先頭表示）。export クリーン・全関係解決を確認。
+- **トレーサビリティ・マトリクス有効化**: sovd サンプルの `strictdoc_config.py` に `TRACEABILITY_MATRIX_SCREEN` を追加（D-2 ベースラインからの意図的追加。教材としてV字の被覆を全体ビューで見せるため）。出力ルートに `traceability_matrix.html` が生成され、要求×設計/API/テスト/結果の被覆を一覧表示。古い feature コメントの旧ファイル参照（05/06）も現行（01-auth の数式 / 00-04・90 の Mermaid）へ更新。
+- **検証**: strictdoc 0.23.1 で export クリーン（警告ゼロ）。COMPONENT/API/SCENARIO・Implements/Satisfies/Verifies・CA 色分け・クラス図・Gherkin コードブロック・RESULT すべて描画。`server` 目視確認。
+- **docs 整合**: `serve-spec.md` §3.3／Glossary、`00-overview` §3.4（文書構成＋V字注記）を更新。
+
+### Phase 4（2026-06-07, サンプル通しレビュー / strictdoc 0.23.1）
+- **ローカル衛生**: `samples/sovd-automotive/_assets/output/`（前セッションで `strictdoc server`/`export` を誤って `_assets` 配下へ出力した生成物 48MB / 1341 ファイル。 `.gitignore` の `output/` で無視されコミット汚染は無し）を削除。 strictdoc は `_assets` を「プロジェクトアセット」として丸ごと output へコピーするため、 これで `_assets` コピーが **1341→3 ファイル**、 export が **60.8 秒 → 3.65 秒** に短縮。
+- **通しレビュー**: `samples/sovd-automotive/`（00-09 + 90 + grammar）を `gr-sw-maker/process-rules` の review-standards-ja（R1-R6）＋ 用語/数値/トレース一貫性で全数精査。 **Critical/High 指摘ゼロ**。 トレース（Implements/Satisfies/Verifies/ResultOf）は export クリーンが全解決を裏づけ、 D-9e の改名（DidResolver / DtcHistoryStore / PackageDownloader / FlashSectorWriter / VehicleStateMonitor / SignatureVerifier 等）は 06設計・08テスト・モジュール構成すべてに反映済・旧名残存なし。 テスト結果サマリ（計75: PASS66/COND5/FAIL1/SKIP3）を実ノードで検算し一致。
+- **軽微修正（適用済み）**:
+  - L1: `05-common-platform` に移設マッピング表（UdsClient←DATA-L3-002 / ScopeAuthorizer←AUTH-L3-002 / TlsTerminator←AUTH-L3-003 / JsonSerializer←DATA-L3-004）を追加し、 欠番の由来を明示。
+  - L3: `00-overview` §3.3 リソース表に「正式契約は 07-api 参照・本サンプルは主要リソース抜粋（全DTC一括クリア・actuator は割愛）」注記を追加。
+  - L4: `05-common-platform` 収束図に「TLS 要求は代表として 01-auth に集約、 図では Auth からの依存のみ」注記を追加（RATIONALE の「全機能横断」と図の橋渡し）。
+  - L6: `09-test-results` サマリの「(例示)」→「(集計)…(本サンプルの実行記録例)」へ表現修正。
+- **検証**: 変更後 export 再実行で警告ゼロ、 mermaid/MathJax/list-table/判定マーカー/traceability_matrix すべて描画維持、 追記4点の HTML 反映を grep 確認。
+- **据置き指摘（Medium、 今回は未対応 = deferred。 D-9 系の様式判断であり非ブロッカー）**:
+  - **M1 (exec:actuator の孤立)**: スコープ例（00§3.3 / AUTH-L1-003 / 90§G）と RBAC テスト（AT-015）に登場するが、 対応する機能要求・API・コンポーネントが存在しない。 リスク=低（教材の一貫性のみ。 安全/トレース健全性には影響なし）。 解消案=(a) 言及削除で read 系＋write 系に統一、 もしくは (b) 最小のアクチュエータ要求/API/テストを1本追加して着地。 **次サイクルの第一候補**。
+  - **M2 (DATA-L3-005 の所属)**: 「浮動小数点の表現」は中身が共有 JsonSerializer（PLAT-L3-004 の子）の制約で、 05-common-platform へ移す方が SoC 上自然。 リスク=極低（配置の好み）。
+  - **M3 (複合要求)**: 一部 L0/L1 要求が 1 ノード 2 文（DTC-L0-003 / SWU-L0-002 等）。 厳密な単一化＋シナリオ分解は範囲大のため別タスク（ハンドオフ §6「要求の単一化（厳密版）」に対応）。 教材としては現状容認。
 
 ### 旧セッションの変更（上記 Phase 0/1 により supersede 済）
 - ~~`samples/hello-strictdoc/04-mermaid.sdoc`（RST raw html 化）~~ → D-9 で **削除**（Mermaid デモは 05-notation-rst.sdoc へ昇格）。

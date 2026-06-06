@@ -39,7 +39,7 @@
 4. **`Desktop\StrictDocStarter\manage-strictdoc.bat` をダブルクリック**
    - **初回のみ**: `server.config.json` が template から自動生成され、 既定エディタ (VS Code → notepad fallback) が開く → そのまま保存 → manage 画面で Enter
    - メニュー画面が出たら **`1`** (Start) を入力 → 30 秒以内にブラウザが `http://127.0.0.1:5111/` を自動 open
-   - 同梱の **SOVD 自動車サンプル (~100 要求、 ASIL / Layer / Type custom fields)** ツリーが表示される
+   - 同梱の **SOVD 自動車サンプル** (要求 → 設計 → API → テスト → 結果 を一気通貫トレース、 ASIL/CAL/Layer/Type custom fields) ツリーが表示される
    - 確認後はメニューに戻って **`2`** (Stop) でサーバ停止、 **`Q`** で manage 終了
 
 これで「ZIP 展開 → setup → manage → ブラウザで要求閲覧」 まで完結。
@@ -77,10 +77,53 @@ placeholder:
 
 ### 同梱サンプル
 
-| パス | 要求数 | 用途 |
+| パス | 規模 | 用途 |
 |---|---|---|
-| `samples/sovd-automotive/` | 100 reqs + 記法デモ 2 件 | SOVD 自動車診断の **初期 default**。 ASAM SOVD / ISO 17978 ベース、 ASIL (ISO 26262) / Layer (A-SPICE) / Type custom fields 付き。 認証 / データ読取り / DTC / OTA 更新の 4 機能領域 × L0..L3 階層。 加えて記法デモ `05-notation-rst.sdoc` (Mermaid / 数式 / 画像) と `06-notation-markdown.sdoc` (表 / コード / 画像 / Mermaid フェンス)、 図素材 `_assets/` (drawio 編集ソース + svg + png)。 MERMAID/MATHJAX 有効の `strictdoc_config.py` 同梱 |
+| `samples/sovd-automotive/` | 約 105 要求 + 設計/API/テスト | SOVD 自動車診断の **初期 default**。 ASAM SOVD / ISO 17978 ベースで、 **要求 → 設計 → API → テスト → 結果** を一気通貫トレースした実務想定の中規模 spec。 ASIL (ISO 26262・安全) / CAL (ISO/SAE 21434・セキュリティ) / Layer (A-SPICE) / Type custom fields 付き。 → 読み方は [同梱サンプルで SDLC を体感する](#同梱サンプルで-sdlc-を体感する-sovd-automotive) を参照 |
 | `samples/hello-strictdoc/` | 5 reqs | 「Hello, World」 風のミニマル要求書 (`01-hello` + `02-design`)。 **自分の要求書を書き始めるときの編集テンプレ** として使用。 MERMAID/MATHJAX 有効の `strictdoc_config.py` 同梱 |
+
+---
+
+## 同梱サンプルで SDLC を体感する (sovd-automotive)
+
+`samples/sovd-automotive/` は、 SOVD 車両診断システムの要求を **要求 → 設計 → API → テスト → 結果** まで一気通貫でトレースした、 実務想定の中規模 spec です。 「StrictDoc を実プロジェクトでどう使うか」 を 1 つの完結した例で体感できます。 初見の方は **次の順** で読むと SDLC 全体が掴めます。
+
+### 文書マップ (この順で読む)
+
+| 文書 | 層 | 何が分かるか |
+|---|---|---|
+| `00-overview` | 前付け | **なぜ SOVD か** (昔は工場で有線診断 → TCU + SOVD で遠隔化、 という背景ストーリー)・適用範囲・用語・参照規格・表記規約・システム構成図 |
+| `01-auth` 〜 `04-sw-update` | 要求 (L0→L3) | 認証 / データ読取 / DTC / OTA を **EARS** で記述。 ステークホルダ(L0)→システム(L1)→ECUソフト(L2)→ユニット(L3) を Parent/Child で連鎖。 **ASIL(安全) と CAL(セキュリティ) を分離** |
+| `05-common-platform` | 基盤 | 複数機能が共有する部品 (UDS転送 / 認可 / TLS / JSON)。 1 部品が複数要求を満たす **収束 (N→1)** |
+| `06-architecture` | 設計 | コンポーネント / クラス図 / モジュール構成 / ADR (CA 層で色分け)。 各コンポは要求へ ``Implements`` |
+| `07-api` | 契約 | SOVD HTTP API。 連携相手はこの 1 文書で実装できる。 振る舞いは EARS、 要求へ ``Satisfies`` |
+| `08-test-spec` | テスト | 単体 / 結合 / システム / 受入を **実行可能な Gherkin** で。 要求・コンポへ ``Verifies`` |
+| `09-test-results` | 結果 | 実行記録 (PASS / FAIL / CONDITIONAL / SKIP)。 テストへ ``ResultOf``。 **仕様と結果を分離** (1 仕様 : N 結果) |
+| `90-appendix-notation` | 付録 | 表記・記法リファレンス (RST / Markdown / Mermaid / 数式 / 表 / コード) |
+
+### トレースの見どころ (ブラウザ UI)
+
+- **任意の要求を開いて `DEEP TRACE` タブ** — 上位/下位要求・実装コンポーネント・API・テスト・その結果まで 1 画面で辿れる (例: `AUTH-L3-001` → `ARCH-C-005` → `UT-001` → `[PASS]`)。
+- **上部ナビ `Traceability Matrix`** — 要求 × 検証の被覆を俯瞰。 `[FAIL]` / `[SKIP]` の「穴」も見える (= リリース可否の判断材料)。
+- **収束 (N→1)** の実例 — `ScopeAuthorizer` / `UdsClient` は複数ドメインから再利用される (兄弟機能ではなく共通基盤に依存)。
+
+### このサンプルが示す StrictDoc 機能
+
+カスタム文法 (`REQUIREMENT` / `COMPONENT` / `API` / `TEST` / `TEST_RESULT`、 `IMPORT_FROM_FILE` で共通化)、 ロール付き関係 (`Implements` / `Satisfies` / `Verifies` / `ResultOf`)、 合議セクション (`[[SECTION]]`)、 Mermaid 図 / 数式 (MathJax) / 表 / 画像 / コードハイライト、 DEEP TRACE、 Traceability Matrix。
+
+自分の spec を書くときは、 この文法と章立てを雛形にドメインを差し替えるのが早い (最小から始めるなら `hello-strictdoc`)。
+
+### ダークモードで見るには (任意)
+
+StrictDoc 自身にはダークモード設定がなく、 出力は白背景です。 **暗くしたい場合はブラウザ側で**当てます (**拡張機能は不要**):
+
+- **Edge**: `edge://flags/#enable-force-dark` → **"Auto Dark Mode for Web Contents"** を **Enabled** → 再起動。 図/コードを崩したくなければ **"Enabled with selective inversion of non-image elements"** を選ぶと無難。
+- **Chrome**: `chrome://flags/#enable-force-dark` で同じ設定。
+- **(任意) Dark Reader 拡張**: 入れるとツールバーから**サイト単位で1クリック切替**でき、 図/コードの扱いも調整可。
+
+**ライトに戻すには**: 同じフラグを **Default**（または Disabled）に戻して再起動。
+
+補足: ブラウザの「設定 → 外観」のダークテーマは **ブラウザ UI だけ**で Web ページは暗くなりません。 上記フラグは**実験的機能**で全サイトを一律反転するため、 Mermaid 図などで見え方が崩れることがあります。 フラグは全サイト一括＋再起動が要るので、 **明⇔暗を頻繁に切り替えるなら Dark Reader**（ツールバーから1クリック・サイト単位・再起動不要）が楽です。 各ユーザーが好みで ON/OFF してください。 クリーンな対応 (StrictDoc 本体が `prefers-color-scheme` を尊重) は upstream へ提案予定 (`docs/upstream-outreach.md` §6)。
 
 ### サーバ状態の永続化
 
@@ -245,15 +288,21 @@ StrictDocStarter/
 │   │   ├── 01-hello.sdoc
 │   │   ├── 02-design.sdoc
 │   │   └── strictdoc_config.py          # MERMAID/MATHJAX 有効 (strictdoc new 準拠)
-│   └── sovd-automotive/                 # 初期 default (SOVD ドメイン教材)
-│       ├── 01-auth.sdoc                 # 25 reqs、 認証/認可
-│       ├── 02-data-access.sdoc          # 25 reqs、 車両データ識別/読取
-│       ├── 03-dtc-diagnostics.sdoc      # 25 reqs、 DTC / フリーズフレーム
-│       ├── 04-sw-update.sdoc            # 25 reqs、 OTA / 署名検証 / rollback
-│       ├── 05-notation-rst.sdoc         # RST 記法デモ: Mermaid(raw html)/数式/画像
-│       ├── 06-notation-markdown.sdoc    # Markdown 記法デモ: 表/コード/画像/Mermaidフェンス
+│   └── sovd-automotive/                 # 初期 default (SOVD 教材: 要求→設計→API→テスト→結果)
+│       ├── sovd-grammar.sgra            # 共有文法 (IMPORT_FROM_FILE で全 .sdoc が参照)
+│       ├── 00-overview.sdoc             # 前付け: 背景ストーリー/範囲/用語/規格/表記/構成図
+│       ├── 01-auth.sdoc                 # 認証/認可 (L0-L3, EARS, ASIL/CAL)
+│       ├── 02-data-access.sdoc          # 車両データ識別/読取
+│       ├── 03-dtc-diagnostics.sdoc      # DTC / フリーズフレーム
+│       ├── 04-sw-update.sdoc            # OTA / 署名検証 / rollback
+│       ├── 05-common-platform.sdoc      # 共通基盤の共有ユニット (収束 N→1)
+│       ├── 06-architecture.sdoc         # 設計: コンポ/クラス/モジュール/ADR (Implements)
+│       ├── 07-api.sdoc                  # HTTP API 契約 (Satisfies)
+│       ├── 08-test-spec.sdoc            # テスト仕様 単体/結合/システム/受入 (Verifies)
+│       ├── 09-test-results.sdoc         # テスト結果 (ResultOf、 仕様と分離)
+│       ├── 90-appendix-notation.sdoc    # 付録: 表記・記法リファレンス
 │       ├── _assets/                     # 図素材 (sovd-architecture.drawio + .svg + .png)
-│       └── strictdoc_config.py          # MERMAID/MATHJAX 有効 (strictdoc new 準拠)
+│       └── strictdoc_config.py          # MERMAID/MATHJAX/TRACEABILITY_MATRIX_SCREEN 有効
 └── vm-tests/                            # VM 上で setup-strictdoc を検証
     ├── run-tests.bat                    # 自動テストランナー (10 シナリオ)
     ├── run-tests.ps1                    # ↑ 本体

@@ -1,44 +1,31 @@
 [DOCUMENT]
-TITLE: SOVD DTC and Diagnostic Trouble Codes Requirements
+TITLE: SOVD 故障診断 (DTC) 要求仕様 (Diagnostic Trouble Codes)
 
 [GRAMMAR]
-ELEMENTS:
-- TAG: REQUIREMENT
-  FIELDS:
-  - TITLE: UID
-    TYPE: String
-    REQUIRED: True
-  - TITLE: TYPE
-    TYPE: SingleChoice(Functional, Non-Functional, Constraint, Restriction, UseCase)
-    REQUIRED: True
-  - TITLE: ASIL
-    TYPE: SingleChoice(QM, A, B, C, D)
-    REQUIRED: True
-  - TITLE: LAYER
-    TYPE: SingleChoice(L0_Stakeholder, L1_System, L2_ECU_SW, L3_Unit)
-    REQUIRED: True
-  - TITLE: TITLE
-    TYPE: String
-    REQUIRED: True
-  - TITLE: STATEMENT
-    TYPE: String
-    REQUIRED: True
-  - TITLE: RATIONALE
-    TYPE: String
-    REQUIRED: False
-  RELATIONS:
-  - TYPE: Parent
-  - TYPE: Child
+IMPORT_FROM_FILE: sovd-grammar.sgra
 
 [TEXT]
 STATEMENT: >>>
-診断トラブルコード (DTC) ・フリーズフレーム・スナップショットの読出・クリア要求。
-ISO 14229 (UDS) 0x19 系サービスを SOVD でラップ。
+本書は SOVD の **故障診断 (DTC・フリーズフレーム)** の読出・クリア要求を L0→L3 で
+定義する。 内部では ISO 14229 (UDS) の 0x19 系 (ReadDTCInformation) / 0x14
+(ClearDiagnosticInformation) を SOVD でラップする。 共有の前付けは `00-overview.sdoc`、
+認証・認可は `01-auth.sdoc` を前提とする。
+
+DTC の **読み出し** は安全機能ではないため原則 **ASIL=QM**。 ただし **「走行中に
+安全関連 DTC を消す」 と機能安全評価に影響しうる** ため、 クリアの **走行状態ガードは
+ASIL C** とする。 「誰がクリアできるか」 の権限はセキュリティ事項なので **CAL** を付与する。
 <<<
 
+[[SECTION]]
+TITLE: L0 — ステークホルダ要求 (Stakeholder Requirements)
+
 [TEXT]
 STATEMENT: >>>
-## L0 - ステークホルダ要求
+**ストーリー:** DTC (故障コード) は、 車が「どこが・どんな異常を」 記録したかを表す
+データである。 昔は工場で有線の診断機をつないで一覧を読み出し、 原因を調べ、 修理後に
+消去した。 SOVD ではこれを **遠隔で** 行い、 原因の当たりをつけ、 修理完了後にクリアする。
+ただし、 安全関連の DTC を誤って・走行中に消すと危険なので、 **権限** と **走行状態** の
+ガードを課す。
 <<<
 
 [REQUIREMENT]
@@ -46,10 +33,13 @@ UID: DTC-L0-001
 TYPE: UseCase
 ASIL: QM
 LAYER: L0_Stakeholder
-TITLE: 故障コード一覧の取得
+TITLE: 故障コード一覧の遠隔取得
 STATEMENT: >>>
-整備士は車両に記録された全 DTC (Diagnostic Trouble Code) 一覧を、
-ステータスマスクとともに取得できること。
+整備士が遠隔の SOVD クライアントから故障コード一覧を要求したとき、 本システムは
+車両に記録された全 DTC をステータスマスクとともに返すこと。
+<<<
+VERIFICATION: >>>
+代表的な DTC が、 status (active/pending/confirmed/permanent) 付きで取得できること。
 <<<
 
 [REQUIREMENT]
@@ -59,19 +49,30 @@ ASIL: QM
 LAYER: L0_Stakeholder
 TITLE: フリーズフレームデータの取得
 STATEMENT: >>>
-DTC 発生時刻のスナップショット (フリーズフレーム) を取得できること。
+本システムは、 DTC 発生時刻のスナップショット (フリーズフレーム) を取得できるように
+すること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-001
 
 [REQUIREMENT]
 UID: DTC-L0-003
 TYPE: Functional
-ASIL: B
+ASIL: QM
+CAL: CAL2
 LAYER: L0_Stakeholder
 TITLE: DTC のクリア
 STATEMENT: >>>
-整備士は修理完了後に対象 DTC をクリアできること。 ただし安全関連 DTC は
-追加権限を要する。
+整備士が修理完了後に対象 DTC のクリアを要求したとき、 本システムは適切な権限を
+確認したうえでクリアすること。 安全関連 DTC のクリアには追加の権限を要する。
 <<<
+RATIONALE: >>>
+不正・誤った DTC クリアによる故障情報の隠蔽を防ぐ。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-001
 
 [REQUIREMENT]
 UID: DTC-L0-004
@@ -80,26 +81,58 @@ ASIL: C
 LAYER: L0_Stakeholder
 TITLE: 走行中の DTC クリア禁止
 STATEMENT: >>>
-車両速度が 0 km/h でない場合、 DTC クリア要求は拒否すること。
+もし車速が 0 km/h でない場合、 本システムは DTC クリア要求を拒否すること。
 <<<
 RATIONALE: >>>
-誤って ASIL 関連 DTC を消すと走行中の機能安全評価に影響するため。
+走行中に安全関連 DTC を消すと、 走行中の機能安全評価に影響するため。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
 
 [REQUIREMENT]
 UID: DTC-L0-005
 TYPE: Constraint
 ASIL: QM
 LAYER: L0_Stakeholder
-TITLE: ISO 14229 準拠
+TITLE: ISO 14229 セマンティクス準拠
 STATEMENT: >>>
-DTC 機能は ISO 14229-1 (UDS) Service 0x19 (ReadDTCInformation) および
+本システムの DTC 機能は、 ISO 14229-1 (UDS) Service 0x19 (ReadDTCInformation) および
 0x14 (ClearDiagnosticInformation) のセマンティクスを保つこと。
 <<<
 
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: L1 — システム要求 (System Requirements)
+
 [TEXT]
 STATEMENT: >>>
-## L1 - システム要求
+**L1 代表シーケンス: DTC の読み出しと、 走行状態ガード付きクリア**
+
+読み出しは UDS 0x19 へ、 クリアは UDS 0x14 へブリッジする。 クリアは車速ゼロを
+確認できた場合のみ実行し、 走行中は 409 で拒否する。
+
+.. raw:: html
+
+    <pre class="mermaid">
+    sequenceDiagram
+        participant C as SOVD Client
+        participant G as Gateway ECU
+        participant E as ECU
+        C->>G: GET /components/engine/faults (Bearer JWT)
+        G->>E: UDS 0x19 02 (reportDTCByStatusMask)
+        E-->>G: DTC list + status
+        G-->>C: 200 OK [{code, status}]
+        C->>G: DELETE /components/engine/faults (scope write:dtc)
+        G->>G: read vehicle speed (DID 0xF40D)
+        alt vehicle stopped (speed == 0)
+            G->>E: UDS 0x14 (ClearDiagnosticInformation)
+            G-->>C: 204 No Content
+        else vehicle moving (speed > 0)
+            G-->>C: 409 Conflict
+        end
+    </pre>
 <<<
 
 [REQUIREMENT]
@@ -109,8 +142,8 @@ ASIL: QM
 LAYER: L1_System
 TITLE: DTC リスト取得 API
 STATEMENT: >>>
-車両は GET /vehicle/dtc エンドポイントを提供し、 ステータスマスク
-(active/pending/confirmed/permanent) でフィルタ可能とする。
+車両は GET /components/{ecu}/faults を提供し、 ステータスマスク
+(active/pending/confirmed/permanent) でフィルタ可能とすること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -123,8 +156,8 @@ ASIL: QM
 LAYER: L1_System
 TITLE: フリーズフレーム取得 API
 STATEMENT: >>>
-GET /vehicle/dtc/{dtc_code}/freeze-frame で、 指定 DTC のフリーズフレーム
-(発生時の DID 値スナップショット) を JSON で返却すること。
+車両は GET /components/{ecu}/faults/{code}/freeze-frame で、 指定 DTC のフリーズフレーム
+(発生時の DID 値スナップショット) を JSON で返すこと。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -133,12 +166,13 @@ RELATIONS:
 [REQUIREMENT]
 UID: DTC-L1-003
 TYPE: Functional
-ASIL: B
+ASIL: QM
+CAL: CAL2
 LAYER: L1_System
 TITLE: DTC クリア API
 STATEMENT: >>>
-DELETE /vehicle/dtc/{dtc_code} で DTC をクリアできること。 認証スコープ
-'write:dtc' を要求する。
+車両は DELETE /components/{ecu}/faults/{code} で DTC をクリアできるようにし、
+スコープ write:dtc を要求すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -149,10 +183,13 @@ UID: DTC-L1-004
 TYPE: Functional
 ASIL: C
 LAYER: L1_System
-TITLE: 車速ゼロチェック
+TITLE: クリア前の車速ゼロチェック
 STATEMENT: >>>
-DELETE 要求受信時、 車両ゲートウェイは現在の車速 (DID 0xF40D) を
-読み出し、 0 km/h でなければ HTTP 409 Conflict を返すこと。
+DTC クリア要求を受信したとき、 車両は現在の車速 (DID 0xF40D) を読み出し、 もし
+0 km/h でなければ HTTP 409 Conflict を返すこと。
+<<<
+VERIFICATION: >>>
+車速 > 0 でのクリア要求が 409 で拒否され、 車速 0 でのみ成功すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -162,11 +199,16 @@ RELATIONS:
 UID: DTC-L1-005
 TYPE: Functional
 ASIL: QM
+CAL: CAL2
 LAYER: L1_System
-TITLE: 全 DTC クリア API
+TITLE: 全 DTC 一括クリア API
 STATEMENT: >>>
-DELETE /vehicle/dtc で全 DTC を一括クリアできること (車速ゼロ条件は L1-004 と同じ)。
+車両は DELETE /components/{ecu}/faults で全 DTC を一括クリアできるようにすること
+(車速ゼロ条件は DTC-L1-004 と同じ)。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
 
 [REQUIREMENT]
 UID: DTC-L1-006
@@ -175,24 +217,33 @@ ASIL: QM
 LAYER: L1_System
 TITLE: DTC レスポンス時間
 STATEMENT: >>>
-DTC リスト取得は 95 パーセンタイルで 1 秒以内に応答すること。
+車両の DTC リスト取得は、 95 パーセンタイルで 1 秒以内に応答すること。
 <<<
+VERIFICATION: >>>
+代表負荷下で、 DTC リスト取得の p95 が 1 秒以内であること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-001
 
 [REQUIREMENT]
 UID: DTC-L1-007
 TYPE: Functional
 ASIL: QM
 LAYER: L1_System
-TITLE: DTC スナップショット履歴
+TITLE: DTC 発生履歴
 STATEMENT: >>>
-車両は過去 24 時間分の DTC 発生履歴を最低 100 件保持し、 GET /vehicle/dtc/history
-で取得できること。
+車両は、 過去 24 時間分の DTC 発生履歴を最低 100 件保持し、 GET
+/components/{ecu}/faults/history で取得できるようにすること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-001
 
-[TEXT]
-STATEMENT: >>>
-## L2 - ECU ソフトウェア要求
-<<<
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: L2 — ECU ソフトウェア要求 (ECU Software Requirements)
 
 [REQUIREMENT]
 UID: DTC-L2-001
@@ -201,9 +252,9 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: UDS 0x19 ReadDTCInformation ブリッジ
 STATEMENT: >>>
-ゲートウェイ ECU は SOVD GET /vehicle/dtc 要求を受けると、 担当 ECU 群に
-UDS Service 0x19 SubFunction 0x02 (reportDTCByStatusMask) を発行し、
-結果を集約して JSON で返却すること。
+SOVD GET /faults 要求を受けたとき、 ゲートウェイ ECU は担当 ECU 群へ UDS Service
+0x19 SubFunction 0x02 (reportDTCByStatusMask) を発行し、 結果を集約して JSON で
+返すこと。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -216,8 +267,8 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: フリーズフレーム取得
 STATEMENT: >>>
-ゲートウェイは UDS 0x19 SubFunction 0x04 (reportDTCSnapshotRecordByDTCNumber)
-を用いてフリーズフレームを取得すること。
+ゲートウェイ ECU は、 UDS 0x19 SubFunction 0x04
+(reportDTCSnapshotRecordByDTCNumber) を用いてフリーズフレームを取得すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -226,12 +277,13 @@ RELATIONS:
 [REQUIREMENT]
 UID: DTC-L2-003
 TYPE: Functional
-ASIL: B
+ASIL: QM
+CAL: CAL2
 LAYER: L2_ECU_SW
 TITLE: UDS 0x14 ClearDiagnosticInformation
 STATEMENT: >>>
-DTC クリア要求は UDS Service 0x14 でターゲット ECU に対して発行すること。
-発行前に車速チェック (L2-004) を必ず実行する。
+DTC クリア要求に対し、 ゲートウェイ ECU は車速チェック (DTC-L2-004) の成功後に
+UDS Service 0x14 を対象 ECU へ発行すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -244,8 +296,11 @@ ASIL: C
 LAYER: L2_ECU_SW
 TITLE: VehicleSpeedGuard
 STATEMENT: >>>
-ゲートウェイは VehicleSpeedGuard ミドルウェアを実装し、 全 DTC クリア要求の前に
-車速 == 0 を 100 ms 以内に検証すること。
+全 DTC クリア要求の前に、 ゲートウェイ ECU は VehicleSpeedGuard により車速 == 0 を
+100 ms 以内に検証すること。
+<<<
+VERIFICATION: >>>
+車速 > 0 のときクリアが実行されないこと (ガードで阻止) を確認する。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -258,9 +313,12 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: DTC マスタテーブル
 STATEMENT: >>>
-ゲートウェイは OEM 提供の DTC マスタテーブル (DTC コード -> 説明 / 推奨対処)
-を NVRAM に保持し、 API レスポンスに同梱すること。
+ゲートウェイ ECU は、 OEM 提供の DTC マスタテーブル (コード → 説明 / 推奨対処) を
+NVRAM に保持し、 API レスポンスに同梱すること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-001
 
 [REQUIREMENT]
 UID: DTC-L2-006
@@ -269,8 +327,8 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: DTC 履歴循環バッファ
 STATEMENT: >>>
-ゲートウェイ ECU は最大 1024 件の DTC 履歴を循環バッファで保持。
-タイムスタンプ + DTC + status mask を 1 エントリとする。
+ゲートウェイ ECU は、 最大 1024 件の DTC 履歴を循環バッファで保持すること
+(タイムスタンプ + DTC + status mask を 1 エントリとする)。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -283,8 +341,12 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: UDS タイムアウト
 STATEMENT: >>>
-UDS 要求の P2 タイムアウトは 50 ms、 P2* タイムアウトは 500 ms を採用すること。
+ゲートウェイ ECU の UDS 要求の P2 タイムアウトは 50 ms、 P2* タイムアウトは
+500 ms とすること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-006
 
 [REQUIREMENT]
 UID: DTC-L2-008
@@ -293,14 +355,17 @@ ASIL: QM
 LAYER: L2_ECU_SW
 TITLE: NRC ハンドリング
 STATEMENT: >>>
-UDS Negative Response Code (NRC) を受けたら、 SOVD クライアントには
-HTTP 502 + JSON ボディに NRC コードを含めて返すこと。
+もし UDS Negative Response Code (NRC) を受けた場合、 ゲートウェイ ECU は SOVD
+クライアントへ HTTP 502 と、 JSON ボディに NRC コードを含めて返すこと。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-001
 
-[TEXT]
-STATEMENT: >>>
-## L3 - ユニット要求
-<<<
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: L3 — ユニット要求 (Unit / Software Component Requirements)
 
 [REQUIREMENT]
 UID: DTC-L3-001
@@ -309,8 +374,8 @@ ASIL: QM
 LAYER: L3_Unit
 TITLE: DtcParser ユニット
 STATEMENT: >>>
-DtcParser ユニットは UDS 0x19 のバイナリ応答を解析し、 (dtc_code, status_byte)
-のリストを返すこと。
+DtcParser ユニットは、 UDS 0x19 のバイナリ応答を解析し、 (dtc_code, status_byte) の
+リストを返すこと。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -323,8 +388,8 @@ ASIL: QM
 LAYER: L3_Unit
 TITLE: FreezeFrameDecoder ユニット
 STATEMENT: >>>
-FreezeFrameDecoder ユニットは UDS 0x19/0x04 のフリーズフレーム
-バイナリペイロードを (did, value) のリストに変換すること。
+FreezeFrameDecoder ユニットは、 UDS 0x19/0x04 のフリーズフレームペイロードを
+(did, value) のリストに変換すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -337,8 +402,8 @@ ASIL: C
 LAYER: L3_Unit
 TITLE: SpeedReader ユニット
 STATEMENT: >>>
-SpeedReader ユニットは ASIL C 認定のリアルタイムタスクとして実装し、
-DID 0xF40D を毎 10 ms 周期で更新、 最新値を const アクセスで提供すること。
+SpeedReader ユニットは、 ASIL C 認定のリアルタイムタスクとして DID 0xF40D を 10 ms
+周期で更新し、 最新値を const アクセスで提供すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -349,10 +414,10 @@ UID: DTC-L3-004
 TYPE: Functional
 ASIL: QM
 LAYER: L3_Unit
-TITLE: DtcHistoryBuffer ユニット
+TITLE: DtcHistoryStore ユニット
 STATEMENT: >>>
-DtcHistoryBuffer ユニットはロックフリーリングバッファ (Single Producer
-Multiple Consumer) として実装、 サイズ 1024 を NVRAM 上に確保すること。
+DtcHistoryStore ユニットは、 ロックフリーのリングバッファ (Single Producer Multiple
+Consumer) として実装し、 サイズ 1024 を NVRAM 上に確保すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -365,6 +430,11 @@ ASIL: QM
 LAYER: L3_Unit
 TITLE: NVRAM 摩耗保護
 STATEMENT: >>>
-DTC 履歴の NVRAM 書込は wear-leveling アルゴリズム (例: log-structured)
-を採用し、 同一セクタへの連続書込を避けること。
+DTC 履歴の NVRAM 書込は wear-leveling アルゴリズム (例: log-structured) を採用し、
+同一セクタへの連続書込を避けること。
 <<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L3-004
+
+[[/SECTION]]
