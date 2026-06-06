@@ -6,8 +6,8 @@ IMPORT_FROM_FILE: sovd-grammar.sgra
 
 [TEXT]
 STATEMENT: >>>
-本書は、 複数の機能ドメイン (01-auth / 02-data-access / 03-dtc-diagnostics /
-04-sw-update) が **共通で再利用する** ゲートウェイ基盤のユニット要求を集約する。
+本書は、 複数の機能ドメイン (02-auth / 03-data-access / 04-dtc-diagnostics /
+05-sw-update) が **共通で再利用する** ゲートウェイ基盤のユニット要求を集約する。
 各機能ドメインの要求 (L2_ECU_SW) は、 ここに定義する基盤ユニットへ収束 (N→1) する。
 
 **依存方向:** 機能 → 基盤 の一方向。 これにより「ある機能が別の機能 (兄弟) の文書に
@@ -46,37 +46,9 @@ STATEMENT: >>>
     </pre>
 
 注: TlsTerminator は全機能ドメインの外部通信を終端するが、 TLS 要求は代表として
-01-auth (AUTH-L1-004 / AUTH-L2-004) に集約されるため、 図では Auth からの依存のみを
-示す。 なお 04-sw-update は独自の更新系ユニット群を持つため、 共通基盤への収束は
+02-auth (AUTH-L1-005 / AUTH-L2-004) に集約されるため、 図では Auth からの依存のみを
+示す。 なお 05-sw-update は独自の更新系ユニット群を持つため、 共通基盤への収束は
 図に現れない。
-<<<
-
-[TEXT]
-STATEMENT: >>>
-**移設マッピング (欠番について):** 本書の共有ユニットは、 もともと各機能ドメインの
-L3 ユニット要求として個別文書にあったものを、 再利用のため本書へ移設・共通化した。
-移設元の L3 には次の欠番が残り、 「ここへ移った」 痕跡となる (各ユニットがどの上位要求へ
-収束するかは下の RATIONALE を参照)。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 34 22 22
-
-   * - 共有ユニット
-     - 現 UID
-     - 移設元 (欠番)
-   * - UdsClient
-     - PLAT-L3-001
-     - DATA-L3-002
-   * - ScopeAuthorizer
-     - PLAT-L3-002
-     - AUTH-L3-002
-   * - TlsTerminator
-     - PLAT-L3-003
-     - AUTH-L3-003
-   * - JsonSerializer
-     - PLAT-L3-004
-     - DATA-L3-004
 <<<
 
 [[SECTION]]
@@ -139,7 +111,7 @@ TlsTerminator ユニットは、 OpenSSL ベースの TLS 終端を提供し、 
 <<<
 RATIONALE: >>>
 全機能ドメインの外部通信を終端する横断的なセキュリティ基盤。 明示的な TLS 要求は
-01-auth (AUTH-L1-004 / AUTH-L2-004) にあり、 本ユニットがそれを実装する。
+02-auth (AUTH-L1-005 / AUTH-L2-004) にあり、 本ユニットがそれを実装する。
 <<<
 VERIFICATION: >>>
 ハンドシェイク失敗時に、 上位へエラーイベントが通知されること。

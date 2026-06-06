@@ -13,7 +13,7 @@ STATEMENT: >>>
 PASS、 1 つが FAIL」 を個別に記録できる (Cucumber/ISTQB の test case 粒度)。 同一振る舞いの
 データ違いだけは ``Scenario Outline`` + ``Examples`` で 1 テストに集約する。 各テストは
 具体的な入力・期待結果を持つ実行可能な Gherkin で記述する。 テスト結果は
-`09-test-results.sdoc` に分離 (1 仕様 : N 実行)。
+`10-test-results.sdoc` に分離 (1 仕様 : N 実行)。
 <<<
 
 [[SECTION]]
@@ -125,7 +125,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: ARCH-C-008
+  VALUE: ARCH-C-006
   ROLE: Verifies
 
 [TEST]
@@ -143,7 +143,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: ARCH-C-008
+  VALUE: ARCH-C-006
   ROLE: Verifies
 
 [TEST]
@@ -301,7 +301,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: ARCH-C-006
+  VALUE: ARCH-C-008
   ROLE: Verifies
 
 [TEST]
@@ -319,7 +319,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: ARCH-C-006
+  VALUE: ARCH-C-008
   ROLE: Verifies
 
 [TEST]
@@ -644,7 +644,7 @@ RELATIONS:
   VALUE: AUTH-L1-002
   ROLE: Verifies
 - TYPE: Parent
-  VALUE: AUTH-L1-008
+  VALUE: AUTH-L1-003
   ROLE: Verifies
 
 [TEST]
@@ -1092,7 +1092,7 @@ RELATIONS:
   VALUE: DATA-L1-001
   ROLE: Verifies
 - TYPE: Parent
-  VALUE: API-001
+  VALUE: API-003
   ROLE: Verifies
 - TYPE: Parent
   VALUE: AUTH-L0-001
@@ -1161,7 +1161,7 @@ RELATIONS:
   VALUE: AUTH-L1-010
   ROLE: Verifies
 - TYPE: Parent
-  VALUE: API-004
+  VALUE: API-002
   ROLE: Verifies
 
 [TEST]
@@ -1245,7 +1245,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-006
+  VALUE: AUTH-L1-008
   ROLE: Verifies
 
 [TEST]
@@ -1338,7 +1338,7 @@ RELATIONS:
   VALUE: DATA-L1-002
   ROLE: Verifies
 - TYPE: Parent
-  VALUE: API-002
+  VALUE: API-004
   ROLE: Verifies
 
 [TEST]
@@ -1404,7 +1404,7 @@ RELATIONS:
   VALUE: AUTH-L0-002
   ROLE: Verifies
 - TYPE: Parent
-  VALUE: AUTH-L1-003
+  VALUE: AUTH-L1-004
   ROLE: Verifies
 
 [TEST]
@@ -1424,7 +1424,7 @@ RELATIONS:
   VALUE: AUTH-L0-003
   ROLE: Verifies
 - TYPE: Parent
-  VALUE: AUTH-L1-004
+  VALUE: AUTH-L1-005
   ROLE: Verifies
 
 [TEST]
@@ -1441,7 +1441,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-009
+  VALUE: AUTH-L1-006
   ROLE: Verifies
 
 [TEST]
@@ -1459,7 +1459,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-005
+  VALUE: AUTH-L1-007
   ROLE: Verifies
 
 [TEST]
@@ -1477,7 +1477,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-005
+  VALUE: AUTH-L1-007
   ROLE: Verifies
 
 [TEST]

@@ -1,0 +1,489 @@
+[DOCUMENT]
+TITLE: SOVD ステークホルダ要求 - ユースケースと最上位要求 (Stakeholder Requirements)
+
+[GRAMMAR]
+IMPORT_FROM_FILE: sovd-grammar.sgra
+
+[TEXT]
+STATEMENT: >>>
+本書は SOVD 車両診断システムの **ステークホルダ要求 (L0)** を、 アクターとユースケースの
+観点で定義する最上位の要求文書である。 背景・目的・用語・参照規格は `00-overview.sdoc` を、
+各ユースケースを実現するシステム要求 (L1) 以下は各ドメイン文書 (`02-auth` /
+`03-data-access` / `04-dtc-diagnostics` / `05-sw-update`) を参照のこと。
+
+**読み順:** 00 (背景=なぜ) → 本書 01 (誰が・何を=ステークホルダ要求 / ユースケース) →
+02 以降 (どう実現するか=システム / ECU / ユニット要求)。 各ドメインの L1 要求は、 本書の
+対応する L0 (UseCase) を Parent としてトレースする。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**アクター (Actors)**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 18 58
+
+   * - アクター
+     - RBAC ロール
+     - 説明 / 主な関心
+   * - 整備士
+     - ``Mechanic``
+     - 出先・工場から遠隔で車両を診断する。 データ読出・DTC 取得 / クリアを行う。
+   * - OEM エンジニア
+     - ``OEMEngineer``
+     - 全診断機能に加え、 個人情報を含む DID へのアクセスや OTA 更新の実施が可能。
+   * - フリート運用者
+     - ``FleetOperator``
+     - 多数車両の状態を遠隔で一括監視する (主に読み取り)。
+   * - OEM バックエンド
+     - (システム)
+     - トークン発行・失効リスト配信・更新パッケージの署名 / 配信・DTC マスタ提供を担う外部システム。
+   * - 攻撃者 (脅威アクター)
+     - (なし)
+     - なりすまし・盗聴・改ざんを試みる。 認証・認可・暗号 (UC1) で防御する対象。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**ユースケース図 (アクターとユースケース)**
+
+.. raw:: html
+
+    <pre class="mermaid">
+    flowchart LR
+        M["整備士"]
+        O["OEM エンジニア"]
+        F["フリート運用者"]
+        B["OEM バックエンド"]
+        X["攻撃者"]:::threat
+        UC1(["UC1 遠隔・認証付き<br/>診断アクセス"])
+        UC2(["UC2 車両データの<br/>遠隔読み取り"])
+        UC3(["UC3 故障診断<br/>(取得・クリア)"])
+        UC4(["UC4 OTA 遠隔<br/>ソフト更新"])
+        M --> UC1
+        M --> UC2
+        M --> UC3
+        O --> UC1
+        O --> UC2
+        O --> UC3
+        O --> UC4
+        F --> UC2
+        B --> UC4
+        B -.->|信頼基盤| UC1
+        X -.->|脅威| UC1
+        classDef threat fill:#FFB3B3,stroke:#990000,color:#000
+    </pre>
+
+UC1 は全ドメインの前提となる「認証・認可の土台」。 攻撃者の脅威 (なりすまし等) は UC1 で
+防御し、 OEM バックエンドがトークン・失効・署名の信頼基盤を供給する。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**ユースケース一覧 (UC から担当ドメインへ)**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 8 30 30 32
+
+   * - UC
+     - ユースケース
+     - 主アクター
+     - 担当ドメイン (ルート L0)
+   * - UC1
+     - 遠隔・認証付き診断アクセス
+     - 整備士 / OEM エンジニア
+     - 02-auth (AUTH-L0-001)
+   * - UC2
+     - 車両データの遠隔読み取り
+     - 整備士 / OEM / フリート
+     - 03-data-access (DATA-L0-001)
+   * - UC3
+     - 故障診断 (取得・クリア)
+     - 整備士 / OEM エンジニア
+     - 04-dtc-diagnostics (DTC-L0-001)
+   * - UC4
+     - OTA 遠隔ソフトウェア更新
+     - OEM エンジニア / OEM バックエンド
+     - 05-sw-update (SWU-L0-001)
+
+各 UC のステークホルダ要求 (L0) を以下の節に定義する。 主シナリオ・代替シナリオは受入
+テスト (`09-test-spec.sdoc` の AT 系) で Gherkin として具体化し、 各 L0 へトレースされる。
+<<<
+
+[[SECTION]]
+TITLE: UC1 認証・認可 (Authentication & Authorization)
+
+[TEXT]
+STATEMENT: >>>
+**ストーリー:** 出先で車の警告灯が点いた。 昔は工場へ持ち込み、 整備士が OBD ポートに
+診断機を有線でつないで調べるしかなかった。 SOVD では、 整備士 (や OEM エンジニア・
+フリート運用者) が遠隔の SOVD クライアントから車両診断にアクセスできる。 ただし通信は
+インターネット経由なので、 **正規に認証された相手だけ** がアクセスでき、 役割に応じて
+操作を制限する必要がある。 本章はその「認証・認可の土台」を定義する。
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L0-001
+TYPE: UseCase
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 整備士による遠隔・認証付き診断アクセス
+STATEMENT: >>>
+整備士が遠隔の SOVD クライアントから認証を経て診断アクセスを要求したとき、
+本システムは認可された範囲で対象車両の診断データへのアクセスを提供すること。
+<<<
+VERIFICATION: >>>
+認証済みクライアントで診断リソースの GET が HTTP 200 を返し、 対象データが
+取得できること。
+<<<
+
+[REQUIREMENT]
+UID: AUTH-L0-002
+TYPE: Functional
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 役割に応じた診断権限の制限
+STATEMENT: >>>
+本システムは、 利用者の役割 (整備士 / OEM エンジニア / サードパーティ) に応じて、
+利用可能な診断機能 (読み出し / 書き込み 等) を制限すること。
+<<<
+RATIONALE: >>>
+過剰な権限付与は安全関連操作の誤用・悪用に直結する。
+<<<
+VERIFICATION: >>>
+役割ごとの許可操作マトリクスに従い、 権限外の操作要求が HTTP 403 で拒否されること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-001
+
+[REQUIREMENT]
+UID: AUTH-L0-003
+TYPE: Non-Functional
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: クレデンシャルの機密保持
+STATEMENT: >>>
+本システムは、 診断アクセスの認証に用いるクレデンシャル (パスワード / トークン /
+証明書) を、 通信路上および保管時に第三者へ漏洩させないこと。
+<<<
+RATIONALE: >>>
+SOVD は HTTP ベースで、 認証・認可前のデータ漏洩リスクが従来 UDS より高い。
+<<<
+VERIFICATION: >>>
+全診断通信が TLS で暗号化され、 保管されるクレデンシャルが平文でないことを確認する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-001
+
+[REQUIREMENT]
+UID: AUTH-L0-004
+TYPE: Restriction
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 未認証アクセスの拒否
+STATEMENT: >>>
+もし未認証のクライアントが SOVD サービスを呼び出した場合、 本システムは
+診断データの読み出しを含む一切の処理を実行せず、 要求を拒否すること。
+<<<
+RATIONALE: >>>
+認証・認可前のデータ漏洩を防ぐ。 SOVD は外部からの直接接続リスクが UDS より高い。
+<<<
+VERIFICATION: >>>
+トークンを伴わない全エンドポイント呼び出しが HTTP 401 を返すこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-001
+
+[REQUIREMENT]
+UID: AUTH-L0-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: ASAM SOVD 認証要件への準拠
+STATEMENT: >>>
+本システムの認証・認可機能は、 ASAM SOVD v1.0 (Part 1: Common) の認証要件に
+準拠すること。
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: UC2 車両データアクセス (Vehicle Data Access)
+
+[TEXT]
+STATEMENT: >>>
+**ストーリー:** 「最近燃費が悪い」「警告灯が点いた」というとき、 昔は車を工場へ入れ、
+整備士が OBD ポートに有線で診断機をつないで、 走行距離・バッテリ電圧・各 ECU 温度などの
+車両データを読み出して状態を確認した。 SOVD ではこれを **遠隔で**、 かつ **認可された
+範囲だけ** 安全に読めるようにする。 本章はその「車両データ読み出し」のステークホルダ
+要求を定義する。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L0-001
+TYPE: UseCase
+ASIL: QM
+CAL: CAL2
+LAYER: L0_Stakeholder
+TITLE: 車両状態データの遠隔読み取り
+STATEMENT: >>>
+整備士や OEM エンジニアが遠隔の SOVD クライアントから車両の現在状態 (走行距離・
+バッテリ電圧・各 ECU 温度等) の取得を要求したとき、 本システムは認可された範囲で
+そのデータを返すこと。
+<<<
+VERIFICATION: >>>
+認可されたクライアントで代表的な DID 群が取得でき、 未認可の項目は返らないこと。
+<<<
+
+[REQUIREMENT]
+UID: DATA-L0-002
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 周期的なデータサンプリング
+STATEMENT: >>>
+本システムは、 利用者が指定した DID リストを 100 ms 〜 60 s の周期で連続取得できる
+ようにすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
+
+[REQUIREMENT]
+UID: DATA-L0-003
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: スナップショットの一括取得
+STATEMENT: >>>
+本システムは、 特定時刻における車両の全 DID 値スナップショットを 1 トランザクションで
+取得できるようにすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
+
+[REQUIREMENT]
+UID: DATA-L0-004
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 大量データの中断・再開可能な転送
+STATEMENT: >>>
+本システムは、 ロギングデータや録画フレーム等の数百 MB 規模のデータを、 中断・再開
+可能な方式で転送できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
+
+[REQUIREMENT]
+UID: DATA-L0-005
+TYPE: Restriction
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 読み出し権限と書き込み権限の分離
+STATEMENT: >>>
+もし読み出し専用トークンで DID 値の書き込み (writeDataByIdentifier 相当) が要求された
+場合、 本システムはこれを拒否すること。
+<<<
+RATIONALE: >>>
+読み出しと書き込みを別スコープで管理し、 誤書込・悪用を防ぐ。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-001
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: UC3 故障診断 (DTC)
+
+[TEXT]
+STATEMENT: >>>
+**ストーリー:** DTC (故障コード) は、 車が「どこが・どんな異常を」 記録したかを表す
+データである。 昔は工場で有線の診断機をつないで一覧を読み出し、 原因を調べ、 修理後に
+消去した。 SOVD ではこれを **遠隔で** 行い、 原因の当たりをつけ、 修理完了後にクリアする。
+ただし、 安全関連の DTC を誤って・走行中に消すと危険なので、 **権限** と **走行状態** の
+ガードを課す。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L0-001
+TYPE: UseCase
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 故障コード一覧の遠隔取得
+STATEMENT: >>>
+整備士が遠隔の SOVD クライアントから故障コード一覧を要求したとき、 本システムは
+車両に記録された全 DTC をステータスマスクとともに返すこと。
+<<<
+VERIFICATION: >>>
+代表的な DTC が、 status (active/pending/confirmed/permanent) 付きで取得できること。
+<<<
+
+[REQUIREMENT]
+UID: DTC-L0-002
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: フリーズフレームデータの取得
+STATEMENT: >>>
+本システムは、 DTC 発生時刻のスナップショット (フリーズフレーム) を取得できるように
+すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-001
+
+[REQUIREMENT]
+UID: DTC-L0-003
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L0_Stakeholder
+TITLE: DTC のクリア
+STATEMENT: >>>
+整備士が修理完了後に対象 DTC のクリアを要求したとき、 本システムは適切な権限を
+確認したうえでクリアすること。 安全関連 DTC のクリアには追加の権限を要する。
+<<<
+RATIONALE: >>>
+不正・誤った DTC クリアによる故障情報の隠蔽を防ぐ。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-001
+
+[REQUIREMENT]
+UID: DTC-L0-004
+TYPE: Restriction
+ASIL: C
+LAYER: L0_Stakeholder
+TITLE: 走行中の DTC クリア禁止
+STATEMENT: >>>
+もし車速が 0 km/h でない場合、 本システムは DTC クリア要求を拒否すること。
+<<<
+RATIONALE: >>>
+走行中に安全関連 DTC を消すと、 走行中の機能安全評価に影響するため。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
+
+[REQUIREMENT]
+UID: DTC-L0-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: ISO 14229 セマンティクス準拠
+STATEMENT: >>>
+本システムの DTC 機能は、 ISO 14229-1 (UDS) Service 0x19 (ReadDTCInformation) および
+0x14 (ClearDiagnosticInformation) のセマンティクスを保つこと。
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: UC4 ソフトウェア更新 (OTA)
+
+[TEXT]
+STATEMENT: >>>
+**ストーリー:** 車の不具合の多くは、 部品交換ではなくソフトウェアの更新で直せる。
+昔はそのために車を工場へ入れ、 有線でリプログラミングする必要があった。 OTA では、
+OEM が不具合修正ソフトを **無線で遠隔配信** し、 工場に入れずに更新できる。 ただし
+ソフト更新は安全関連 ECU を書き換えうるため、 **走行中は書き換えない・署名を検証する・
+失敗したら元のバージョンに戻す** という安全策を要求レベルで規定する。
+<<<
+
+[REQUIREMENT]
+UID: SWU-L0-001
+TYPE: UseCase
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: OTA による遠隔ソフトウェア更新
+STATEMENT: >>>
+OEM が不具合修正ソフトを配信したいとき、 本システムは車両 ECU のソフトウェアを OTA
+(無線) で更新できるようにし、 ドライバーが進捗を SOVD クライアントで確認できるように
+すること。
+<<<
+VERIFICATION: >>>
+署名付きパッケージの配信 → 適用 → 進捗確認が一連で行え、 適用後に新バージョンで
+起動すること。
+<<<
+
+[REQUIREMENT]
+UID: SWU-L0-002
+TYPE: Functional
+ASIL: D
+CAL: CAL4
+LAYER: L0_Stakeholder
+TITLE: 改ざん検知 (署名検証)
+STATEMENT: >>>
+本システムは、 更新パッケージのデジタル署名を検証して改ざん・偽造を検知すること。
+もし署名検証に失敗した場合、 当該パッケージをインストールしないこと。
+<<<
+RATIONALE: >>>
+不正なファームウェアの注入は安全関連 ECU の機能喪失に直結し (安全)、 かつ車両は
+攻撃対象となる (セキュリティ)。 そのため安全・セキュリティの双方で最高保証レベルとする。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-001
+
+[REQUIREMENT]
+UID: SWU-L0-003
+TYPE: Functional
+ASIL: C
+LAYER: L0_Stakeholder
+TITLE: ロールバック対応
+STATEMENT: >>>
+もし更新後に異常が検出された場合、 本システムは直前のバージョンへ自動または手動で
+ロールバックできること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-001
+
+[REQUIREMENT]
+UID: SWU-L0-004
+TYPE: Restriction
+ASIL: D
+LAYER: L0_Stakeholder
+TITLE: 走行中の更新禁止
+STATEMENT: >>>
+もし車両が IG-ON かつ車速 > 0 の場合、 本システムは ECU フラッシュ書込を開始しない
+こと。 ダウンロードのみ走行中も許容する。
+<<<
+RATIONALE: >>>
+走行中の書込中断や挙動変化は、 安全機能の喪失に直結するため。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-001
+
+[REQUIREMENT]
+UID: SWU-L0-005
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 更新所要時間
+STATEMENT: >>>
+本システムの 1 ECU 当たりの平均更新時間 (検証 + 書込 + 再起動) は、 5 分以内で
+あること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-001
+
+[[/SECTION]]

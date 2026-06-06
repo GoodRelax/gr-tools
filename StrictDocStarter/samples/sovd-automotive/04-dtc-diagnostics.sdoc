@@ -6,102 +6,16 @@ IMPORT_FROM_FILE: sovd-grammar.sgra
 
 [TEXT]
 STATEMENT: >>>
-本書は SOVD の **故障診断 (DTC・フリーズフレーム)** の読出・クリア要求を L0→L3 で
+本書は SOVD の **故障診断 (DTC・フリーズフレーム)** の読出・クリア要求を L1→L3 で
 定義する。 内部では ISO 14229 (UDS) の 0x19 系 (ReadDTCInformation) / 0x14
-(ClearDiagnosticInformation) を SOVD でラップする。 共有の前付けは `00-overview.sdoc`、
-認証・認可は `01-auth.sdoc` を前提とする。
+(ClearDiagnosticInformation) を SOVD でラップする。 ステークホルダ要求 (L0)・ユースケースは
+`01-stakeholder-requirements.sdoc`、 共有の前付けは `00-overview.sdoc`、 認証・認可は
+`02-auth.sdoc` を前提とする。
 
 DTC の **読み出し** は安全機能ではないため原則 **ASIL=QM**。 ただし **「走行中に
 安全関連 DTC を消す」 と機能安全評価に影響しうる** ため、 クリアの **走行状態ガードは
 ASIL C** とする。 「誰がクリアできるか」 の権限はセキュリティ事項なので **CAL** を付与する。
 <<<
-
-[[SECTION]]
-TITLE: L0 — ステークホルダ要求 (Stakeholder Requirements)
-
-[TEXT]
-STATEMENT: >>>
-**ストーリー:** DTC (故障コード) は、 車が「どこが・どんな異常を」 記録したかを表す
-データである。 昔は工場で有線の診断機をつないで一覧を読み出し、 原因を調べ、 修理後に
-消去した。 SOVD ではこれを **遠隔で** 行い、 原因の当たりをつけ、 修理完了後にクリアする。
-ただし、 安全関連の DTC を誤って・走行中に消すと危険なので、 **権限** と **走行状態** の
-ガードを課す。
-<<<
-
-[REQUIREMENT]
-UID: DTC-L0-001
-TYPE: UseCase
-ASIL: QM
-LAYER: L0_Stakeholder
-TITLE: 故障コード一覧の遠隔取得
-STATEMENT: >>>
-整備士が遠隔の SOVD クライアントから故障コード一覧を要求したとき、 本システムは
-車両に記録された全 DTC をステータスマスクとともに返すこと。
-<<<
-VERIFICATION: >>>
-代表的な DTC が、 status (active/pending/confirmed/permanent) 付きで取得できること。
-<<<
-
-[REQUIREMENT]
-UID: DTC-L0-002
-TYPE: Functional
-ASIL: QM
-LAYER: L0_Stakeholder
-TITLE: フリーズフレームデータの取得
-STATEMENT: >>>
-本システムは、 DTC 発生時刻のスナップショット (フリーズフレーム) を取得できるように
-すること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DTC-L0-001
-
-[REQUIREMENT]
-UID: DTC-L0-003
-TYPE: Functional
-ASIL: QM
-CAL: CAL2
-LAYER: L0_Stakeholder
-TITLE: DTC のクリア
-STATEMENT: >>>
-整備士が修理完了後に対象 DTC のクリアを要求したとき、 本システムは適切な権限を
-確認したうえでクリアすること。 安全関連 DTC のクリアには追加の権限を要する。
-<<<
-RATIONALE: >>>
-不正・誤った DTC クリアによる故障情報の隠蔽を防ぐ。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DTC-L0-001
-
-[REQUIREMENT]
-UID: DTC-L0-004
-TYPE: Restriction
-ASIL: C
-LAYER: L0_Stakeholder
-TITLE: 走行中の DTC クリア禁止
-STATEMENT: >>>
-もし車速が 0 km/h でない場合、 本システムは DTC クリア要求を拒否すること。
-<<<
-RATIONALE: >>>
-走行中に安全関連 DTC を消すと、 走行中の機能安全評価に影響するため。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DTC-L0-003
-
-[REQUIREMENT]
-UID: DTC-L0-005
-TYPE: Constraint
-ASIL: QM
-LAYER: L0_Stakeholder
-TITLE: ISO 14229 セマンティクス準拠
-STATEMENT: >>>
-本システムの DTC 機能は、 ISO 14229-1 (UDS) Service 0x19 (ReadDTCInformation) および
-0x14 (ClearDiagnosticInformation) のセマンティクスを保つこと。
-<<<
-
-[[/SECTION]]
 
 [[SECTION]]
 TITLE: L1 — システム要求 (System Requirements)

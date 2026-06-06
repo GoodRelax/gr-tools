@@ -6,110 +6,16 @@ IMPORT_FROM_FILE: sovd-grammar.sgra
 
 [TEXT]
 STATEMENT: >>>
-本書は SOVD 経由の **OTA (Over-The-Air) ソフトウェア更新** の要求を L0→L3 で定義する。
-ダウンロード・署名検証・インストール・ロールバックの 4 フェーズと、 機能安全
-(ISO 26262) 関連 ECU の更新時保護を含む。 共有の前付けは `00-overview.sdoc`、
-認証・認可は `01-auth.sdoc` を前提とする。
+本書は SOVD 経由の **OTA (Over-The-Air) ソフトウェア更新** の要求を L1 (システム) から
+L3 (ユニット) で定義する。 ダウンロード・署名検証・インストール・ロールバックの 4
+フェーズと、 機能安全 (ISO 26262) 関連 ECU の更新時保護を含む。 ステークホルダ要求
+(L0)・ユースケースは `01-stakeholder-requirements.sdoc` を、 共有の前付けは
+`00-overview.sdoc` を、 認証・認可は `02-auth.sdoc` を前提とする。
 
-本書は **安全 (ASIL) とセキュリティ (CAL) が交差する** ドメインである:
-走行中のフラッシュ書込禁止は **安全 (ASIL D)**、 署名検証は **改ざん FW の適用阻止**
-であり安全とセキュリティの両面を持つため **ASIL D かつ CAL4** を付与する (00-overview §6.3)。
+本書は **安全 (ASIL) とセキュリティ (CAL) が交差する** ドメインである。 走行中の
+フラッシュ書込禁止は **安全 (ASIL D)**、 署名検証は **改ざん FW の適用阻止** であり
+安全とセキュリティの両面を持つため **ASIL D かつ CAL4** を付与する (00-overview §6.3)。
 <<<
-
-[[SECTION]]
-TITLE: L0 — ステークホルダ要求 (Stakeholder Requirements)
-
-[TEXT]
-STATEMENT: >>>
-**ストーリー:** 車の不具合の多くは、 部品交換ではなくソフトウェアの更新で直せる。
-昔はそのために車を工場へ入れ、 有線でリプログラミングする必要があった。 OTA では、
-OEM が不具合修正ソフトを **無線で遠隔配信** し、 工場に入れずに更新できる。 ただし
-ソフト更新は安全関連 ECU を書き換えうるため、 **走行中は書き換えない・署名を検証する・
-失敗したら元のバージョンに戻す** という安全策を要求レベルで規定する。
-<<<
-
-[REQUIREMENT]
-UID: SWU-L0-001
-TYPE: UseCase
-ASIL: QM
-CAL: CAL3
-LAYER: L0_Stakeholder
-TITLE: OTA による遠隔ソフトウェア更新
-STATEMENT: >>>
-OEM が不具合修正ソフトを配信したいとき、 本システムは車両 ECU のソフトウェアを OTA
-(無線) で更新できるようにし、 ドライバーが進捗を SOVD クライアントで確認できるように
-すること。
-<<<
-VERIFICATION: >>>
-署名付きパッケージの配信 → 適用 → 進捗確認が一連で行え、 適用後に新バージョンで
-起動すること。
-<<<
-
-[REQUIREMENT]
-UID: SWU-L0-002
-TYPE: Functional
-ASIL: D
-CAL: CAL4
-LAYER: L0_Stakeholder
-TITLE: 改ざん検知 (署名検証)
-STATEMENT: >>>
-本システムは、 更新パッケージのデジタル署名を検証して改ざん・偽造を検知すること。
-もし署名検証に失敗した場合、 当該パッケージをインストールしないこと。
-<<<
-RATIONALE: >>>
-不正なファームウェアの注入は安全関連 ECU の機能喪失に直結し (安全)、 かつ車両は
-攻撃対象となる (セキュリティ)。 そのため安全・セキュリティの双方で最高保証レベルとする。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: SWU-L0-001
-
-[REQUIREMENT]
-UID: SWU-L0-003
-TYPE: Functional
-ASIL: C
-LAYER: L0_Stakeholder
-TITLE: ロールバック対応
-STATEMENT: >>>
-もし更新後に異常が検出された場合、 本システムは直前のバージョンへ自動または手動で
-ロールバックできること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: SWU-L0-001
-
-[REQUIREMENT]
-UID: SWU-L0-004
-TYPE: Restriction
-ASIL: D
-LAYER: L0_Stakeholder
-TITLE: 走行中の更新禁止
-STATEMENT: >>>
-もし車両が IG-ON かつ車速 > 0 の場合、 本システムは ECU フラッシュ書込を開始しない
-こと。 ダウンロードのみ走行中も許容する。
-<<<
-RATIONALE: >>>
-走行中の書込中断や挙動変化は、 安全機能の喪失に直結するため。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: SWU-L0-001
-
-[REQUIREMENT]
-UID: SWU-L0-005
-TYPE: Non-Functional
-ASIL: QM
-LAYER: L0_Stakeholder
-TITLE: 更新所要時間
-STATEMENT: >>>
-本システムの 1 ECU 当たりの平均更新時間 (検証 + 書込 + 再起動) は、 5 分以内で
-あること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: SWU-L0-001
-
-[[/SECTION]]
 
 [[SECTION]]
 TITLE: L1 — システム要求 (System Requirements)
@@ -180,7 +86,7 @@ LAYER: L1_System
 TITLE: A/B パーティション切替
 STATEMENT: >>>
 車両の ECU は A/B パーティション構成を持ち、 新ファームウェアを非アクティブ
-パーティションに書込み、 ブートローダ経由で切替えること。 もし切替に失敗した場合は
+パーティションに書込み、 ブートローダ経由で切替えること。 もし切替えに失敗した場合は
 前パーティションを維持すること。
 <<<
 RELATIONS:

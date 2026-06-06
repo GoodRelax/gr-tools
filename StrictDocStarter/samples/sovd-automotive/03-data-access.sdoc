@@ -7,102 +7,13 @@ IMPORT_FROM_FILE: sovd-grammar.sgra
 [TEXT]
 STATEMENT: >>>
 本書は SOVD の **車両データアクセス** (DID 読み出し・周期データ・スナップショット・
-バルク転送) の要求を L0→L3 で定義する。 共有の前付け (背景ストーリー・用語・表記規約・
-ASIL/CAL の使い分け) は `00-overview.sdoc` を参照。 認証・認可は `01-auth.sdoc` を前提とする。
+バルク転送) の要求を L1→L3 で定義する。 ステークホルダ要求 (L0)・ユースケースは
+`01-stakeholder-requirements.sdoc`、 共有の前付け (背景ストーリー・用語・表記規約・
+ASIL/CAL の使い分け) は `00-overview.sdoc` を参照。 認証・認可は `02-auth.sdoc` を前提とする。
 
 データ読み出しは安全機能ではないため原則 **ASIL=QM**。 ただし「誰がどのデータを読めるか」
 の **アクセス制御はセキュリティ事項** なので、 該当要求には **CAL** を付与する。
 <<<
-
-[[SECTION]]
-TITLE: L0 — ステークホルダ要求 (Stakeholder Requirements)
-
-[TEXT]
-STATEMENT: >>>
-**ストーリー:** 「最近燃費が悪い」「警告灯が点いた」というとき、 昔は車を工場へ入れ、
-整備士が OBD ポートに有線で診断機をつないで、 走行距離・バッテリ電圧・各 ECU 温度などの
-車両データを読み出して状態を確認した。 SOVD ではこれを **遠隔で**、 かつ **認可された
-範囲だけ** 安全に読めるようにする。 本章はその「車両データ読み出し」のステークホルダ
-要求を定義する。
-<<<
-
-[REQUIREMENT]
-UID: DATA-L0-001
-TYPE: UseCase
-ASIL: QM
-CAL: CAL2
-LAYER: L0_Stakeholder
-TITLE: 車両状態データの遠隔読み取り
-STATEMENT: >>>
-整備士や OEM エンジニアが遠隔の SOVD クライアントから車両の現在状態 (走行距離・
-バッテリ電圧・各 ECU 温度等) の取得を要求したとき、 本システムは認可された範囲で
-そのデータを返すこと。
-<<<
-VERIFICATION: >>>
-認可されたクライアントで代表的な DID 群が取得でき、 未認可の項目は返らないこと。
-<<<
-
-[REQUIREMENT]
-UID: DATA-L0-002
-TYPE: Functional
-ASIL: QM
-LAYER: L0_Stakeholder
-TITLE: 周期的なデータサンプリング
-STATEMENT: >>>
-本システムは、 利用者が指定した DID リストを 100 ms 〜 60 s の周期で連続取得できる
-ようにすること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DATA-L0-001
-
-[REQUIREMENT]
-UID: DATA-L0-003
-TYPE: Functional
-ASIL: QM
-LAYER: L0_Stakeholder
-TITLE: スナップショットの一括取得
-STATEMENT: >>>
-本システムは、 特定時刻における車両の全 DID 値スナップショットを 1 トランザクションで
-取得できるようにすること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DATA-L0-001
-
-[REQUIREMENT]
-UID: DATA-L0-004
-TYPE: Non-Functional
-ASIL: QM
-LAYER: L0_Stakeholder
-TITLE: 大量データの中断・再開可能な転送
-STATEMENT: >>>
-本システムは、 ロギングデータや録画フレーム等の数百 MB 規模のデータを、 中断・再開
-可能な方式で転送できること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DATA-L0-001
-
-[REQUIREMENT]
-UID: DATA-L0-005
-TYPE: Restriction
-ASIL: QM
-CAL: CAL3
-LAYER: L0_Stakeholder
-TITLE: 読み出し権限と書き込み権限の分離
-STATEMENT: >>>
-もし読み出し専用トークンで DID 値の書き込み (writeDataByIdentifier 相当) が要求された
-場合、 本システムはこれを拒否すること。
-<<<
-RATIONALE: >>>
-読み出しと書き込みを別スコープで管理し、 誤書込・悪用を防ぐ。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: DATA-L0-001
-
-[[/SECTION]]
 
 [[SECTION]]
 TITLE: L1 — システム要求 (System Requirements)
@@ -367,7 +278,7 @@ RELATIONS:
   VALUE: DATA-L2-001
 
 [REQUIREMENT]
-UID: DATA-L3-003
+UID: DATA-L3-002
 TYPE: Functional
 ASIL: QM
 LAYER: L3_Unit
@@ -381,7 +292,7 @@ RELATIONS:
   VALUE: DATA-L2-003
 
 [REQUIREMENT]
-UID: DATA-L3-005
+UID: DATA-L3-003
 TYPE: Constraint
 ASIL: QM
 LAYER: L3_Unit

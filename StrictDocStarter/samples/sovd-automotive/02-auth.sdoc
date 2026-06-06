@@ -6,119 +6,15 @@ IMPORT_FROM_FILE: sovd-grammar.sgra
 
 [TEXT]
 STATEMENT: >>>
-本書は SOVD の **認証・認可** 要求を L0 (ステークホルダ) → L3 (ユニット) で定義する。
-共有の前付け (目的・用語・表記規約・ASIL/CAL の使い分け・参照規格) は
-`00-overview.sdoc` を参照のこと。
+本書は SOVD の **認証・認可** 要求を L1 (システム) → L3 (ユニット) で定義する。
+ステークホルダ要求 (L0)・ユースケースは `01-stakeholder-requirements.sdoc`、 共有の前付け
+(目的・用語・表記規約・ASIL/CAL の使い分け・参照規格) は `00-overview.sdoc` を参照のこと。
 
 本ドメイン固有の参照規格: OAuth 2.0 (RFC 6749) / PKCE (RFC 7636) / JWT (RFC 7519) /
 TLS 1.3 (RFC 8446) / ISO/SAE 21434 (CAL)。 認証・認可は **サイバーセキュリティ**
 機能であるため、 本書の要求は原則 **ASIL=QM** とし、 保証レベルは **CAL** で表す
 (00-overview §6.3 参照)。
 <<<
-
-[[SECTION]]
-TITLE: L0 — ステークホルダ要求 (Stakeholder Requirements)
-
-[TEXT]
-STATEMENT: >>>
-**ストーリー:** 出先で車の警告灯が点いた。 昔は工場へ持ち込み、 整備士が OBD ポートに
-診断機を有線でつないで調べるしかなかった。 SOVD では、 整備士 (や OEM エンジニア・
-フリート運用者) が遠隔の SOVD クライアントから車両診断にアクセスできる。 ただし通信は
-インターネット経由なので、 **正規に認証された相手だけ** がアクセスでき、 役割に応じて
-操作を制限する必要がある。 本章はその「認証・認可の土台」を定義する。
-<<<
-
-[REQUIREMENT]
-UID: AUTH-L0-001
-TYPE: UseCase
-ASIL: QM
-CAL: CAL3
-LAYER: L0_Stakeholder
-TITLE: 整備士による遠隔・認証付き診断アクセス
-STATEMENT: >>>
-整備士が遠隔の SOVD クライアントから認証を経て診断アクセスを要求したとき、
-本システムは認可された範囲で対象車両の診断データへのアクセスを提供すること。
-<<<
-VERIFICATION: >>>
-認証済みクライアントで診断リソースの GET が HTTP 200 を返し、 対象データが
-取得できること。
-<<<
-
-[REQUIREMENT]
-UID: AUTH-L0-002
-TYPE: Functional
-ASIL: QM
-CAL: CAL3
-LAYER: L0_Stakeholder
-TITLE: 役割に応じた診断権限の制限
-STATEMENT: >>>
-本システムは、 利用者の役割 (整備士 / OEM エンジニア / サードパーティ) に応じて、
-利用可能な診断機能 (読み出し / 書き込み 等) を制限すること。
-<<<
-RATIONALE: >>>
-過剰な権限付与は安全関連操作の誤用・悪用に直結する。
-<<<
-VERIFICATION: >>>
-役割ごとの許可操作マトリクスに従い、 権限外の操作要求が HTTP 403 で拒否されること。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: AUTH-L0-001
-
-[REQUIREMENT]
-UID: AUTH-L0-003
-TYPE: Non-Functional
-ASIL: QM
-CAL: CAL3
-LAYER: L0_Stakeholder
-TITLE: クレデンシャルの機密保持
-STATEMENT: >>>
-本システムは、 診断アクセスの認証に用いるクレデンシャル (パスワード / トークン /
-証明書) を、 通信路上および保管時に第三者へ漏洩させないこと。
-<<<
-RATIONALE: >>>
-SOVD は HTTP ベースで、 認証・認可前のデータ漏洩リスクが従来 UDS より高い。
-<<<
-VERIFICATION: >>>
-全診断通信が TLS で暗号化され、 保管されるクレデンシャルが平文でないことを確認する。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: AUTH-L0-001
-
-[REQUIREMENT]
-UID: AUTH-L0-004
-TYPE: Restriction
-ASIL: QM
-CAL: CAL3
-LAYER: L0_Stakeholder
-TITLE: 未認証アクセスの拒否
-STATEMENT: >>>
-もし未認証のクライアントが SOVD サービスを呼び出した場合、 本システムは
-診断データの読み出しを含む一切の処理を実行せず、 要求を拒否すること。
-<<<
-RATIONALE: >>>
-認証・認可前のデータ漏洩を防ぐ。 SOVD は外部からの直接接続リスクが UDS より高い。
-<<<
-VERIFICATION: >>>
-トークンを伴わない全エンドポイント呼び出しが HTTP 401 を返すこと。
-<<<
-RELATIONS:
-- TYPE: Parent
-  VALUE: AUTH-L0-001
-
-[REQUIREMENT]
-UID: AUTH-L0-005
-TYPE: Constraint
-ASIL: QM
-LAYER: L0_Stakeholder
-TITLE: ASAM SOVD 認証要件への準拠
-STATEMENT: >>>
-本システムの認証・認可機能は、 ASAM SOVD v1.0 (Part 1: Common) の認証要件に
-準拠すること。
-<<<
-
-[[/SECTION]]
 
 [[SECTION]]
 TITLE: L1 — システム要求 (System Requirements)
@@ -185,7 +81,7 @@ RELATIONS:
   VALUE: AUTH-L1-001
 
 [REQUIREMENT]
-UID: AUTH-L1-008
+UID: AUTH-L1-003
 TYPE: Non-Functional
 ASIL: QM
 CAL: CAL2
@@ -203,7 +99,7 @@ RELATIONS:
   VALUE: AUTH-L1-002
 
 [REQUIREMENT]
-UID: AUTH-L1-003
+UID: AUTH-L1-004
 TYPE: Functional
 ASIL: QM
 CAL: CAL3
@@ -218,7 +114,7 @@ RELATIONS:
   VALUE: AUTH-L0-002
 
 [REQUIREMENT]
-UID: AUTH-L1-004
+UID: AUTH-L1-005
 TYPE: Non-Functional
 ASIL: QM
 CAL: CAL3
@@ -236,7 +132,7 @@ RELATIONS:
   VALUE: AUTH-L0-003
 
 [REQUIREMENT]
-UID: AUTH-L1-009
+UID: AUTH-L1-006
 TYPE: Restriction
 ASIL: QM
 CAL: CAL3
@@ -251,10 +147,10 @@ RATIONALE: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-004
+  VALUE: AUTH-L1-005
 
 [REQUIREMENT]
-UID: AUTH-L1-005
+UID: AUTH-L1-007
 TYPE: Functional
 ASIL: QM
 CAL: CAL3
@@ -269,7 +165,7 @@ RELATIONS:
   VALUE: AUTH-L0-003
 
 [REQUIREMENT]
-UID: AUTH-L1-006
+UID: AUTH-L1-008
 TYPE: Non-Functional
 ASIL: QM
 CAL: CAL2
@@ -288,7 +184,7 @@ RELATIONS:
   VALUE: AUTH-L1-002
 
 [REQUIREMENT]
-UID: AUTH-L1-007
+UID: AUTH-L1-009
 TYPE: Functional
 ASIL: QM
 CAL: CAL3
@@ -317,7 +213,7 @@ VERIFICATION: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-007
+  VALUE: AUTH-L1-009
 
 [REQUIREMENT]
 UID: AUTH-L1-011
@@ -410,7 +306,7 @@ VERIFICATION: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-003
+  VALUE: AUTH-L1-004
 
 [REQUIREMENT]
 UID: AUTH-L2-004
@@ -425,7 +321,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-004
+  VALUE: AUTH-L1-005
 
 [REQUIREMENT]
 UID: AUTH-L2-005
@@ -440,7 +336,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-005
+  VALUE: AUTH-L1-007
 
 [REQUIREMENT]
 UID: AUTH-L2-006
@@ -474,7 +370,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L1-007
+  VALUE: AUTH-L1-009
 
 [REQUIREMENT]
 UID: AUTH-L2-008
@@ -519,7 +415,7 @@ RELATIONS:
   VALUE: AUTH-L2-002
 
 [REQUIREMENT]
-UID: AUTH-L3-004
+UID: AUTH-L3-002
 TYPE: Non-Functional
 ASIL: QM
 CAL: CAL2
@@ -537,7 +433,7 @@ RELATIONS:
   VALUE: AUTH-L2-006
 
 [REQUIREMENT]
-UID: AUTH-L3-005
+UID: AUTH-L3-003
 TYPE: Constraint
 ASIL: QM
 CAL: CAL2
