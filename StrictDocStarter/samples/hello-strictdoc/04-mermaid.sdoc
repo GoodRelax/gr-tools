@@ -1,0 +1,22 @@
+[DOCUMENT]
+TITLE: Mermaid 動作確認
+
+[REQUIREMENT]
+UID: MER-001
+TITLE: Mermaid 記述の動作確認
+STATEMENT: >>>
+Mermaid記法を用いて、以下のシーケンス図を描画すること。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+.. raw:: html
+
+    <pre class="mermaid">
+    sequenceDiagram
+        participant U as User
+        participant S as System
+        U->>S: データ入力
+        S-->>U: 処理完了メッセージ
+    </pre>
+<<<

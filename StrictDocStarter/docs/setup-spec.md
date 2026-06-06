@@ -234,8 +234,8 @@
 | FR-803 | If | もし引数なしで起動されたら、StrictDocStarter は **`auto` モードを起動** すること (旧仕様: `help` を表示) |
 | FR-804 | When | `setup-strictdoc.bat auto` が呼ばれたら、StrictDocStarter は (a) 環境 check (b) 必要なツールのプラン提示 (c) **1 回の `yes` 入力** で全 Phase を一気通貫実行すること |
 | FR-805 | If | もし `auto` 実行中に Claude Code (VS Code 拡張: `anthropic.claude-code`) が未導入と判定されたら、yes プロンプトに「VS Code + Claude Code 拡張」の install を含めること |
-| FR-806 | Ubiquitous | UAC 自己昇格 / MOTW strip / CWD 正規化 (`cd /d %~dp0`) の 3 パターンは **`StrictDocStarter/_lib/elevate.bat` に共通化** すること。 引数規約は `call <相対パス>\_lib\elevate.bat <ADMIN_MODE>` で、 `ADMIN_MODE` は `need_admin` (auto/install/clone/all) または `no_admin` (check/config/dryrun/help/gather-logs/manage) の 2 値。 5 .bat の呼出パスは下表の通り (ロジックを各 .bat に重複コピペしてはならない): |
-| | | <table><tr><th>.bat</th><th>呼出</th></tr><tr><td>`StrictDocStarter/setup-strictdoc.bat`</td><td>`call _lib\elevate.bat need_admin`</td></tr><tr><td>`StrictDocStarter/gather-logs.bat`</td><td>`call _lib\elevate.bat no_admin`</td></tr><tr><td>`StrictDocStarter/manage-strictdoc.bat`</td><td>`call _lib\elevate.bat no_admin` (詳細は docs/serve-spec.md FR-102)</td></tr><tr><td>`StrictDocStarter/vm-tests/run-tests.bat`</td><td>`call ..\_lib\elevate.bat need_admin`</td></tr><tr><td>`StrictDocStarter/vm-tests/gather-test-logs.bat`</td><td>`call ..\_lib\elevate.bat no_admin`</td></tr></table> |
+| FR-806 | Ubiquitous | UAC 自己昇格 / MOTW strip / CWD 正規化 (`cd /d %~dp0`) の 3 パターンは **`StrictDocStarter/_lib/elevate.bat` に共通化** すること。 引数規約は `call <相対パス>\_lib\elevate.bat <ADMIN_MODE>` で、 `ADMIN_MODE` は `need_admin` (auto/install/clone/all) または `no_admin` (check/config/dryrun/help/gather-logs/manage) の 2 値 (`uninstall-strictdoc.bat` は need_admin)。 6 .bat の呼出パスは下表の通り (ロジックを各 .bat に重複コピペしてはならない): |
+| | | <table><tr><th>.bat</th><th>呼出</th></tr><tr><td>`StrictDocStarter/setup-strictdoc.bat`</td><td>`call _lib\elevate.bat need_admin`</td></tr><tr><td>`StrictDocStarter/gather-logs.bat`</td><td>`call _lib\elevate.bat no_admin`</td></tr><tr><td>`StrictDocStarter/manage-strictdoc.bat`</td><td>`call _lib\elevate.bat no_admin` (詳細は docs/serve-spec.md FR-102)</td></tr><tr><td>`StrictDocStarter/uninstall-strictdoc.bat`</td><td>`call _lib\elevate.bat need_admin` (pip/winget uninstall は admin 要、 詳細は §7.2 FR-340)</td></tr><tr><td>`StrictDocStarter/vm-tests/run-tests.bat`</td><td>`call ..\_lib\elevate.bat need_admin`</td></tr><tr><td>`StrictDocStarter/vm-tests/gather-test-logs.bat`</td><td>`call ..\_lib\elevate.bat no_admin`</td></tr></table> |
 | FR-807 | If | もしバッチファイル内で `if (...)` / `for /f (...) do (...)` ブロック中、 または `&&` / `\|\|` 連結で **`set "VAR=..."` してその直後に `%VAR%` を参照** する場合、 **必ず `setlocal EnableDelayedExpansion` を有効化し `!VAR!` を使う** こと。 cmd の parse-time 展開で未設定値 (空または前の値) を見る誤動作を防ぐ |
 
 #### 2.1.9 プラン表示 UX (FR-900 系)
@@ -728,6 +728,11 @@ Feature: StrictDocStarter - StrictDoc Environment Setup
     "version": "3.13"
   },
 
+  "strictdoc": {
+    "_comment": "StrictDoc pip version spec. Default 'latest' (pip install strictdoc). For reproducibility pin a range, e.g. '~=0.21.0' (>=0.21,<0.22) or '==0.21.1'. Tested version is recorded in README. Consumed by install Phase C (FR-331).",
+    "version": "latest"
+  },
+
   "options": {
     "_comment_claude_winget": "Anthropic Claude Code CLI via winget. Default: false (opt-in, requires subscription). Mutually exclusive with install_claude_npm (FR-305).",
     "install_claude_winget": false,
@@ -793,7 +798,8 @@ Separate entry .bat files (not subcommands of setup-strictdoc.bat):
   - gather-logs.bat                   (no_admin) -- bundles logs + diagnostics into a ZIP
   - vm-tests\run-tests.bat            (need_admin) -- 10-scenario automated test runner
   - vm-tests\gather-test-logs.bat     (no_admin) -- bundles test-results + parent log into a ZIP
-  All four entry .bat files go through _lib\elevate.bat (FR-806).
+  - uninstall-strictdoc.bat           (need_admin) -- uninstall StrictDoc + StrictDocStarter artifacts (config-driven, dry-run + yes; FR-340..345)
+  All separate entry .bat files go through _lib\elevate.bat (FR-806).
 ```
 
 ### 4.4 Python Version Selection Dialog
@@ -963,6 +969,51 @@ Choose (1-3) [default: 1]:
 
 ---
 
+## Chapter 7. 改訂 v1.1 — strictdoc バージョン / uninstall / 公式委譲
+
+> serve-spec.md v1.1 (公式委譲 & 可視ウィンドウ方式) と対になる setup 側の改訂。 根拠: [`improvement-items.md`](improvement-items.md) の D-4/D-5, S-3, S-4, O-1/O-2/O-5。
+
+### 7.1 strictdoc バージョン指定 (FR-330 系) — O-1 / D-4 (FR-306 を改訂)
+
+| ID | パターン | 要求 |
+|---|---|---|
+| FR-330 | Ubiquitous | `setup.config.json` に `strictdoc.version` フィールドを設けること (`python.version` と対称)。 既定値は `"latest"`。 PEP 440 のバージョン指定子 (`~=0.21.0` / `==0.21.1` / `>=0.21,<0.22`) または `latest` を受け付ける |
+| FR-331 | When | install Phase C (**旧 FR-306 を改訂**) は `strictdoc.version` を解釈してインストールすること: `latest` ならば `pip install strictdoc`、 それ以外 (指定子) ならば `pip install "strictdoc<spec>"` を実行する。 指定子は pip に渡す前に簡易 validate (先頭が `~=`/`==`/`>=`/`<=`/`!=`/`<`/`>` または数字) すること |
+| FR-332 | Ubiquitous | **動作確認済みの strictdoc バージョンを `README.md` に明記**すること (現状: strictdoc 0.21.x で検証。 公式最新は 0.23.x)。 既定 `latest` は最新を取りに行くため、 同梱サンプル/設定が将来版で壊れ得る旨も注記 (O-4 smoke test で検知) |
+| FR-333 | Optional | doctor/health-check (将来) を設ける場合、 インストール済み strictdoc 版がテスト済み版/範囲外なら `[WARN]` を出すこと (O-1 連動) |
+
+### 7.2 uninstall-strictdoc.bat (FR-340 系) — S-4
+
+| ID | パターン | 要求 |
+|---|---|---|
+| FR-340 | Ubiquitous | `uninstall-strictdoc.bat` を **新規の独立エントリ .bat** として設けること (setup-strictdoc.bat と対称、 `_lib\elevate.bat` 経由)。 設定は `uninstall.config.template.json` → `uninstall.config.json` (gitignore) で宣言し、 `setup.config.json` と同じ生成/編集流儀 |
+| FR-341 | Ubiquitous | **dry-run と明示確認 (`yes`) を必須**とすること (破壊的操作。 setup の dryrun/yes 流儀を踏襲) |
+| FR-342 | Ubiquitous | (**D-10**) 既定 ON で削除: (a) StrictDoc (`pip uninstall -y strictdoc`)、 (b) 再生成可能な生成物 = `%LOCALAPPDATA%\StrictDocStarter\` / 各 project の `output/` / `temp/` / `*.log` / `__pycache__` (`remove_generated_artifacts`)。 **scaffold した `strictdoc_config.py` (project_path 内、 ユーザー編集の可能性) は既定 OFF** — 別キー `remove_scaffolded_config` が明示 true の時のみ削除 |
+| FR-343 | Ubiquitous | 任意で削除可能な対象 (config 既定 OFF): setup が導入した VS Code 拡張、 winget 追加ツール (ripgrep / jq / Windows Terminal / PowerShell 7 / Obsidian) |
+| FR-344 | Ubiquitous | **絶対に削除しない対象**: Python / VS Code 本体 / Claude Code (拡張・CLI) / Git。 これらは共有資産であり巻き添え削除を禁止する (config でも ON にできない) |
+| FR-345 | Ubiquitous | (**D-10**) `uninstall.config.template.json` のキーと既定値: `uninstall_strictdoc`=true / `remove_generated_artifacts`=true / **`remove_scaffolded_config`=false** / `remove_vscode_extensions`=false / `remove_winget_optionals`=false / `keep_user_documents`=true (常に。 project_path 配下の .sdoc は削除しない) |
+
+### 7.3 HTML2PDF 用 chromedriver (FR-350 系) — S-3
+
+| ID | パターン | 要求 |
+|---|---|---|
+| FR-350 | Ubiquitous | StrictDoc の feature 用 JS 資産 (Mermaid/MathJax/Nestor/RapiDoc) は pip `strictdoc` に同梱されるため、 setup で別途取得しないこと (取りに行くのは誤り) |
+| FR-351 | Optional | `HTML2PDF` feature を使う環境向けに、 **Chrome/chromedriver の事前取得を任意機能**として設けること (strictdoc は PDF 生成時にオンデマンド DL するが、 オフライン/プロキシ環境で失敗するため)。 既定は OFF (PDF 不要なユーザに不要な DL を強いない) |
+
+### 7.4 install Phase 完成 / gitignore (O-5 / O-2)
+
+| ID | パターン | 要求 |
+|---|---|---|
+| FR-360 | Ubiquitous | `lib/install.ps1` の Phase B (Git/Python/gh) / C (pip strictdoc) / D (clone) / E (extras) のスタブを実装完成させること (現状 Phase A のみ実装)。 **Phase C の strictdoc version 解釈は FR-331 に従う** (version 適用責務は FR-331 に一意化)。 公式委譲スコープ (D-5) において StrictDocStarter のコア価値 (Windows ブートストラップ) の中核 |
+| FR-361 | Ubiquitous | `.gitignore` に `__pycache__/` と `*.pyc` を追加すること (strictdoc_config.py 読込時に `samples/__pycache__/` 等が生成されるため。 O-2) |
+
+### 7.5 serve-spec.md からの依存 (cross-ref)
+
+- serve-spec.md v1.1 Appendix A.2 (`_lib/elevate.bat` 表に `manage-strictdoc.bat` / `uninstall-strictdoc.bat` 行追加) / A.3 (gather-logs は v1.1 で `*.pid`/`server-*.log` が生成されないため回収対象を見直し) を本 setup-spec 側でも反映すること。
+- serve-spec.md FR-1141..1145 (strictdoc_config.py scaffold) は manage 側の責務だが、 公式 `strictdoc new` 準拠 (D-3) の方針は本 setup-spec の install 完成 (FR-360) と整合させること。
+
+---
+
 ## Appendix
 
 ### A.1 References
@@ -984,3 +1035,4 @@ Choose (1-3) [default: 1]:
 | バージョン | 日付 | 内容 |
 |---|---|---|
 | v1.0 | 2026-05-27 | Initial public release |
+| v1.1 | 2026-06-06 | Chapter 7 追加: strictdoc バージョン指定 (FR-330系, O-1/D-4)、 uninstall-strictdoc.bat (FR-340系, S-4)、 HTML2PDF chromedriver (FR-350系, S-3)、 install Phase 完成 + __pycache__ gitignore (FR-360系, O-5/O-2)。 公式委譲スコープ (D-5) で serve-spec.md v1.1 と対。 |
