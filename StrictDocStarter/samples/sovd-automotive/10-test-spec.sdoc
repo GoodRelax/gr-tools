@@ -13,7 +13,7 @@ STATEMENT: >>>
 PASS、 1 つが FAIL」 を個別に記録できる (Cucumber/ISTQB の test case 粒度)。 同一振る舞いの
 データ違いだけは ``Scenario Outline`` + ``Examples`` で 1 テストに集約する。 各テストは
 具体的な入力・期待結果を持つ実行可能な Gherkin で記述する。 テスト結果は
-`10-test-results.sdoc` に分離 (1 仕様 : N 実行)。
+`11-test-results.sdoc` に分離 (1 仕様 : N 実行)。
 <<<
 
 [[SECTION]]
@@ -1095,10 +1095,10 @@ RELATIONS:
   VALUE: API-003
   ROLE: Verifies
 - TYPE: Parent
-  VALUE: AUTH-L0-001
+  VALUE: UC-001
   ROLE: Verifies
 - TYPE: Parent
-  VALUE: DATA-L0-001
+  VALUE: UC-002
   ROLE: Verifies
 
 [TEST]
@@ -1284,7 +1284,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: DTC-L0-001
+  VALUE: UC-003
   ROLE: Verifies
 - TYPE: Parent
   VALUE: DTC-L1-001
@@ -1495,7 +1495,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: SWU-L0-001
+  VALUE: UC-004
   ROLE: Verifies
 - TYPE: Parent
   VALUE: API-008

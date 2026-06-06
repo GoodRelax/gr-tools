@@ -15,7 +15,7 @@ STATEMENT: >>>
 **テスト (08) のシナリオ** で表す (1 振る舞い = 1 シナリオ = 1 判定)。 各コンポーネントは
 実現する要求へ ``Implements`` 関係でトレースする。
 
-共有の前付けは `00-overview.sdoc`、 API 契約は `08-api.sdoc`、 テストは `09-test-spec.sdoc`。
+共有の前付けは `00-overview.sdoc`、 API 契約は `09-api.sdoc`、 テストは `10-test-spec.sdoc`。
 <<<
 
 [[SECTION]]
@@ -142,7 +142,7 @@ RELATIONS:
 
 [TEXT]
 STATEMENT: >>>
-**認証ドメイン (02-auth)**
+**認証ドメイン (03-auth)**
 <<<
 
 [COMPONENT]
@@ -173,7 +173,7 @@ RELATIONS:
 
 [TEXT]
 STATEMENT: >>>
-**データアクセスドメイン (03-data-access)**
+**データアクセスドメイン (04-data-access)**
 <<<
 
 [COMPONENT]
@@ -217,7 +217,7 @@ RELATIONS:
 
 [TEXT]
 STATEMENT: >>>
-**DTC ドメイン (04-dtc-diagnostics)**
+**DTC ドメイン (05-dtc-diagnostics)**
 <<<
 
 [COMPONENT]
@@ -274,7 +274,7 @@ RELATIONS:
 
 [TEXT]
 STATEMENT: >>>
-**OTA ドメイン (05-sw-update)**
+**OTA ドメイン (06-sw-update)**
 <<<
 
 [COMPONENT]
@@ -339,24 +339,24 @@ STATEMENT: >>>
 .. code-block:: text
 
     src/
-    |-- platform/                  # 06-common-platform (共有)
+    |-- platform/                  # 07-common-platform (共有)
     |   |-- tls_terminator.c       # ARCH-C-001
     |   |-- scope_authorizer.c     # ARCH-C-002
     |   |-- uds_client.c           # ARCH-C-003
     |   `-- json_serializer.c      # ARCH-C-004
-    |-- auth/                      # 02-auth
+    |-- auth/                      # 03-auth
     |   |-- token_verifier.c       # ARCH-C-005
     |   `-- token_cache.c          # ARCH-C-006
-    |-- data/                      # 03-data-access
+    |-- data/                      # 04-data-access
     |   |-- data_read_usecase.c    # ARCH-C-007
     |   |-- did_resolver.c         # ARCH-C-008
     |   `-- data_cache.c           # ARCH-C-009
-    |-- dtc/                       # 04-dtc-diagnostics
+    |-- dtc/                       # 05-dtc-diagnostics
     |   |-- dtc_parser.c           # ARCH-C-010
     |   |-- freeze_frame_decoder.c # ARCH-C-011
     |   |-- speed_reader.c         # ARCH-C-012 (ASIL C)
     |   `-- dtc_history_store.c    # ARCH-C-013
-    `-- swupdate/                  # 05-sw-update
+    `-- swupdate/                  # 06-sw-update
         |-- package_downloader.c   # ARCH-C-014
         |-- signature_verifier.c   # ARCH-C-015
         |-- flash_sector_writer.c  # ARCH-C-016 (ASIL D)
@@ -516,7 +516,7 @@ STATEMENT: >>>
 
 - Status: Accepted
 - Context: UDS 転送・認可・TLS・JSON は複数機能が使う。
-- Decision: 共有コンポーネントを 06-common-platform に括り出し、 機能はそこへ依存する。
+- Decision: 共有コンポーネントを 07-common-platform に括り出し、 機能はそこへ依存する。
 - Consequences: 依存方向が 機能 → 基盤 に一本化。 兄弟機能間の結合を排除。 収束 (N→1)
   がトレースに現れる。
 <<<

@@ -6,7 +6,7 @@ IMPORT_FROM_FILE: sovd-grammar.sgra
 
 [TEXT]
 STATEMENT: >>>
-本書は `09-test-spec.sdoc` の各テストの **実行結果記録** である。 各結果は対応するテスト仕様へ
+本書は `10-test-spec.sdoc` の各テストの **実行結果記録** である。 各結果は対応するテスト仕様へ
 ``ResultOf`` 関係でトレースする。 仕様は安定、 結果は実行ごとに増える (1 仕様 : N 結果) ため
 別文書に分離する。 各結果の TITLE は判定で始めるので、 ツリーでも OK/NG が一目で分かる。
 

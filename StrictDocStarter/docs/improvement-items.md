@@ -240,6 +240,19 @@
 - **検証**: 各ステップ後に strictdoc export クリーン（警告ゼロ・dangling ゼロ）。 最終 export で全カテゴリ UID 連番を確認。
 - **docs 整合**: serve-spec.md §3.3 ファイルツリーを新構成へ。
 
+### Phase 6（2026-06-07, 要求とユースケースの分離 + 最上位要求 + ファイル採番整理 / D-9f・D-9g / strictdoc 0.23.1）
+- **最上位要求の新設 (D-9f)**: システム全体の存在意義 `SYS-L0-001`（EARS、 TYPE=Functional）「本システム (SOVD 遠隔診断システム) は…車両を遠隔から安全に診断・更新できる仕組みを提供すること」を頂点に新設。 各ドメイン要求 (L0) がこれへ収束 (Parent)。
+- **要求とユースケースの文書分離 (D-9g, IEEE 29148 / A-SPICE 流)**: 「要求 (EARS=システムが満たす条件)」と「ユースケース (シナリオ=アクターの使い方)」を別文書に分離。
+  - `01-stakeholder-requirements.sdoc` = 要求 (SYS-L0-001 + 各ドメイン L0、 EARS)。
+  - `02-usecases.sdoc` = ユースケース (アクター定義 + UC図 + UC-000〜004: アクター/事前条件/主成功シナリオ/事後条件/代替フロー)。
+  - トレース: **UC → 要求**（UC が要求を Parent で実現）＋ **UC ← 受入テスト (AT)**（AT の Verifies 先を L0-001 要求から UC へ付け替え）＝ **UC-UAT-Result** が成立。 L0-001 要求は UC 経由で推移被覆。
+- **被覆方針の明示**: test-spec §5.6 に「要求の種類 × 主たる検証手段」表を追加（UC→UAT、 各層→UT/IT/ST、 制約→レビュー/静的解析、 上位→推移被覆。 **全要求に動的テストは付けない**＝トレーサビリティは全要求・テストケースは選択的）。
+- **ファイル採番整理**: 00背景 / 01要求 / 02UC / 03-06ドメイン (auth/data-access/dtc/sw-update) / 07共通基盤 / 08設計 / 09API / 10テスト仕様 / 11テスト結果 / 90付録。 旧 01-auth..09-test-results を繰り下げ、 本文の文書名参照を一括更新。 UID は各カテゴリ連番済みのため不変。
+- **要求 vs UC の概念整理 (教材の肝)**: ユースケース (名前+シナリオ) と要求 (EARS) は別物。 StrictDoc では TYPE で区別 (UseCase=シナリオ / Functional 等=EARS)。 規制・安全ドメイン (自動車) では要求が正式な検証対象、 UC は要求を導き受入で確認する技法 (IEEE 29148 / A-SPICE / ISO 26262)。
+- **検証**: 各ステップで strictdoc export クリーン (UC→要求・UC←AT・L1→L0要求 のクロスファイルトレース全解決)。
+- **docs 整合**: serve-spec.md §3.3 ファイルツリーを新構成へ。
+- **残 (任意)**: UC-000 は「システム全体UC」(0=俯瞰、 許容)。 M2 (DATA-L3-003 配置) / M3 (複合要求) は引き続き deferred。
+
 ### 旧セッションの変更（上記 Phase 0/1 により supersede 済）
 - ~~`samples/hello-strictdoc/04-mermaid.sdoc`（RST raw html 化）~~ → D-9 で **削除**（Mermaid デモは 05-notation-rst.sdoc へ昇格）。
 - ~~`samples/strictdoc_config.py`（親フォルダ、`project_features=["MERMAID"]`）~~ → default project_path から読まれないため **撤去**、各 project 直下へ移設（I-3）。

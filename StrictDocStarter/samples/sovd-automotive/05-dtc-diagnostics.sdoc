@@ -10,7 +10,7 @@ STATEMENT: >>>
 定義する。 内部では ISO 14229 (UDS) の 0x19 系 (ReadDTCInformation) / 0x14
 (ClearDiagnosticInformation) を SOVD でラップする。 ステークホルダ要求 (L0)・ユースケースは
 `01-stakeholder-requirements.sdoc`、 共有の前付けは `00-overview.sdoc`、 認証・認可は
-`02-auth.sdoc` を前提とする。
+`03-auth.sdoc` を前提とする。
 
 DTC の **読み出し** は安全機能ではないため原則 **ASIL=QM**。 ただし **「走行中に
 安全関連 DTC を消す」 と機能安全評価に影響しうる** ため、 クリアの **走行状態ガードは

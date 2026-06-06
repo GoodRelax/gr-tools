@@ -379,16 +379,17 @@ StrictDocStarter/
 │   └── sovd-automotive/                 # 初期 default、 ASIL/CAL/Layer/Type custom fields、 SOVD 教材
 │       ├── sovd-grammar.sgra            # (D-9b) 共有要求文法。 全 .sdoc が IMPORT_FROM_FILE で参照
 │       ├── 00-overview.sdoc             # (D-9b) 前付け: 背景ストーリー/範囲/用語/参照規格/表記規約/構成図
-│       ├── 01-stakeholder-requirements.sdoc  # (D-9f) アクター/ユースケース/ステークホルダ要求 (全 L0 集約)
-│       ├── 02-auth.sdoc                 # 認証・認可 (OAuth2/JWT/TLS/RBAC)、 EARS/L1-L3
-│       ├── 03-data-access.sdoc          # 車両データ識別 (DID) / 読取
-│       ├── 04-dtc-diagnostics.sdoc      # DTC / フリーズフレーム
-│       ├── 05-sw-update.sdoc            # OTA / 署名検証 / rollback
-│       ├── 06-common-platform.sdoc      # (D-9c) 共通基盤: 機能横断の共有ユニット (PLAT-、 収束 N→1)
-│       ├── 07-architecture.sdoc         # (D-9d) システム設計: コンポーネント/クラス/モジュール/ADR (Implements)
-│       ├── 08-api.sdoc                  # (D-9d) HTTP API 契約 (連携相手向け、 Satisfies)
-│       ├── 09-test-spec.sdoc            # (D-9d) テスト仕様: 単体/結合/システム/受入 (Verifies)
-│       ├── 10-test-results.sdoc         # (D-9d) テスト結果: 実行記録 (仕様と分離、 ResultOf)
+│       ├── 01-stakeholder-requirements.sdoc  # (D-9f) ステークホルダ要求 (最上位 SYS-L0-001 + 各 L0、 EARS)
+│       ├── 02-usecases.sdoc            # (D-9g) ユースケース (アクター/UC図/UC-000〜004、 UC→要求 / UC←受入AT)
+│       ├── 03-auth.sdoc                 # 認証・認可 (OAuth2/JWT/TLS/RBAC)、 EARS/L1-L3
+│       ├── 04-data-access.sdoc          # 車両データ識別 (DID) / 読取
+│       ├── 05-dtc-diagnostics.sdoc      # DTC / フリーズフレーム
+│       ├── 06-sw-update.sdoc            # OTA / 署名検証 / rollback
+│       ├── 07-common-platform.sdoc      # (D-9c) 共通基盤: 機能横断の共有ユニット (PLAT-、 収束 N→1)
+│       ├── 08-architecture.sdoc         # (D-9d) システム設計: コンポーネント/クラス/モジュール/ADR (Implements)
+│       ├── 09-api.sdoc                  # (D-9d) HTTP API 契約 (連携相手向け、 Satisfies)
+│       ├── 10-test-spec.sdoc            # (D-9d) テスト仕様: 単体/結合/システム/受入 (Verifies)
+│       ├── 11-test-results.sdoc         # (D-9d) テスト結果: 実行記録 (仕様と分離、 ResultOf)
 │       ├── 90-appendix-notation.sdoc    # (D-9b) 付録: 表記・記法リファレンス (旧 05/06 を統合)
 │       ├── _assets/                     # 図素材: sovd-architecture.drawio (編集ソース) + .svg + .png
 │       └── strictdoc_config.py          # (D-8) MERMAID/MATHJAX 有効、 project_path 直下 (D-1/FR-1141)

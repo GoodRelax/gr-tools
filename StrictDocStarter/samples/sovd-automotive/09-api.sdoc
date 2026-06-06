@@ -9,7 +9,7 @@ STATEMENT: >>>
 本書は SOVD の **外部 HTTP API 契約** である。 SOVD クライアント (OEM クラウド・整備
 ツール・車載アプリ) との **約束** であり、 連携相手は原則本書だけを見れば実装できる。
 
-- 認証: ``Authorization: Bearer <JWT>`` (02-auth)。 通信は TLS 1.3 (AUTH-L1-005)。
+- 認証: ``Authorization: Bearer <JWT>`` (03-auth)。 通信は TLS 1.3 (AUTH-L1-005)。
 - データモデル: ASAM SOVD v1.0 Part 2 準拠の JSON。
 - 各 API は実現する要求へ ``Satisfies`` 関係でトレースする。
 - METHOD / PATH / SCOPE / RESPONSE はデータ宣言、 **STATEMENT は EARS による振る舞い契約**

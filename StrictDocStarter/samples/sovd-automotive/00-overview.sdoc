@@ -8,7 +8,7 @@ IMPORT_FROM_FILE: sovd-grammar.sgra
 STATEMENT: >>>
 本書は StrictDocStarter 同梱の SOVD (Service-Oriented Vehicle Diagnostics) 要求仕様
 サンプルの **全体概要 (Foundation)** である。 後続の要求文書
-(02-auth / 03-data-access / 04-dtc-diagnostics / 05-sw-update) が共有する前付け —
+(03-auth / 04-data-access / 05-dtc-diagnostics / 06-sw-update) が共有する前付け —
 目的・背景ストーリー・適用範囲・システム構成・用語・参照規格・表記規約・前提・
 改訂履歴 — をここに集約する。
 
@@ -77,13 +77,13 @@ STATEMENT: >>>
 
    * - ドメイン (文書)
      - 遠隔で何ができるようになるか
-   * - 認証・認可 (02-auth)
+   * - 認証・認可 (03-auth)
      - 正規の整備士 / OEM / フリートだけがアクセスでき、 権限で操作を分ける **土台**。
-   * - データアクセス (03-data-access)
+   * - データアクセス (04-data-access)
      - 走行距離・電圧・各 ECU 温度などの車両データを、 出先からでも読む。
-   * - DTC 診断 (04-dtc-diagnostics)
+   * - DTC 診断 (05-dtc-diagnostics)
      - 故障コードを遠隔で取得して原因の当たりをつけ、 修理後にクリアする。
-   * - ソフト更新 / OTA (05-sw-update)
+   * - ソフト更新 / OTA (06-sw-update)
      - 工場に入れず、 不具合修正の新ファームを無線で配信する。
 
 各ドメインは L0 (ステークホルダ) → L1 (システム) → L2 (ECU ソフトウェア) →
@@ -100,10 +100,10 @@ TITLE: 2. 適用範囲 (Scope)
 STATEMENT: >>>
 **In-scope:**
 
-- SOVD クライアント (クラウド / 整備ツール) ↔ 車両ゲートウェイ間の認証・認可 (02-auth)
-- 車両データ識別子 (DID) / 周期データ / スナップショット / バルク転送の読み出し (03-data-access)
-- 診断トラブルコード (DTC) ・フリーズフレームの読出・クリア (04-dtc-diagnostics)
-- OTA ソフトウェア更新 (ダウンロード・署名検証・書込・ロールバック) (05-sw-update)
+- SOVD クライアント (クラウド / 整備ツール) ↔ 車両ゲートウェイ間の認証・認可 (03-auth)
+- 車両データ識別子 (DID) / 周期データ / スナップショット / バルク転送の読み出し (04-data-access)
+- 診断トラブルコード (DTC) ・フリーズフレームの読出・クリア (05-dtc-diagnostics)
+- OTA ソフトウェア更新 (ダウンロード・署名検証・書込・ロールバック) (06-sw-update)
 - 上記を L0 (ステークホルダ) → L1 (システム) → L2 (ECU ソフトウェア) → L3 (ユニット) で分解
 
 **Out-of-scope:**
@@ -161,7 +161,7 @@ STATEMENT: >>>
 
 本仕様の全要求は、 A-SPICE / V 字に倣った 4 層で分解され、 上位から下位へ
 Parent/Child で連鎖する。 各機能ドメイン (01〜04) はこの 4 層を縦に貫く。 さらに、
-機能をまたいで再利用される L3 ユニットは `06-common-platform` に集約し、 各機能の
+機能をまたいで再利用される L3 ユニットは `07-common-platform` に集約し、 各機能の
 L2 要求がそこへ収束 (N→1) する (分解の逆向き＝共有・再利用)。
 
 .. raw:: html
@@ -181,7 +181,7 @@ STATEMENT: >>>
 **3.3 SOVD リソースと機能ドメインのマッピング**
 
 SOVD は機能を HTTP リソース (method + path) として公開する。 各リソースには
-必要スコープ (02-auth で定義) が紐づく。
+必要スコープ (03-auth で定義) が紐づく。
 
 .. list-table::
    :header-rows: 1
@@ -208,7 +208,7 @@ SOVD は機能を HTTP リソース (method + path) として公開する。 各
      - SW Update / OTA (04)
      - ``write:swupdate``
 
-※ 本表は SOVD リソースの代表例であり、 HTTP API の正式な契約は `08-api.sdoc` を
+※ 本表は SOVD リソースの代表例であり、 HTTP API の正式な契約は `09-api.sdoc` を
 参照のこと (本サンプルは教材のため、 API 契約には主要リソースを抜粋している。 全 DTC
 一括クリアなど、 本表の一部は契約への掲載を割愛している)。
 <<<
@@ -228,43 +228,47 @@ STATEMENT: >>>
      - 目的・背景ストーリー・範囲・用語・参照規格・表記規約・改訂履歴
      - 前付け
    * - 01-stakeholder-requirements
-     - アクター・ユースケース・ステークホルダ要求 (全ドメインの L0 を集約)
-     - L0 (最上位)
-   * - 02-auth
+     - ステークホルダ要求 (最上位 SYS-L0-001 + 各ドメイン L0、 EARS)
+     - L0 要求
+   * - 02-usecases
+     - ユースケース (アクター・UC 図・UC-000〜004 のシナリオ)
+     - L0 UC
+   * - 03-auth
      - 認証・認可 (OAuth2 / JWT / TLS / RBAC)
      - L1–L3
-   * - 03-data-access
+   * - 04-data-access
      - 車両データ識別 (DID) / 読み出し
      - L1–L3
-   * - 04-dtc-diagnostics
+   * - 05-dtc-diagnostics
      - DTC / フリーズフレーム
      - L1–L3
-   * - 05-sw-update
+   * - 06-sw-update
      - OTA 更新 / 署名検証 / ロールバック
      - L1–L3
-   * - 06-common-platform
+   * - 07-common-platform
      - 共通基盤: 複数機能が再利用する共有ユニット (UDS転送 / 認可 / TLS / JSON)
      - L3 (共有)
-   * - 07-architecture
+   * - 08-architecture
      - システムアーキテクチャ: 方式 / コンポーネント / モジュール / クラス / 振る舞い / ADR
      - 設計 (HOW)
-   * - 08-api
+   * - 09-api
      - SOVD HTTP API 契約 (連携相手向け)
      - 契約
-   * - 09-test-spec
+   * - 10-test-spec
      - テスト仕様 (戦略 + 単体 / 結合 / システム / 受入)
      - テスト (仕様)
-   * - 10-test-results
+   * - 11-test-results
      - テスト結果 (実行記録、 仕様と分離。 1 仕様 : N 結果)
      - テスト (結果)
    * - 90-appendix-notation
      - 表記・記法リファレンス (RST / Markdown / Mermaid / 数式 / 表 / コード)
      - 付録
 
-本サンプルは「**ステークホルダ要求 (01) → 要求 (02-06) → 設計 (07) → API 契約 (08) →
-テスト仕様 (09) → 結果 (10)**」の V 字を、 ``Implements`` / ``Satisfies`` /
-``Verifies`` / ``ResultOf`` 関係で一気通貫にトレースする (DEEP TRACE で要求のテスト被覆と
-未達まで追える)。
+本サンプルは「**ステークホルダ要求 (01) / ユースケース (02) → 要求 (03-07) → 設計 (08) →
+API 契約 (09) → テスト仕様 (10) → 結果 (11)**」の V 字を、 ``Implements`` /
+``Satisfies`` / ``Verifies`` / ``ResultOf`` 関係で一気通貫にトレースする (DEEP TRACE で
+要求のテスト被覆と未達まで追える)。 ユースケース (02-usecases) は要求 (01) を実現し、
+受入テスト (AT) が UC を検証する (IEEE 29148 流に要求と UC を分離)。
 
 ※ 全 .sdoc が共有する要求フィールド定義は `sovd-grammar.sgra` (StrictDoc の
 grammar ファイル) に置き、 各文書が `IMPORT_FROM_FILE` で読み込む。
