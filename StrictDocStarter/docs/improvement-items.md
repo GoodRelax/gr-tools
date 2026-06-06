@@ -1,7 +1,7 @@
 # StrictDocStarter 改善項目メモ (improvement-items)
 
 - 記録日: 2026-06-06（随時更新）
-- 検証環境: strictdoc **0.21.1** (pip, `C:\Python313\Lib\site-packages\strictdoc`) / Windows 11 / PowerShell 5.1。公式最新は **0.23.1**。
+- 検証環境: strictdoc **0.23.1**（**Phase 0 で 0.21.1 → 0.23.1 へ更新し再検証済**, pip, `C:\Python313\Lib\site-packages\strictdoc`）/ Windows 11 / Python 3.13.3 / PowerShell 5.1。§1 の各事実は 0.23.1 で再確認済（下記）。
 - きっかけ: `.sdoc` の Mermaid 図がエラー → 調査が StrictDoc の feature・設定・サーバ運用・公式提供範囲の棚卸しに発展。
 - ゴール: **StrictDocStarter の更新版リリース**。本メモで「分かったこと・決めたこと・やること」を確定 → 最終的に `serve-spec.md` / `setup-spec.md` / `README.md` へ反映（正式仕様化）。
 
@@ -19,7 +19,9 @@
 
 ## 1. 検証で確定した技術的事実（すべて実機確認済み）
 
-### 1.1 Mermaid の正しい記法（0.21.1 で検証）
+> **Phase 0 再検証（2026-06-06, strictdoc 0.23.1）**: 下記 §1 の主要事実を最新版で再確認済 — (a) Mermaid は RST `.. raw:: html` と Markdown ` ```mermaid ` フェンスの**両方**が export で `<pre class="mermaid">` を出力＋`mermaid.min.js` コピー（`language-mermaid` 止まりにならない）、(b) `strictdoc_config.py` は**入力フォルダ直下のみ**参照・親は遡らない（子フォルダ単独 export で MERMAID 資産が出ないことで確認）、(c) `strictdoc server` は前面コンソールで `Uvicorn running on …` を表示／文法エラー時 `error: Could not parse … TextXSyntaxError` で**即終了**（ポート開かず）、(d) `strictdoc new` 生成 config の `create_config()` 形式は不変・MERMAID 非同梱。**矛盾するズレは無し**（spec の予測どおり）。
+
+### 1.1 Mermaid の正しい記法（0.21.1 で確立 / 0.23.1 で再確認）
 - **`[TEXT]` ノード + RST `.. raw:: html` + `<pre class="mermaid">`** が正解（公式ガイド §"Mermaid diagramming and charting tool" と同形）。
   ```
   [TEXT]
@@ -32,9 +34,9 @@
       </pre>
   <<<
   ```
-- **不可**: Markdown フェンス ` ```mermaid `（`<code class="language-mermaid">` になり `startOnLoad` が拾わない）/ `MARKUP: Markdown` での生 `<pre>`（エスケープ）・`.. raw::`（素通り）/ `[REQUIREMENT]` 直後の `[FREETEXT]`（パースエラー）。
+- **不可（※Markdown フェンスは版依存）**: ` ```mermaid ` フェンスは **0.22 以前は不可**（`<code class="language-mermaid">` 止まりで `startOnLoad` が拾わない）だが、 **0.23.0+ では MERMAID 有効時に正式レンダリング**（公式 0.23.0 リリースノート#8 で実証）。`MARKUP: Markdown` での生 `<pre>`（エスケープ）・`.. raw::`（素通り）/ `[REQUIREMENT]` 直後の `[FREETEXT]`（パースエラー）は全版で不変。
 - 対応済み: `samples/hello-strictdoc/04-mermaid.sdoc`（RST 化・描画確認済み）。
-- ⚠️ **版依存注意**: この記法は 0.21.1 で検証。公式 **0.23 系で Markdown/Mermaid 関連の改善**あり → **latest（D-4）では記法が変わる可能性**。導入版で要再確認（O-4 smoke test で吸収）。
+- ⚠️ **版依存（確定）**: RST raw html は **全版で有効**。加えて **0.23.0+ では Markdown の ` ```mermaid ` フェンスが正式サポート**（MERMAID 有効時、公式 0.23.0 リリースノート#8 で実証済）。**latest 既定（D-4）＝0.23.x なので、Markdown サンプル(06)はフェンス記法を主に使える**。導入版を O-4 smoke test で検証。
 
 ### 1.2 MERMAID feature の有効化が必須
 - `project_features=["MERMAID"]` が無いと `mermaid.min.js` が output にコピーされない（検証: 無=0 / 有=1、`Copying Mermaid assets`）。
@@ -42,10 +44,10 @@
 
 ### 1.3 strictdoc 設定ファイルの探索仕様
 - StrictDoc は**「入力に渡したフォルダ直下」の `strictdoc_config.py`（無ければ `strictdoc.toml`）だけ**を読む。**親は遡らない**（実機確認）。
-- → 設定は **`project_path` 直下**（ツール root に置いても無視）。形式は **Python `strictdoc_config.py` 推奨**（TOML はレガシー、2026-Q1 非推奨化予定）。CLI `--config <path>` で任意の場所も指定可。
+- → 設定は **`project_path` 直下**（ツール root に置いても無視）。形式は **Python `strictdoc_config.py` 推奨**（TOML は **0.21.x で既に deprecated**＝読込時に警告、移行ガイド "2025-Q4" アンカー）。CLI `--config <path>` で任意の場所も指定可。
 - `create_config()` が `ProjectConfig(project_title / project_features / include_doc_paths / exclude_doc_paths …)` を返す形式。
 
-### 1.4 feature（プラグイン）一覧 — `ProjectFeature` 列挙（0.21.1）
+### 1.4 feature（プラグイン）一覧 — `ProjectFeature` 列挙（0.21.1 / **0.23.1 で再確認・列挙不変**）
 既定ON = `TABLE_SCREEN` / `TRACEABILITY_SCREEN` / `DEEP_TRACEABILITY_SCREEN` / `SEARCH`。
 
 | feature | 用途 | 安定度 | 既定 | 備考 |
@@ -70,6 +72,7 @@
 
 - JS実体は `_static_extra/` の **mermaid/mathjax/nestor/rapidoc** の4つのみ（feature ON 時に output へコピー）。
 - **コードハイライト = ビルトイン**（Pygments 必須依存、フラグ不要）。**PlantUML = ネイティブ非対応**（回避: 画像化埋め込み / PlantUMLサーバ img / Mermaid 代替）。
+- ※ 上表は **`ProjectFeature` enum の分類（stable/experimental）と `DEFAULT_FEATURES`（無 config 時の既定）** に基づく。一方 **`strictdoc new` の生成 config** は `TRACEABILITY_MATRIX_SCREEN` / `REQUIREMENT_TO_SOURCE_TRACEABILITY` を既定 ON にする（テンプレ上は "Stable" コメント下に配置）＝ enum 分類と `strictdoc new` テンプレの既定は別物。
 
 ### 1.5 stable と experimental の違い（公式定義）
 - stable=既知エッジケース網羅＋十分なユーザがテスト済み。experimental=未完成 or テスト未完。**機械的差は無い**（`is_feature_activated` は単純 membership、警告なし）。違いは成熟度のみ。実務影響=版間で挙動/出力が変わり得る・再現性低下。
@@ -85,7 +88,7 @@
 - **server は .sdoc 変更を監視しない**（インメモリ保持）→ 手動編集の反映は**サーバ再起動が必要**（公式明記）。uvicorn reload 無し＝子プロセス1個。
 - **プロセス構造**（実機）: `strictdoc.exe`（ランチャ、ポート持たず）→ `python.exe`（実サーバ、ポート LISTEN）。Task Manager で「strictdoc」名前検索だと実体 `python.exe` が出ない＝「見つからない」の正体。探すなら**ポート所有プロセス**で。
 - **大規模性能**: parallelized incremental ＋ pickle キャッシュ（`output/_cache`）。**初回コールド ~10–12s / 以降ウォーム ~5s**（100件実測）。`include/exclude_*` の精密化で探索が速い（公式 Performance 節）。
-- **版**: 最新 0.23.1（導入は 0.21.1）。`strictdoc new` は 0.21.1 で追加、0.23 で Markdown/Mermaid 改善。
+- **版**: 導入＝**0.23.1**（Phase 0 で 0.21.1 から更新）。`strictdoc new` は 0.21.1 で追加、0.23 で Markdown/Mermaid 改善。生成 config の `create_config() → ProjectConfig(project_title / project_features / include_doc_paths / include_source_paths)` 形式は 0.23.1 でも不変・**MERMAID 非同梱**（既定 ON: TABLE/TRACEABILITY/DEEP_TRACEABILITY/SEARCH＋`strictdoc new` が TRACEABILITY_MATRIX_SCREEN/REQUIREMENT_TO_SOURCE_TRACEABILITY を追加、MATHJAX はコメントアウトで同梱）。Phase 0 で実機確認。
 
 ---
 
@@ -102,12 +105,12 @@
 
 ## 3. 実装TODO（未着手）
 
-- **I-1（縮小）**: config は **`strictdoc new` の出力をベース**にする（ゼロから自作しない）。bundled samples 用に `MERMAID`/`MATHJAX` を有効化した config を用意。トグル＋安定度コメントは流用。
+- **I-1（縮小 / Phase 1 で samples 分は完了）**: config は **`strictdoc new` の出力をベース**にする（ゼロから自作しない）。bundled samples 用に `MERMAID`/`MATHJAX` を有効化した config を用意。トグル＋安定度コメントは流用。→ **bundled samples（sovd-automotive / hello-strictdoc）には配置済（D-8）**。なお samples は .sdoc がフォルダ直下のフラット構成のため `include_doc_paths`/`include_source_paths` は付けない（付けると直下の .sdoc が除外される）。runtime の scaffold-if-missing は I-2（Phase 2 manage 実装）。
 - **I-2**: scaffold-if-missing を Start 前に実装（`project_path\strictdoc_config.py` が無ければ配備、有れば不変、失敗は非致命）。legacy `strictdoc.toml` 併存時の扱いを決定。
-- **I-3**: `samples/strictdoc_config.py`（暫定作成済）を I-1 と整合。
+- **I-3（Phase 1 完了）**: 暫定の `samples/strictdoc_config.py`（親フォルダ＝default project_path `samples/sovd-automotive` からは読まれない）を撤去し、各 project 直下（`samples/sovd-automotive/`・`samples/hello-strictdoc/`）に MERMAID/MATHJAX 有効・`strictdoc new` 準拠の薄い config を配置（D-8/D-1 整合・FR-1141）。
 - **I-4**: `serve-spec.md`/`setup-spec.md` に FR 追記（D-5/D-6 反映、feature 既定セット、scaffold 挙動）。
 - **I-5 = O-6**: `README.md`/`docs/` 更新。
-- **I-6 = O-2**: `.gitignore` に `__pycache__/` `*.pyc`。
+- **I-6 = O-2（完了）**: `.gitignore` に `__pycache__/` `*.pyc` を追加済（Phase 1）。
 - **I-7 = S-3**: `HTML2PDF` の chromedriver（下記 S-3 に統合）。
 
 ---
@@ -116,10 +119,11 @@
 
 ### S-1. サンプル拡充（Mermaid / Markdown / 図）
 - 配置: **`samples/sovd-automotive/` 配下**。図・数式・Markdown 散文は **`[TEXT]` ノード**で（sovd の `[GRAMMAR]` 制約は REQUIREMENT のみ）。
-- マークアップ非両立につき **2ファイル**: `05-notation-rst.sdoc`（Mermaid＋`.. math::`＋`.. image::`、RST）/ `06-notation-markdown.sdoc`（表/箇条書き/コードハイライト/画像、`MARKUP: Markdown`）。
+- マークアップ別に **2ファイル**: `05-notation-rst.sdoc`（RST raw html の Mermaid＋`.. math::`＋`.. image::`、全版で有効）/ `06-notation-markdown.sdoc`（表/箇条書き/コードハイライト/画像 ＋ **0.23.0+ なら ` ```mermaid ` フェンス**、`MARKUP: Markdown`）。
 - `samples/sovd-automotive/_assets/` 新設。トレーサビリティ（L0→L3）の Mermaid 図解も。
 - **`strictdoc new` の generic skeleton（hello world）と差別化**: StrictDocStarter のサンプルは **SOVD/ASIL のドメイン教材**として価値を出す（公式雛形の写経にしない）。hello-strictdoc=最小で触る用 / sovd=実務的な記法・トレース・図の教材、と役割分担。
 - 前提 `MERMAID`/`MATHJAX` 有効。順序は config 整備 → サンプル。
+- **【Phase 1 実装済 2026-06-06, strictdoc 0.23.1】** `05-notation-rst.sdoc`（mermaid×2 / 数式 / SVG=`<object>`）・`06-notation-markdown.sdoc`（` ```mermaid ` フェンス / 表 / コードハイライト / PNG=`<img>`）・`_assets/`（`sovd-architecture.drawio`→svg+png、drawio スキルで作成）を作成し export 検証済。hello は 01/02 に最小化（03-try/04-mermaid 削除、01 の壊れた markdown 画像参照を除去、orphan `_assets/` 削除）。config は各 project_path 直下へ（I-3 参照）。
 
 ### S-2. 空白 / 日本語 / OneDrive・SharePoint（**D-6 で大幅縮小**）
 - **根本原因は D-6 で解消**: 可視ウィンドウ方式で `Start-Transcript` による `manage.log` 排他ロックを**廃止**するため、**OneDrive/SharePoint 同期との競合（誤「別セッション動作中」）は根本から消える**。「`manage.log` を LOCALAPPDATA へ移動」「named Mutex 化」は**不要**に。
@@ -145,15 +149,16 @@
 - メニュー UI は薄いランチャ化（Start=窓を開く / Open=ブラウザ再オープン / Quit）。← メニュー有無は §4 で確定。
 
 ### 横断改善（O-1..O-6）
-- **O-1（確定）**: strictdoc バージョン＝既定 latest、`setup.config.template.json` に `strictdoc` ブロック（`python.version` と対称、PEP440 指定子 or `latest`）、**動作確認版を README 記録**（現状 0.21.x）。消費=`install.ps1` Phase C。
+- **O-1（確定）**: strictdoc バージョン＝既定 latest、`setup.config.template.json` に `strictdoc` ブロック（`python.version` と対称、PEP440 指定子 or `latest`）、**動作確認版を README 記録**（**0.23.1**、Phase 0 で README へ記録済 / FR-332）。消費=`install.ps1` Phase C。
   ```json
-  "strictdoc": { "_comment": "pip version spec. 既定 'latest'。再現性重視なら '~=0.21.0' 等。動作確認版は README 参照。", "version": "latest" }
+  "strictdoc": { "_comment": "pip version spec. 既定 'latest'。再現性重視なら '~=0.23.0' 等。動作確認版は README 参照。", "version": "latest" }
   ```
-- **O-2**: `.gitignore` に `__pycache__/` `*.pyc`。
+- **O-2（完了）**: `.gitignore` に `__pycache__/` `*.pyc` を追加済（Phase 1。strictdoc_config.py 読込で生成される副生成物）。
 - **O-3**: doctor / health-check（strictdoc 版・config 妥当性・project_path・port 空き・同期パス警告・mermaid 資産）。
-- **O-4**: サンプル smoke test（`strictdoc export samples` の成否）→ **版バンプ時の破壊検知**（latest 既定＋版依存記法のため重要）。
+- **O-4**: サンプル smoke test（`strictdoc export samples` の成否 ＋ **Mermaid が実際に図化されるか**＝出力に `class="mermaid"` / `mermaid.min.js` が出るかを導入版で検証）→ **版バンプ・版依存記法（例: 0.23.0 で Markdown フェンス可）の破壊を自動検知**。
 - **O-5（コア）**: `install.ps1` の Phase B/C/D/E スタブ完成（D-5 でブートストラップが主役）。
 - **O-6**: README/docs 更新（Mermaid/TeX、feature On/Off、設定の置き場所、可視ウィンドウ運用、`strictdoc new` 案内）。
+- **O-7（v1.2 任意・公式レビュー指摘）**: serve-spec.md の v1.0 隠れデーモン記述（§2.1.3-2.1.7 / §3.4 / §4.1 SC-101.. / §5.2 T1-T10）を Appendix B "superseded" へ物理移動し本文を可視ウィンドウ一本に整理（FR番号維持で traceability 保持）。可読性向上・非ブロッカー。
 
 ---
 
@@ -163,18 +168,30 @@
 
 - **D-7 (メニュー / 旧 S-5)**: **最小メニュー**を採用。`manage-strictdoc.bat` は **Start / Open browser / Edit config / Quit** の4項目のみ。Stop/Status/Logs は可視窓が担うため載せない。→ serve-spec FR-1121。
 - **D-8 (config 委譲度 / 旧 D-3・I-1)**: **薄いラッパ config を同梱**。bundled samples に MERMAID/MATHJAX 有効化の最小 `strictdoc_config.py`（`strictdoc new` 出力準拠）を置き、新規プロジェクト作成は公式 `strictdoc new <path>` を案内。→ serve-spec FR-1143。
-- **D-9 (サンプル整理 / 旧 S-1)**: hello-strictdoc を **最小（01-hello + 02-design）** に戻す。`03-try.sdoc` 削除。`04-mermaid.sdoc` 削除し Mermaid デモは **sovd の `05-notation-rst.sdoc`** へ昇格（SOVD 文脈で作り直し）。→ serve-spec §6.8 S-1 / §6.9。
+- **D-9 (サンプル整理 / 旧 S-1) — Phase 1 完了**: hello-strictdoc を **最小（01-hello + 02-design）** に戻す。`03-try.sdoc` 削除。`04-mermaid.sdoc` 削除し Mermaid デモは **sovd の `05-notation-rst.sdoc`** へ昇格（SOVD 文脈で作り直し）。→ serve-spec §6.8 S-1 / §6.9。**実施済（2026-06-06, strictdoc 0.23.1 で export 検証）。**
 - **D-10 (uninstall 既定 / 旧 S-4)**: 再生成可能な生成物は既定 ON、ユーザー編集物・共有物は既定 OFF。`uninstall_strictdoc`=ON / `remove_generated_artifacts`(output/temp/logs/__pycache__/LOCALAPPDATA)=**ON** / `remove_scaffolded_config`(project_path 内)=**OFF** / `remove_vscode_extensions`=OFF / `remove_winget_optionals`=OFF。dry-run+yes 必須、Python/VSCode/Claude/Git 不可。→ setup-spec FR-342/345。
 
-**残（未着手）**: README.md 反映（O-6/FR-332: 動作確認版 0.21.x 記録・可視ウィンドウ運用・Mermaid/TeX）、実装（.bat/.ps1 本体）。
+**残（未着手）**: README.md の O-6 反映（可視ウィンドウ運用・Mermaid/TeX 解説。※FR-332 の動作確認版記録は **Phase 0 で 0.23.1 として完了**）、実装（.bat/.ps1 本体）。
 
 ---
 
-## 5. 本セッションで適用済みの変更（参考）
+## 5. 適用済みの変更（参考）
 
-- `samples/hello-strictdoc/04-mermaid.sdoc` … RST + `.. raw:: html` + `<pre class="mermaid">` へ書き換え（描画確認済み）。
-- `samples/strictdoc_config.py` … 新規作成（`project_features=["MERMAID"]` + title）。※ I-1/I-3 で整合予定。
-- 副生成物: `samples/__pycache__/`（O-2 で gitignore 対象）。
+### Phase 0（2026-06-06, strictdoc 0.21.1 → 0.23.1）
+- strictdoc を 0.23.1 へ更新し、§1 の主要事実を最新版で再検証（§1 冒頭サマリ参照、矛盾なし）。
+- README に FR-332「動作確認済み strictdoc バージョン (0.23.1)」を記録。
+- `.gitignore` に `__pycache__/` `*.pyc` を追加（O-2/FR-361。strictdoc_config.py 読込で生成されるため）。
+
+### Phase 1（2026-06-06, サンプル拡充 / S-1・D-9 / strictdoc 0.23.1）
+- `samples/sovd-automotive/05-notation-rst.sdoc`・`06-notation-markdown.sdoc` を新規作成（SOVD 内容の記法デモ）。`_assets/sovd-architecture.{drawio,svg,png}` を drawio スキルで作成（drawio=編集ソース、svg/png=埋め込み用）。
+- config を各 project_path 直下へ配置（`samples/sovd-automotive/strictdoc_config.py`・`samples/hello-strictdoc/strictdoc_config.py`、MERMAID/MATHJAX 有効・`strictdoc new` 準拠の薄いラッパ）。
+- hello-strictdoc を 01/02 に最小化（`03-try.sdoc`・`04-mermaid.sdoc` 削除、`01-hello.sdoc` の壊れた markdown 画像参照を除去、orphan な `_assets/` 削除）。
+- strictdoc 0.23.1 で export 検証済（O-4）: 05=`class="mermaid"`×2 + math + SVG `<object>`、06=` ```mermaid ` フェンス + 表 + コードハイライト + PNG `<img>`。
+
+### 旧セッションの変更（上記 Phase 0/1 により supersede 済）
+- ~~`samples/hello-strictdoc/04-mermaid.sdoc`（RST raw html 化）~~ → D-9 で **削除**（Mermaid デモは 05-notation-rst.sdoc へ昇格）。
+- ~~`samples/strictdoc_config.py`（親フォルダ、`project_features=["MERMAID"]`）~~ → default project_path から読まれないため **撤去**、各 project 直下へ移設（I-3）。
+- ~~副生成物 `samples/__pycache__/`~~ → `.gitignore` 対象化（O-2）。
 
 ## 6. 参考リンク / 位置情報
 

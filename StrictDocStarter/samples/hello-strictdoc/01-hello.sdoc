@@ -17,8 +17,6 @@ UID: HELLO-001
 TITLE: Hello World メッセージ表示
 STATEMENT: >>>
 本システムは、 ユーザに対して "Hello, World" のメッセージを画面に表示すること。
-
-![アーキテクチャ図](images/system.svg)
 <<<
 
 [REQUIREMENT]

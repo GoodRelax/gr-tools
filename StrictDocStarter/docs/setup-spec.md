@@ -729,7 +729,7 @@ Feature: StrictDocStarter - StrictDoc Environment Setup
   },
 
   "strictdoc": {
-    "_comment": "StrictDoc pip version spec. Default 'latest' (pip install strictdoc). For reproducibility pin a range, e.g. '~=0.21.0' (>=0.21,<0.22) or '==0.21.1'. Tested version is recorded in README. Consumed by install Phase C (FR-331).",
+    "_comment": "StrictDoc pip version spec. Default 'latest' (pip install strictdoc). For reproducibility pin a range, e.g. '~=0.23.0' (>=0.23,<0.24) or '==0.23.1'. Tested version is recorded in README. Consumed by install Phase C (FR-331).",
     "version": "latest"
   },
 
@@ -977,9 +977,9 @@ Choose (1-3) [default: 1]:
 
 | ID | パターン | 要求 |
 |---|---|---|
-| FR-330 | Ubiquitous | `setup.config.json` に `strictdoc.version` フィールドを設けること (`python.version` と対称)。 既定値は `"latest"`。 PEP 440 のバージョン指定子 (`~=0.21.0` / `==0.21.1` / `>=0.21,<0.22`) または `latest` を受け付ける |
+| FR-330 | Ubiquitous | `setup.config.json` に `strictdoc.version` フィールドを設けること (`python.version` と対称)。 既定値は `"latest"`。 PEP 440 のバージョン指定子 (`~=0.23.0` / `==0.23.1` / `>=0.23,<0.24`) または `latest` を受け付ける |
 | FR-331 | When | install Phase C (**旧 FR-306 を改訂**) は `strictdoc.version` を解釈してインストールすること: `latest` ならば `pip install strictdoc`、 それ以外 (指定子) ならば `pip install "strictdoc<spec>"` を実行する。 指定子は pip に渡す前に簡易 validate (先頭が `~=`/`==`/`>=`/`<=`/`!=`/`<`/`>` または数字) すること |
-| FR-332 | Ubiquitous | **動作確認済みの strictdoc バージョンを `README.md` に明記**すること (現状: strictdoc 0.21.x で検証。 公式最新は 0.23.x)。 既定 `latest` は最新を取りに行くため、 同梱サンプル/設定が将来版で壊れ得る旨も注記 (O-4 smoke test で検知) |
+| FR-332 | Ubiquitous | **動作確認済みの strictdoc バージョンを `README.md` に明記**すること (**Phase 0 で strictdoc 0.23.1 を検証し README へ記録済**)。 既定 `latest` は最新を取りに行くため、 同梱サンプル/設定が将来版で壊れ得る旨も注記 (O-4 smoke test で検知) |
 | FR-333 | Optional | doctor/health-check (将来) を設ける場合、 インストール済み strictdoc 版がテスト済み版/範囲外なら `[WARN]` を出すこと (O-1 連動) |
 
 ### 7.2 uninstall-strictdoc.bat (FR-340 系) — S-4

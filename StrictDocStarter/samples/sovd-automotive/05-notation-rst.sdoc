@@ -1,0 +1,142 @@
+[DOCUMENT]
+TITLE: SOVD 記法デモ - RST (Mermaid / 数式 / 画像)
+
+[GRAMMAR]
+ELEMENTS:
+- TAG: REQUIREMENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TYPE
+    TYPE: SingleChoice(Functional, Non-Functional, Constraint, Restriction, UseCase)
+    REQUIRED: True
+  - TITLE: ASIL
+    TYPE: SingleChoice(QM, A, B, C, D)
+    REQUIRED: True
+  - TITLE: LAYER
+    TYPE: SingleChoice(L0_Stakeholder, L1_System, L2_ECU_SW, L3_Unit)
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RATIONALE
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+  - TYPE: Child
+
+[TEXT]
+STATEMENT: >>>
+このドキュメントは RST マークアップ (StrictDoc 既定の markup) での記法デモです。
+SOVD (ASAM SOVD / ISO 17978) の診断セッションを題材に、 Mermaid 図 (raw html)・
+数式 (math ディレクティブ)・画像 (image ディレクティブ) の 3 つを 1 ファイルで示します。
+図・数式・画像はすべて [TEXT] ノードに置いています。 この SOVD サンプルの
+[GRAMMAR] は REQUIREMENT のみを制約するため、 自由記述は [TEXT] が適切です。
+
+Markdown フェンス記法の同等デモは 06-notation-markdown.sdoc を参照してください。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**(1) 診断セッションのシーケンス図 (Mermaid, RST raw html)**
+
+.. raw:: html
+
+    <pre class="mermaid">
+    sequenceDiagram
+        participant C as SOVD Client
+        participant G as Gateway ECU
+        participant E as Engine ECU
+        C->>G: POST /authorize (OAuth2 PKCE)
+        G-->>C: 200 access_token (JWT)
+        C->>G: GET /components/engine/data/rpm (Bearer JWT)
+        G->>G: verify JWT + scope read:did
+        G->>E: ReadDataByIdentifier (DID 0xF40C)
+        E-->>G: rpm = 824
+        G-->>C: 200 OK (rpm=824)
+    </pre>
+<<<
+
+[REQUIREMENT]
+UID: NOTE-RST-001
+TYPE: Functional
+ASIL: B
+LAYER: L1_System
+TITLE: 診断セッションのメッセージ順序遵守
+STATEMENT: >>>
+SOVD クライアントとゲートウェイ ECU は、 上図のシーケンス (認証 -> トークン発行 ->
+スコープ検証 -> DID 読み出し) の順序でメッセージを交換すること。 スコープ検証より
+前に車両データを返してはならない。
+<<<
+RATIONALE: >>>
+SOVD は HTTP ベースであり、 認証・認可前のデータ漏洩を順序保証で防ぐ。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-001
+
+[TEXT]
+STATEMENT: >>>
+**(2) 認証要求のトレース (L0 -> L3, Mermaid)**
+
+.. raw:: html
+
+    <pre class="mermaid">
+    graph TD
+        L0["AUTH-L0-001<br/>整備士が診断アクセス"] --> L1["AUTH-L1-001<br/>OAuth2 認証フロー"]
+        L1 --> L2["AUTH-L2-002<br/>JWT 検証ライブラリ"]
+        L2 --> L3["AUTH-L3-001<br/>TokenVerifier ユニット"]
+    </pre>
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**(3) 署名検証とタイミングの数式 (MathJax, RST math)**
+
+JWT の RSA 署名検証は、 署名 s・公開指数 e・法 n から次式で復元したハッシュを、
+受信メッセージのハッシュと比較する:
+
+.. math::
+
+    m \equiv s^{e} \pmod{n}
+
+ゲートウェイ ECU の認証処理レイテンシ (トークン検証 + スコープ判定) の予算は
+次を満たすこと:
+
+.. math::
+
+    t_{\mathrm{auth}} = t_{\mathrm{verify}} + t_{\mathrm{scope}} \le 50\,\mathrm{ms}
+<<<
+
+[REQUIREMENT]
+UID: NOTE-RST-002
+TYPE: Non-Functional
+ASIL: B
+LAYER: L2_ECU_SW
+TITLE: 認証レイテンシのバジェット
+STATEMENT: >>>
+ゲートウェイ ECU の認証処理 (JWT 署名検証 + スコープ判定) の合計レイテンシは、
+上式のとおり 50 ms 以内であること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L2-006
+
+[TEXT]
+STATEMENT: >>>
+**(4) システム構成図 (drawio から書き出した SVG, RST image)**
+
+.. image:: _assets/sovd-architecture.svg
+   :alt: SOVD system architecture
+   :width: 760px
+
+図は _assets/sovd-architecture.drawio を編集ソースとして draw.io で SVG / PNG に
+書き出したものです。 StrictDoc は .drawio を直接描画しないため、 書き出した画像を
+image ディレクティブで貼り付けます。 同じ図の PNG 版は 06-notation-markdown.sdoc で
+使用しています。
+<<<

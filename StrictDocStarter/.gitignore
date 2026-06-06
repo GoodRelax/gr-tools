@@ -21,3 +21,7 @@ px.ini
 # strictdoc-generated HTML / cache (created when running strictdoc server/export)
 output/
 
+# Python bytecode cache (generated when strictdoc imports strictdoc_config.py)
+__pycache__/
+*.pyc
+

@@ -13,6 +13,11 @@
 - [`docs/serve-spec.md`](docs/serve-spec.md) — manage-strictdoc 仕様
 - [`docs/01-environment.md`](docs/01-environment.md) — ユーザ向け Phase 0 / 1 手順
 
+## 動作確認済み strictdoc バージョン (FR-332)
+
+- **検証済み: strictdoc 0.23.1** (Windows 11 / Python 3.13.3 / PowerShell 5.1、 2026-06-06)。 確認内容: Mermaid 図 (RST `.. raw:: html` + `<pre class="mermaid">` ／ Markdown ` ```mermaid ` フェンス〔0.23.0+〕の両方が描画)、 数式 `.. math::` (MathJax)、 コードハイライト (Pygments)、 表、 `strictdoc server` の前面コンソール起動 (readiness 行 `Uvicorn running on …` ／ 文法エラー時 `Could not parse … TextXSyntaxError` で即終了)。
+- 既定では **最新版**を `pip install strictdoc` で導入する。 最新追従のため、 将来版で同梱サンプル / 設定が壊れる可能性がある (サンプル smoke test で検知予定: O-4)。 **再現性を固定**したい場合は特定版を指定して導入する (例: `pip install "strictdoc==0.23.1"`)。
+
 ## 制限事項
 
 - **プロキシ環境は v1.0 では非対応**。 home Wi-Fi / モバイルテザリング等の直接接続環境での実行を推奨。 起動時に proxy を検出すれば `[WARN]` を表示するが、 install の自動設定は行わない。 詳細・回避策は [Proxy / 企業ネットワークについて](#proxy--企業ネットワークについて) を参照
@@ -74,8 +79,8 @@ placeholder:
 
 | パス | 要求数 | 用途 |
 |---|---|---|
-| `samples/sovd-automotive/` | 100 reqs | SOVD 自動車データ収集の **初期 default**。 ASAM SOVD / ISO 17978 ベース、 ASIL (ISO 26262) / Layer (A-SPICE) / Type custom fields 付き。 認証 / データ読取り / DTC / OTA 更新の 4 機能領域 × L0..L3 階層 |
-| `samples/hello-strictdoc/` | 5 reqs | 「Hello, World」 風のミニマル要求書。 **自分の要求書を書き始めるときの編集テンプレ** として使用 |
+| `samples/sovd-automotive/` | 100 reqs + 記法デモ 2 件 | SOVD 自動車診断の **初期 default**。 ASAM SOVD / ISO 17978 ベース、 ASIL (ISO 26262) / Layer (A-SPICE) / Type custom fields 付き。 認証 / データ読取り / DTC / OTA 更新の 4 機能領域 × L0..L3 階層。 加えて記法デモ `05-notation-rst.sdoc` (Mermaid / 数式 / 画像) と `06-notation-markdown.sdoc` (表 / コード / 画像 / Mermaid フェンス)、 図素材 `_assets/` (drawio 編集ソース + svg + png)。 MERMAID/MATHJAX 有効の `strictdoc_config.py` 同梱 |
+| `samples/hello-strictdoc/` | 5 reqs | 「Hello, World」 風のミニマル要求書 (`01-hello` + `02-design`)。 **自分の要求書を書き始めるときの編集テンプレ** として使用。 MERMAID/MATHJAX 有効の `strictdoc_config.py` 同梱 |
 
 ### サーバ状態の永続化
 
@@ -238,12 +243,17 @@ StrictDocStarter/
 ├── samples/
 │   ├── hello-strictdoc/                 # 5 reqs、 編集テンプレ
 │   │   ├── 01-hello.sdoc
-│   │   └── 02-design.sdoc
-│   └── sovd-automotive/                 # 100 reqs、 初期 default
+│   │   ├── 02-design.sdoc
+│   │   └── strictdoc_config.py          # MERMAID/MATHJAX 有効 (strictdoc new 準拠)
+│   └── sovd-automotive/                 # 初期 default (SOVD ドメイン教材)
 │       ├── 01-auth.sdoc                 # 25 reqs、 認証/認可
 │       ├── 02-data-access.sdoc          # 25 reqs、 車両データ識別/読取
 │       ├── 03-dtc-diagnostics.sdoc      # 25 reqs、 DTC / フリーズフレーム
-│       └── 04-sw-update.sdoc            # 25 reqs、 OTA / 署名検証 / rollback
+│       ├── 04-sw-update.sdoc            # 25 reqs、 OTA / 署名検証 / rollback
+│       ├── 05-notation-rst.sdoc         # RST 記法デモ: Mermaid(raw html)/数式/画像
+│       ├── 06-notation-markdown.sdoc    # Markdown 記法デモ: 表/コード/画像/Mermaidフェンス
+│       ├── _assets/                     # 図素材 (sovd-architecture.drawio + .svg + .png)
+│       └── strictdoc_config.py          # MERMAID/MATHJAX 有効 (strictdoc new 準拠)
 └── vm-tests/                            # VM 上で setup-strictdoc を検証
     ├── run-tests.bat                    # 自動テストランナー (10 シナリオ)
     ├── run-tests.ps1                    # ↑ 本体
