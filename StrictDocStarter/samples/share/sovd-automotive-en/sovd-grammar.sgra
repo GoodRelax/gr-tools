@@ -1,0 +1,127 @@
+[GRAMMAR]
+ELEMENTS:
+- TAG: SECTION
+  PROPERTIES:
+    IS_COMPOSITE: True
+  FIELDS:
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+- TAG: REQUIREMENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TYPE
+    TYPE: SingleChoice(Functional, Non-Functional, Constraint, Restriction, UseCase)
+    REQUIRED: True
+  - TITLE: ASIL
+    TYPE: SingleChoice(QM, A, B, C, D)
+    REQUIRED: True
+  - TITLE: CAL
+    TYPE: SingleChoice(CAL1, CAL2, CAL3, CAL4)
+    REQUIRED: False
+  - TITLE: LAYER
+    TYPE: SingleChoice(L0_Stakeholder, L1_System, L2_ECU_SW, L3_Unit)
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RATIONALE
+    TYPE: String
+    REQUIRED: False
+  - TITLE: VERIFICATION
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+  - TYPE: Child
+- TAG: COMPONENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: CA_LAYER
+    TYPE: SingleChoice(Entity, UseCase, Adapter, Framework)
+    REQUIRED: False
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: MODULE
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+    ROLE: Implements
+- TAG: API
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: METHOD
+    TYPE: SingleChoice(GET, POST, PUT, DELETE, PATCH)
+    REQUIRED: True
+  - TITLE: PATH
+    TYPE: String
+    REQUIRED: True
+  - TITLE: SCOPE
+    TYPE: String
+    REQUIRED: False
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RESPONSE
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+    ROLE: Satisfies
+- TAG: TEST
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: LEVEL
+    TYPE: SingleChoice(Unit, Integration, System, Acceptance)
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  RELATIONS:
+  - TYPE: Parent
+    ROLE: Verifies
+- TAG: TEST_RESULT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RESULT
+    TYPE: SingleChoice(PASS, CONDITIONAL, FAIL, SKIP)
+    REQUIRED: True
+  - TITLE: EXECUTED_ON
+    TYPE: String
+    REQUIRED: False
+  - TITLE: ENVIRONMENT
+    TYPE: String
+    REQUIRED: False
+  - TITLE: REMARK
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+    ROLE: ResultOf

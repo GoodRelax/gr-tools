@@ -1,0 +1,383 @@
+[DOCUMENT]
+TITLE: SOVD Diagnostic Trouble Codes (DTC) Requirements Specification (Diagnostic Trouble Codes)
+
+[GRAMMAR]
+IMPORT_FROM_FILE: sovd-grammar.sgra
+
+[TEXT]
+STATEMENT: >>>
+This document defines the read and clear requirements for SOVD **fault diagnostics
+(DTC and freeze frame)** at L1 through L3. Internally, SOVD wraps the ISO 14229
+(UDS) 0x19 family (ReadDTCInformation) / 0x14 (ClearDiagnosticInformation). For
+stakeholder requirements (L0) and use cases see `01-stakeholder-requirements.sdoc`;
+for the shared front matter see `00-overview.sdoc`; authentication and
+authorization assume `03-auth.sdoc`.
+
+**Reading** DTCs is not a safety function, so it is **ASIL=QM** as a rule. However,
+because **"clearing a safety-related DTC while the vehicle is moving" could affect
+the functional-safety assessment**, the running-state guard on a clear is set to
+**ASIL C**. The privilege over "who may clear" is a security matter, so a **CAL**
+is assigned.
+<<<
+
+[[SECTION]]
+TITLE: L1 - System Requirements
+
+[TEXT]
+STATEMENT: >>>
+**L1 representative sequence: reading DTCs, and a clear gated by running state**
+
+The read bridges to UDS 0x19 and the clear bridges to UDS 0x14. The clear is
+executed only when vehicle speed can be confirmed to be zero; while the vehicle is
+moving it is rejected with 409.
+
+.. raw:: html
+
+    <pre class="mermaid">
+    sequenceDiagram
+        participant C as SOVD Client
+        participant G as Gateway ECU
+        participant E as ECU
+        C->>G: GET /components/engine/faults (Bearer JWT)
+        G->>E: UDS 0x19 02 (reportDTCByStatusMask)
+        E-->>G: DTC list + status
+        G-->>C: 200 OK [{code, status}]
+        C->>G: DELETE /components/engine/faults (scope write:dtc)
+        G->>G: read vehicle speed (DID 0xF40D)
+        alt vehicle stopped (speed == 0)
+            G->>E: UDS 0x14 (ClearDiagnosticInformation)
+            G-->>C: 204 No Content
+        else vehicle moving (speed > 0)
+            G-->>C: 409 Conflict
+        end
+    </pre>
+<<<
+
+[REQUIREMENT]
+UID: DTC-L1-001
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: DTC list retrieval API
+STATEMENT: >>>
+The vehicle shall provide GET /components/{ecu}/faults and allow filtering by
+status mask (active/pending/confirmed/permanent).
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-001
+
+[REQUIREMENT]
+UID: DTC-L1-002
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: Freeze frame retrieval API
+STATEMENT: >>>
+At GET /components/{ecu}/faults/{code}/freeze-frame, the vehicle shall return, in
+JSON, the freeze frame (the DID value snapshot at the time of occurrence) for the
+specified DTC.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-002
+
+[REQUIREMENT]
+UID: DTC-L1-003
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L1_System
+TITLE: DTC clear API
+STATEMENT: >>>
+The vehicle shall allow clearing a DTC via DELETE /components/{ecu}/faults/{code}
+and shall require the write:dtc scope.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
+
+[REQUIREMENT]
+UID: DTC-L1-004
+TYPE: Functional
+ASIL: C
+LAYER: L1_System
+TITLE: Zero-speed check before clear
+STATEMENT: >>>
+When a DTC clear request is received, the vehicle shall read the current vehicle speed (DID 0xF40D) and, if it is not 0 km/h, return HTTP 409 Conflict. If the vehicle speed cannot be obtained, the vehicle shall also fail safe and reject the clear without executing it.
+<<<
+VERIFICATION: >>>
+A clear request at vehicle speed > 0 shall be rejected with 409, and shall succeed
+only at vehicle speed 0.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-004
+
+[REQUIREMENT]
+UID: DTC-L1-005
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L1_System
+TITLE: Bulk clear-all DTC API
+STATEMENT: >>>
+The vehicle shall allow clearing all DTCs in bulk via DELETE
+/components/{ecu}/faults (the zero-speed condition is the same as DTC-L1-004).
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
+- TYPE: Parent
+  VALUE: DTC-L0-004
+
+[REQUIREMENT]
+UID: DTC-L1-006
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: DTC response time
+STATEMENT: >>>
+The vehicle's DTC list retrieval shall respond within 1 second at the 95th
+percentile.
+<<<
+VERIFICATION: >>>
+Under representative load, the p95 of DTC list retrieval shall be within 1 second.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-001
+
+[REQUIREMENT]
+UID: DTC-L1-007
+TYPE: Functional
+ASIL: QM
+LAYER: L1_System
+TITLE: DTC occurrence history
+STATEMENT: >>>
+The vehicle shall retain the most recent 1,024 entries of DTC occurrence history
+(roughly equivalent to 24 hours) and make them retrievable at GET
+/components/{ecu}/faults/history.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-001
+
+[REQUIREMENT]
+UID: DTC-L1-008
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L1_System
+TITLE: Privilege verification for safety-related DTC clear
+STATEMENT: >>>
+If clearing a safety-related DTC is requested, then the vehicle shall verify the
+write:dtc:safety scope and return HTTP 403 if it is missing.
+<<<
+VERIFICATION: >>>
+Clearing a safety-related DTC shall be 403 with a token holding only write:dtc, and
+shall be permitted when accompanied by write:dtc:safety.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-006
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: L2 - ECU Software Requirements
+
+[REQUIREMENT]
+UID: DTC-L2-001
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: UDS 0x19 ReadDTCInformation bridge
+STATEMENT: >>>
+When a SOVD GET /faults request is received, the gateway ECU shall issue UDS
+Service 0x19 SubFunction 0x02 (reportDTCByStatusMask) to the responsible group of
+ECUs and return the aggregated result as JSON.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-001
+
+[REQUIREMENT]
+UID: DTC-L2-002
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: Freeze frame retrieval
+STATEMENT: >>>
+The gateway ECU shall retrieve the freeze frame using UDS 0x19 SubFunction 0x04
+(reportDTCSnapshotRecordByDTCNumber).
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-002
+
+[REQUIREMENT]
+UID: DTC-L2-003
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L2_ECU_SW
+TITLE: UDS 0x14 ClearDiagnosticInformation
+STATEMENT: >>>
+In response to a DTC clear request, the gateway ECU shall issue UDS Service 0x14 to
+the target ECU after the vehicle speed check (DTC-L2-004) succeeds.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-003
+
+[REQUIREMENT]
+UID: DTC-L2-004
+TYPE: Functional
+ASIL: C
+LAYER: L2_ECU_SW
+TITLE: VehicleSpeedGuard
+STATEMENT: >>>
+Before every DTC clear request (whether individual or bulk), the gateway ECU shall
+verify, via the VehicleSpeedGuard, that vehicle speed == 0 within 100 ms.
+<<<
+VERIFICATION: >>>
+Confirm that when vehicle speed > 0 the clear is not executed (blocked by the
+guard).
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-004
+
+[REQUIREMENT]
+UID: DTC-L2-005
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: DTC master table
+STATEMENT: >>>
+The gateway ECU shall hold the OEM-provided DTC master table (code -> description /
+recommended action) in NVRAM and include it in the API response.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-001
+
+[REQUIREMENT]
+UID: DTC-L2-006
+TYPE: Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: DTC history circular buffer
+STATEMENT: >>>
+The gateway ECU shall hold up to 1,024 entries of DTC history in a circular buffer
+(one entry being timestamp + DTC + status mask).
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-007
+
+[REQUIREMENT]
+UID: DTC-L2-007
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: UDS timeout
+STATEMENT: >>>
+The gateway ECU's UDS request P2 timeout shall be 50 ms and the P2* timeout shall
+be 500 ms.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-006
+
+[REQUIREMENT]
+UID: DTC-L2-008
+TYPE: Constraint
+ASIL: QM
+LAYER: L2_ECU_SW
+TITLE: NRC handling
+STATEMENT: >>>
+If a UDS Negative Response Code (NRC) is received, then the gateway ECU shall
+return HTTP 502 to the SOVD client with the NRC code included in the JSON body.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-001
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: L3 - Unit / Software Component Requirements
+
+[REQUIREMENT]
+UID: DTC-L3-001
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: DtcParser unit
+STATEMENT: >>>
+The DtcParser unit shall parse the binary response of UDS 0x19 and return a list of
+(dtc_code, status_byte).
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-001
+
+[REQUIREMENT]
+UID: DTC-L3-002
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: FreezeFrameDecoder unit
+STATEMENT: >>>
+The FreezeFrameDecoder unit shall convert the UDS 0x19/0x04 freeze frame payload
+into a list of (did, value).
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-002
+
+[REQUIREMENT]
+UID: DTC-L3-003
+TYPE: Functional
+ASIL: C
+LAYER: L3_Unit
+TITLE: SpeedReader unit
+STATEMENT: >>>
+The SpeedReader unit shall, as an ASIL C certified real-time task, update DID
+0xF40D on a 10 ms cycle and provide the latest value via const access.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-004
+
+[REQUIREMENT]
+UID: DTC-L3-004
+TYPE: Functional
+ASIL: QM
+LAYER: L3_Unit
+TITLE: DtcHistoryStore unit
+STATEMENT: >>>
+The DtcHistoryStore unit shall be implemented as a lock-free ring buffer (Single
+Producer Multiple Consumer) and allocate a size of 1,024 in NVRAM.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L2-006
+
+[REQUIREMENT]
+UID: DTC-L3-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L3_Unit
+TITLE: NVRAM wear protection
+STATEMENT: >>>
+NVRAM writes of DTC history shall use a wear-leveling algorithm (e.g.,
+log-structured) and avoid consecutive writes to the same sector.
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L3-004
+
+[[/SECTION]]

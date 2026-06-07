@@ -1,0 +1,242 @@
+[DOCUMENT]
+TITLE: SOVD API Contract Specification (HTTP API Contract)
+
+[GRAMMAR]
+IMPORT_FROM_FILE: sovd-grammar.sgra
+
+[TEXT]
+STATEMENT: >>>
+This document is the **external HTTP API contract** of SOVD. It is the **promise** to SOVD
+clients (OEM cloud, workshop tools, in-vehicle apps), and in principle an integration
+partner can implement against this document alone.
+
+- Authentication: ``Authorization: Bearer <JWT>`` (03-auth). Communication is TLS 1.3 (AUTH-L1-005).
+- Data model: JSON compliant with ASAM SOVD v1.0 Part 2.
+- Each API traces to the requirement it realizes via a ``Satisfies`` relation.
+- METHOD / PATH / SCOPE / RESPONSE are data declarations, while **the STATEMENT describes the behavioral contract in EARS**
+  (Ubiquitous = always / Event = nominal / Unwanted = off-nominal).
+<<<
+
+[[SECTION]]
+TITLE: Authentication
+
+[API]
+UID: API-001
+METHOD: POST
+PATH: /auth/token
+TITLE: Access token issuance (OAuth2 PKCE)
+STATEMENT: >>>
+- (Event) When a client sends a valid authorization code and code_verifier, the API shall
+  issue a JWT access token (containing exp / scope / sub).
+- (Unwanted) If the code_verifier does not match, then the API shall reject authentication and
+  shall not issue a token.
+<<<
+RESPONSE: >>>
+200 OK
+{"access_token": "<JWT>", "token_type": "Bearer", "expires_in": 1800, "scope": "read:did read:dtc"}
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-001
+  ROLE: Satisfies
+
+[API]
+UID: API-002
+METHOD: POST
+PATH: /auth/revoke
+TITLE: Token revocation
+STATEMENT: >>>
+- (Event) When a client sends a revocation request, the API shall revoke the target access
+  token.
+- (Unwanted) If access is subsequently attempted with a revoked token, then the system shall return 401.
+<<<
+RESPONSE: >>>
+200 OK
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L1-009
+  ROLE: Satisfies
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Data Access
+
+[API]
+UID: API-003
+METHOD: GET
+PATH: /components/{ecu}/data/{did}
+SCOPE: read:did
+TITLE: Read of a single DID
+STATEMENT: >>>
+- (Ubiquitous) The API shall require the read:did scope.
+- (Event) When an authorized client calls the API, it shall return the current value of that
+  DID as ASAM SOVD JSON. Example: ``GET /components/engine/data/rpm``.
+- (Unwanted) If unauthenticated, then the API shall return 401.
+- (Unwanted) If the scope is insufficient, then the API shall return 403.
+- (Unwanted) If the specified DID does not exist, then the API shall return 404.
+<<<
+RESPONSE: >>>
+200 OK
+{"did": "0xF40C", "name": "rpm", "value": 824, "unit": "1/min"}
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-001
+  ROLE: Satisfies
+
+[API]
+UID: API-004
+METHOD: GET
+PATH: /components/{ecu}/data/stream
+SCOPE: read:did
+TITLE: Periodic data stream (SSE)
+STATEMENT: >>>
+- (Ubiquitous) The API shall require the read:did scope.
+- (Event) When a client subscribes to a DID list, the API shall deliver values periodically
+  via Server-Sent Events.
+<<<
+RESPONSE: >>>
+200 OK (text/event-stream)
+data: {"did":"0xF40C","value":824}
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L1-002
+  ROLE: Satisfies
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Fault Diagnostics (DTC)
+
+[API]
+UID: API-005
+METHOD: GET
+PATH: /components/{ecu}/faults
+SCOPE: read:dtc
+TITLE: DTC list retrieval
+STATEMENT: >>>
+- (Ubiquitous) The API shall require the read:dtc scope.
+- (Event) When a client calls with a status mask specified, the API shall return the matching
+  list of DTCs as JSON.
+<<<
+RESPONSE: >>>
+200 OK
+[{"code": "P0301", "status": "confirmed"}]
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-001
+  ROLE: Satisfies
+
+[API]
+UID: API-006
+METHOD: GET
+PATH: /components/{ecu}/faults/{code}/freeze-frame
+SCOPE: read:dtc
+TITLE: Freeze-frame retrieval
+STATEMENT: >>>
+- (Ubiquitous) The API shall require the read:dtc scope.
+- (Event) When a client calls it, the API shall return the snapshot at the time of occurrence
+  (DID values) for the specified DTC.
+- (Unwanted) If the specified DTC is not recorded, then the API shall return 404.
+<<<
+RESPONSE: >>>
+200 OK
+{"code": "P0301", "frame": {"rpm": 3200, "coolant": 95}}
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-002
+  ROLE: Satisfies
+
+[API]
+UID: API-007
+METHOD: DELETE
+PATH: /components/{ecu}/faults/{code}
+SCOPE: write:dtc
+TITLE: DTC clear
+STATEMENT: >>>
+- (Ubiquitous) The API shall require the write:dtc scope.
+- (Event) When a client calls it while the vehicle speed is 0 km/h, the API shall clear the
+  target DTC and return 204.
+- (Unwanted) If the vehicle speed is not 0 km/h, then the API shall return 409 Conflict and
+  shall not clear the DTC.
+<<<
+RESPONSE: >>>
+204 No Content  /  409 Conflict (vehicle moving)
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L1-003
+  ROLE: Satisfies
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Software Update (OTA)
+
+[API]
+UID: API-008
+METHOD: POST
+PATH: /updates
+SCOPE: write:swupdate
+TITLE: Update package submission
+STATEMENT: >>>
+- (Ubiquitous) The API shall require the write:swupdate scope.
+- (Event) When a signed package is submitted, the API shall accept the request, start the
+  update processing (download -> signature verification -> application), and return 202 Accepted.
+- (Unwanted) If the scope is insufficient, then the API shall return 403.
+- Signature verification is performed in an asynchronous phase after download, and on failure the update is marked Failed
+  (observed via GET /updates/progress; no synchronous error is returned).
+<<<
+RESPONSE: >>>
+202 Accepted
+{"update_id": "u-123", "state": "Downloading"}
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-001
+  ROLE: Satisfies
+
+[API]
+UID: API-009
+METHOD: GET
+PATH: /updates/progress
+TITLE: Update progress stream (SSE)
+STATEMENT: >>>
+- (Event) When a client subscribes while an update is in progress, the API shall deliver each
+  ECU's progress (0..100%) and the current phase via Server-Sent Events.
+<<<
+RESPONSE: >>>
+200 OK (text/event-stream)
+data: {"ecu":"engine","phase":"Verifying","percent":40}
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-006
+  ROLE: Satisfies
+
+[API]
+UID: API-010
+METHOD: POST
+PATH: /updates/rollback
+SCOPE: write:swupdate
+TITLE: Rollback
+STATEMENT: >>>
+- (Ubiquitous) The API shall require the write:swupdate scope.
+- (Event) When a client calls it, the API shall roll back to the previous version and return 202.
+- (State) While a rollback is being executed, the system shall not accept new update or write operations.
+<<<
+RESPONSE: >>>
+202 Accepted
+{"state": "RolledBack"}
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L1-005
+  ROLE: Satisfies
+
+[[/SECTION]]
