@@ -1,0 +1,120 @@
+[DOCUMENT]
+TITLE: 付録: 表記・記法リファレンス (Notation Reference)
+OPTIONS:
+  MARKUP: Markdown
+
+[TEXT]
+STATEMENT: >>>
+## A. この付録について
+
+本付録は、 SOVD 要求仕様 (00〜11) で使う **StrictDoc の記法 (notation)** をまとめた
+リファレンスである。 要求そのものではなく、 「図・数式・表・画像・コードをどう書くと
+StrictDoc で描画されるか」 を一箇所に集約し、 同時に **Markdown マークアップの記法を
+実際に描画して示す** デモを兼ねる。
+
+本文書だけ `OPTIONS: MARKUP: Markdown` を宣言している (00〜11 は StrictDoc 既定の
+**RST**)。 マークアップは **文書単位** で決まるため、 RST 記法 (raw html の Mermaid・
+`.. math::`・`.. image::`・`.. list-table::`) は 00〜11 の本文中で実際に使われており、
+Markdown 記法 (フェンス・`![]()`・パイプ表) は本付録で実演する。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## B. マークアップの選択 (RST と Markdown)
+
+| 記法 | RST (00〜11 で使用) | Markdown (本付録で使用) |
+|---|---|---|
+| 見出し | セクション `[[SECTION]]` / RST 見出し | `##` 見出し |
+| Mermaid 図 | `.. raw:: html` + `<pre class="mermaid">` (全版) | ` ```mermaid ` フェンス (0.23.0+) |
+| 数式 | `.. math::` / `` :math:`...` `` | (MathJax は RST 側で使用) |
+| 画像 | `.. image:: path` | `![alt](path)` |
+| 表 | `.. list-table::` | パイプ表 `\| ... \|` |
+| コード | RST `.. code-block::` | ` ``` ` フェンス + 言語名 |
+
+**注意 (版依存):** RST の raw-html Mermaid は全 StrictDoc 版で描画される。 Markdown の
+` ```mermaid ` フェンスは **strictdoc 0.23.0 以降** かつ MERMAID feature 有効時のみ
+図として描画される (それ以前はコードブロック止まり)。 本サンプルの動作確認版は
+**0.23.1**。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## C. Mermaid 図 (Markdown フェンスの実演)
+
+RST 側 (00〜11) では `.. raw:: html` + `<pre class="mermaid">` を使う。 Markdown では
+以下の ` ```mermaid ` フェンスがそのまま図として描画される。
+
+```mermaid
+flowchart LR
+    Cloud["OEM Cloud /<br/>Workshop tool"] --> Net["Internet<br/>HTTPS"]
+    Net --> TCU["TCU"]
+    TCU --> GW["Gateway ECU"]
+    GW --> ECU["In-vehicle ECUs<br/>(UDS)"]
+```
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## D. 数式 (MathJax)
+
+数式は RST の `.. math::` ブロック、 または インラインの `` :math:`...` `` で書く
+(本サンプルでは 03-auth の L2 で署名検証とレイテンシ予算に使用)。 描画には MATHJAX
+feature が必要。 例 (RST 記法):
+
+```
+.. math::
+
+    t_{auth} = t_{verify} + t_{scope} \le 50\,\mathrm{ms}
+```
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## E. 画像 (Markdown の `![]()` 実演)
+
+RST 側 (00-overview) では SVG を `.. image::` で埋め込む。 Markdown では `![alt](path)`
+で埋め込む。 以下は同じ構成図の PNG 版 (`_assets/` の draw.io から書き出し)。
+
+![SOVD リモート診断の構成図 (PNG)](_assets/sovd-architecture.png)
+
+図の編集ソースは `_assets/sovd-architecture.drawio`。 そこから SVG (00-overview 用) と
+PNG (本付録用) を書き出している。
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## F. コードハイライト (フェンス + 言語名の実演)
+
+コードは言語名付きフェンスで書くと Pygments でハイライトされる (feature 不要、 ビルトイン)。
+以下は SOVD クライアントの最小例 (認証 → DID 読み出し)。
+
+```python
+import requests
+
+# 1) OAuth2 PKCE で access_token を取得 (03-auth)
+token = authorize(client_id, pkce_verifier)
+
+# 2) Bearer トークンで DID (rpm) を読み出し (04-data-access, TLS 1.3)
+resp = requests.get(
+    "https://vehicle.example/sovd/v1/components/engine/data/rpm",
+    headers={"Authorization": f"Bearer {token}"},
+    verify="oem_ca.pem",
+)
+print(resp.json())  # -> {"rpm": 824}
+```
+<<<
+
+[TEXT]
+STATEMENT: >>>
+## G. 表 (Markdown パイプ表の実演)
+
+RST 側 (00-overview) では `.. list-table::` を使う。 Markdown ではパイプ表で書く。
+例: SOVD の主なスコープ。
+
+| スコープ | 許可される操作 | 主な文書 |
+|---|---|---|
+| `read:did` | 車両データ (DID) の読み出し | 04-data-access |
+| `read:dtc` | 故障コードの読み出し | 05-dtc-diagnostics |
+| `write:dtc` | 故障コードのクリア | 05-dtc-diagnostics |
+| `write:swupdate` | OTA ソフトウェア更新 | 06-sw-update |
+<<<

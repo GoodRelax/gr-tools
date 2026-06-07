@@ -1,0 +1,888 @@
+[DOCUMENT]
+TITLE: SOVD テスト結果 (Test Results / Execution Records)
+
+[GRAMMAR]
+IMPORT_FROM_FILE: sovd-grammar.sgra
+
+[TEXT]
+STATEMENT: >>>
+本書は `10-test-spec.sdoc` の各テストの **実行結果記録** である。 各結果は対応するテスト仕様へ
+``ResultOf`` 関係でトレースする。 仕様は安定、 結果は実行ごとに増える (1 仕様 : N 結果) ため
+別文書に分離する。 各結果の TITLE は判定で始めるので、 ツリーでも OK/NG が一目で分かる。
+
+サマリ (集計): 計 75 件 — PASS 66 / CONDITIONAL 5 / FAIL 1 / SKIP 3 (本サンプルの実行記録例)。
+1 シナリオ = 1 テスト = 1 結果なので、 「関連する 1 つが PASS、 1 つが FAIL/SKIP」 を個別に
+表現できる (例: PackageDownloader は再開=PASS だが二重要求=FAIL)。
+<<<
+
+[[SECTION]]
+TITLE: 単体テスト結果 (Unit)
+
+[TEST_RESULT]
+UID: TR-UT-001
+TITLE: [PASS] TokenVerifier — 有効な JWT は受理される
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, gcc + unity)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-001
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-002
+TITLE: [PASS] TokenVerifier — 署名改ざんは拒否される
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-002
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-003
+TITLE: [PASS] TokenVerifier — 期限切れは拒否される
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-003
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-004
+TITLE: [PASS] TokenCache — 容量超過で最古を追い出す
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-004
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-005
+TITLE: [PASS] TokenCache — 保持中はヒットする
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-005
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-006
+TITLE: [PASS] ScopeAuthorizer — スコープ充足/不足の判定
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-006
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-007
+TITLE: [PASS] TlsTerminator — 起動時に信頼ストアをロードする
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, OpenSSL mock)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-007
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-008
+TITLE: [PASS] TlsTerminator — 不正証明書で失敗イベントを通知する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, OpenSSL mock)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-008
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-009
+TITLE: [PASS] UdsClient — 正常応答を返す
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, UDS stub)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-009
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-010
+TITLE: [PASS] UdsClient — 無応答はリトライ後タイムアウト
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, UDS stub)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-010
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-011
+TITLE: [PASS] UdsClient — NRC を伝播する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, UDS stub)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-011
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-012
+TITLE: [PASS] JsonSerializer — 各型を ASAM JSON へ変換する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-012
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-013
+TITLE: [PASS] DidResolver — 既知 DID を解決する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-013
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-014
+TITLE: [PASS] DidResolver — 未知 DID はエラー
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-014
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-015
+TITLE: [PASS] DataCache — TTL 内はヒットする
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-015
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-016
+TITLE: [PASS] DataCache — TTL 経過でミスする
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-016
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-017
+TITLE: [PASS] DtcParser — 1 件の DTC を解析する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-017
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-018
+TITLE: [PASS] DtcParser — 空応答は空リスト
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-018
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-019
+TITLE: [PASS] FreezeFrameDecoder — (did,value) へ復号する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-019
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-020
+TITLE: [PASS] SpeedReader — 最新車速を 10ms 以内に反映する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL (ASIL C task timing)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-020
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-021
+TITLE: [PASS] DtcHistoryStore — 容量超過で最古を上書きする
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-021
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-022
+TITLE: [CONDITIONAL] DtcHistoryStore — 並行読取でも整合する
+RESULT: CONDITIONAL
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, TSan)
+REMARK: >>>
+単一プロデューサは PASS。 高負荷の並行読取の境界網羅が未完。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-022
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-023
+TITLE: [PASS] PackageDownloader — 途中失敗から再開して完走する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, network sim)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-023
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-024
+TITLE: [FAIL] PackageDownloader — バックオフ上限で二重要求しない
+RESULT: FAIL
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, network sim)
+REMARK: >>>
+バックオフ上限 (30s) 到達時に稀に二重リクエストを観測。 修正中 (要再テスト)。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-024
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-025
+TITLE: [PASS] SignatureVerifier — ECDSA 正署名は true
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, OpenSSL)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-025
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-026
+TITLE: [PASS] SignatureVerifier — RSA-PSS 正署名は true
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, OpenSSL)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-026
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-027
+TITLE: [PASS] SignatureVerifier — 改ざんは false
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: CI (host, OpenSSL)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-027
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-028
+TITLE: [PASS] FlashSectorWriter — 正常書込は事前消去 + CRC 一致
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL (flash emulator)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-028
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-029
+TITLE: [PASS] FlashSectorWriter — CRC 不一致は ERROR
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL (flash emulator)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-029
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-UT-030
+TITLE: [PASS] VehicleStateMonitor — 全条件成立時のみ許可
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL (ASIL D, signal injection)
+RELATIONS:
+- TYPE: Parent
+  VALUE: UT-030
+  ROLE: ResultOf
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 結合テスト結果 (Integration)
+
+[TEST_RESULT]
+UID: TR-IT-001
+TITLE: [PASS] 認証フロー結合
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-001
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-002
+TITLE: [PASS] DID 読出ブリッジ結合
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-002
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-003
+TITLE: [PASS] DTC 読出ブリッジ結合
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-003
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-004
+TITLE: [PASS] DTC クリア — 走行中はガードで阻止
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench (speed inject)
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-004
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-005
+TITLE: [PASS] DTC クリア — 停車中は実行
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-005
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-006
+TITLE: [PASS] OTA — 正常パッケージは検証を通る
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-006
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-007
+TITLE: [PASS] OTA — 改ざんパッケージは破棄
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-007
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-008
+TITLE: [PASS] OTA フラッシュ + 状態ガードの緊急中断
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench (state inject)
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-008
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-009
+TITLE: [PASS] 認証エンドポイントが要求を受理する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-009
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-010
+TITLE: [PASS] 起動時に証明書ストアの整合性を検証する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-010
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-011
+TITLE: [PASS] 失効リストを定期同期する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-011
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-012
+TITLE: [PASS] WebSocket で複数 DID を同時購読する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-012
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-013
+TITLE: [PASS] バルクダウンロードを gzip 圧縮で返す
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-013
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-014
+TITLE: [PASS] 全 DTC を一括クリアする
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench (speed inject)
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-014
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-015
+TITLE: [PASS] 応答に DTC マスタ情報を同梱する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-015
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-016
+TITLE: [PASS] ロールバックがブートローダ切替で実行される
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-016
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-017
+TITLE: [PASS] 進捗イベントが配信される
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-017
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-IT-018
+TITLE: [PASS] 電源断後に最後の安全状態から再開する
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: HIL bench (power cut rig)
+RELATIONS:
+- TYPE: Parent
+  VALUE: IT-018
+  ROLE: ResultOf
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: システムテスト結果 (System)
+
+[TEST_RESULT]
+UID: TR-ST-001
+TITLE: [PASS] 認証付きデータ読出 (E2E)
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: vehicle prototype
+RELATIONS:
+- TYPE: Parent
+  VALUE: ST-001
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-ST-002
+TITLE: [SKIP] 周期データストリーム
+RESULT: SKIP
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: vehicle prototype
+REMARK: >>>
+SSE/WS の長時間安定試験環境が未整備のため未実施。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: ST-002
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-ST-003
+TITLE: [PASS] DTC 一覧取得とクリア
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: vehicle prototype
+RELATIONS:
+- TYPE: Parent
+  VALUE: ST-003
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-ST-004
+TITLE: [PASS] OTA 更新 — 正常更新は新版で起動
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: vehicle prototype
+RELATIONS:
+- TYPE: Parent
+  VALUE: ST-004
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-ST-005
+TITLE: [CONDITIONAL] OTA 更新 — 書込失敗で旧版を維持
+RESULT: CONDITIONAL
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: vehicle prototype
+REMARK: >>>
+書込失敗の自動ロールバックは手動誘発で確認。 全自動化は未完。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: ST-005
+  ROLE: ResultOf
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 受入テスト結果 (Acceptance)
+
+[TEST_RESULT]
+UID: TR-AT-001
+TITLE: [PASS] 認証付き DID 読み出しの成功
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop (SOVD tester)
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-001
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-002
+TITLE: [PASS] 未認証アクセスの拒否
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-002
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-003
+TITLE: [PASS] スコープ不足で 403
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-003
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-004
+TITLE: [PASS] 失効トークンの拒否
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-004
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-005
+TITLE: [PASS] 走行中の DTC クリア拒否
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop (rolling road)
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-005
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-006
+TITLE: [PASS] 改ざんパッケージの拒否
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-006
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-007
+TITLE: [PASS] 走行中フラッシュ書込の禁止
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop (rolling road)
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-007
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-008
+TITLE: [CONDITIONAL] アクセストークンの有効期限
+RESULT: CONDITIONAL
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+REMARK: >>>
+既定 30 分は確認済み。 上限 60 分の境界ケースは未実施。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-008
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-009
+TITLE: [SKIP] 更新進捗ストリーム (SSE)
+RESULT: SKIP
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+REMARK: >>>
+SSE テスト環境が未整備のため未実施。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-009
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-010
+TITLE: [PASS] 故障コード一覧の遠隔取得
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-010
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-011
+TITLE: [PASS] フリーズフレームの取得
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-011
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-012
+TITLE: [SKIP] 周期データの遠隔サンプリング
+RESULT: SKIP
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+REMARK: >>>
+SSE/WS 環境が未整備のため未実施 (ST-002 と同因)。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-012
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-013
+TITLE: [PASS] スナップショットの一括取得
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-013
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-014
+TITLE: [PASS] 大容量データの中断・再開可能な転送
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop (link drop sim)
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-014
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-015
+TITLE: [PASS] 役割別アクセス制御 (RBAC)
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-015
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-016
+TITLE: [PASS] TLS 1.3 で接続できる
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop (TLS probe)
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-016
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-017
+TITLE: [PASS] TLS ダウングレードの拒否
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: workshop (TLS probe)
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-017
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-018
+TITLE: [PASS] 相互 TLS が成立する (OEM 内部)
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: OEM lab (mTLS)
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-018
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-019
+TITLE: [PASS] 不正なクライアント証明書は拒否される
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: OEM lab (mTLS)
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-019
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-020
+TITLE: [PASS] OTA による遠隔ソフトウェア更新
+RESULT: PASS
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: vehicle prototype
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-020
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-021
+TITLE: [CONDITIONAL] 前バージョンへのロールバック
+RESULT: CONDITIONAL
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: vehicle prototype
+REMARK: >>>
+手動ロールバックは PASS。 異常検出からの自動ロールバックは自動化未完。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-021
+  ROLE: ResultOf
+
+[TEST_RESULT]
+UID: TR-AT-022
+TITLE: [CONDITIONAL] 更新の中断耐性 (電源断からの再開)
+RESULT: CONDITIONAL
+EXECUTED_ON: 2026-06-06
+ENVIRONMENT: vehicle prototype (power cut rig)
+REMARK: >>>
+ダウンロード中の電源断再開は PASS。 書込中断からの復帰は限定ケースのみ確認。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AT-022
+  ROLE: ResultOf
+
+[[/SECTION]]

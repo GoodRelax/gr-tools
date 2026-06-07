@@ -1,0 +1,557 @@
+[DOCUMENT]
+TITLE: SOVD ステークホルダ要求 (Stakeholder Requirements)
+
+[GRAMMAR]
+IMPORT_FROM_FILE: sovd-grammar.sgra
+
+[TEXT]
+STATEMENT: >>>
+本書は SOVD 車両診断システムの **ステークホルダ要求 (L0)** を EARS で定義する要求文書である。
+最上位要求 SYS-L0-001 を頂点に、 各機能ドメイン (認証 / データ / DTC / OTA) の要求が
+これへ収束する。 各ドメインは束ね要求 (AUTH/DATA/DTC/SWU-L0-000) を介して SYS-L0-001 に接続し、 その直下へ各機能要求を並列に展開する。 背景は `00-overview.sdoc`、 アクターと利用シナリオ (ユースケース) は
+`02-usecases.sdoc`、 各ドメインのシステム要求 (L1) 以下は各ドメイン文書を参照のこと。
+
+**要求とユースケースの区別 (IEEE 29148 / A-SPICE):** 本書は「システムが満たすべき条件」
+(要求、 EARS) を扱う。 「アクターがどう使うか」(ユースケース、 シナリオ) は
+`02-usecases.sdoc` に分離し、 各 UC が本書の要求を Parent で実現し、 受入テストが UC を
+検証する。
+<<<
+
+[[SECTION]]
+TITLE: 0. 最上位要求 (System Goal)
+
+[REQUIREMENT]
+UID: SYS-L0-001
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 認可された関係者による車両の遠隔診断・更新
+STATEMENT: >>>
+本システム (SOVD 遠隔診断システム) は、 整備士・OEM エンジニア・フリート運用者が、
+認可された範囲で対象車両を遠隔から安全に診断・更新できる統合的な仕組みを提供すること。
+<<<
+VERIFICATION: >>>
+4 つの主要ユースケース (認証付きアクセス・データ読取・DTC 診断・OTA 更新) が認可された
+関係者により遠隔で実行でき、 未認可のアクセスは拒否されること。
+<<<
+
+[REQUIREMENT]
+UID: SYS-L0-002
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 複数関係者の同時アクセス
+STATEMENT: >>>
+本システムは、 認可された複数の関係者からの遠隔診断アクセスを、 車両ゲートウェイで同時に処理できること。
+<<<
+RATIONALE: >>>
+フリート運用や複数拠点からの診断を想定し、 システム全体の同時アクセス性を最上位で要求する (具体的な同時接続上限はドメイン要求、 例 DATA-L2-008 で規定)。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 認証・認可 (Authentication & Authorization)
+
+[REQUIREMENT]
+UID: AUTH-L0-000
+TYPE: Functional
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 認証・認可ドメイン
+STATEMENT: >>>
+本システムは、 遠隔の SOVD クライアントに対する認証・認可・通信路保護・監査をドメインとして提供し、 認可された関係者のみが診断・更新へアクセスできるようにすること。
+<<<
+RATIONALE: >>>
+認証・認可の各機能 (アクセス提供・権限制限・機密保持・未認証拒否・規格準拠・監査) を束ねるドメイン要求。 各機能はこの直下に並列で展開する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
+
+[REQUIREMENT]
+UID: AUTH-L0-001
+TYPE: Functional
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 認証付き診断アクセスの提供
+STATEMENT: >>>
+整備士が遠隔の SOVD クライアントから認証を経て診断アクセスを要求したとき、
+本システムは認可された範囲で対象車両の診断データへのアクセスを提供すること。
+<<<
+VERIFICATION: >>>
+認証済みクライアントで診断リソースの GET が HTTP 200 を返し、 対象データが
+取得できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-000
+
+[REQUIREMENT]
+UID: AUTH-L0-002
+TYPE: Functional
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 役割に応じた診断権限の制限
+STATEMENT: >>>
+本システムは、 利用者の役割 (整備士 / OEM エンジニア / フリート運用者) に応じて、
+利用可能な診断機能 (読み出し / 書き込み) を制限すること。
+<<<
+RATIONALE: >>>
+過剰な権限付与は安全関連操作の誤用・悪用に直結する。
+<<<
+VERIFICATION: >>>
+役割ごとの許可操作マトリクスに従い、 権限外の操作要求が HTTP 403 で拒否されること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-000
+
+[REQUIREMENT]
+UID: AUTH-L0-003
+TYPE: Non-Functional
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: クレデンシャルの機密保持
+STATEMENT: >>>
+本システムは、 診断アクセスの認証に用いるクレデンシャル (パスワード / トークン /
+証明書) を、 通信路上および保管時に第三者へ漏洩させないこと。
+<<<
+RATIONALE: >>>
+SOVD は HTTP ベースで、 認証・認可前のデータ漏洩リスクが従来 UDS より高い。
+<<<
+VERIFICATION: >>>
+全診断通信が TLS で暗号化され、 保管されるクレデンシャルが平文でないことを確認する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-000
+
+[REQUIREMENT]
+UID: AUTH-L0-004
+TYPE: Restriction
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 未認証アクセスの拒否
+STATEMENT: >>>
+もし未認証のクライアントが SOVD サービスを呼び出した場合、 本システムは
+診断データの読み出しを含む一切の処理を実行せず、 要求を拒否すること。
+<<<
+RATIONALE: >>>
+認証・認可前のデータ漏洩を防ぐ。 SOVD は外部からの直接接続リスクが UDS より高い。
+<<<
+VERIFICATION: >>>
+トークンを伴わない全エンドポイント呼び出しが HTTP 401 を返すこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-000
+
+[REQUIREMENT]
+UID: AUTH-L0-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: ASAM SOVD 認証要件への準拠
+STATEMENT: >>>
+本システムの認証・認可機能は、 ASAM SOVD v1.0 (Part 1: Common) の認証要件に
+準拠すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-000
+
+[REQUIREMENT]
+UID: AUTH-L0-006
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L0_Stakeholder
+TITLE: 認証・認可の監査証跡
+STATEMENT: >>>
+本システムは、 認証・認可に関わるアクセス試行 (成功・失敗) を、 追跡可能な監査証跡として記録すること。
+<<<
+RATIONALE: >>>
+なりすまし・不正アクセスの事後追跡 (フォレンジック) のため。 §1.2 の脅威対策の土台。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-000
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 車両データアクセス (Vehicle Data Access)
+
+[REQUIREMENT]
+UID: DATA-L0-000
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 車両データアクセスドメイン
+STATEMENT: >>>
+本システムは、 認可された関係者が車両データ (現在状態・周期・スナップショット・大容量) を遠隔で読み取れる機能をドメインとして提供すること。
+<<<
+RATIONALE: >>>
+データアクセスの各機能 (単発読取・周期・スナップショット・バルク・権限分離) を束ねるドメイン要求。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
+
+[REQUIREMENT]
+UID: DATA-L0-001
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L0_Stakeholder
+TITLE: 車両状態データの遠隔読み取りの提供
+STATEMENT: >>>
+整備士や OEM エンジニアが遠隔の SOVD クライアントから車両の現在状態 (走行距離・
+バッテリ電圧・各 ECU 温度等) の取得を要求したとき、 本システムは認可された範囲で
+そのデータを返すこと。
+<<<
+VERIFICATION: >>>
+認可されたクライアントで代表的な DID 群が取得でき、 未認可の項目は返らないこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-000
+
+[REQUIREMENT]
+UID: DATA-L0-002
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 周期的なデータサンプリング
+STATEMENT: >>>
+本システムは、 利用者が指定した DID リストを 100 ms 〜 60 s の周期で連続取得できる
+ようにすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-000
+
+[REQUIREMENT]
+UID: DATA-L0-003
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: スナップショットの一括取得
+STATEMENT: >>>
+本システムは、 特定時刻における車両の全 DID 値スナップショットを 1 トランザクションで
+取得できるようにすること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-000
+
+[REQUIREMENT]
+UID: DATA-L0-004
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 大量データの中断・再開可能な転送
+STATEMENT: >>>
+本システムは、 ロギングデータや録画フレーム等の数百 MB 規模のデータを、 中断・再開
+可能な方式で転送できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-000
+
+[REQUIREMENT]
+UID: DATA-L0-005
+TYPE: Restriction
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: 読み出し権限と書き込み権限の分離
+STATEMENT: >>>
+もし読み出し専用トークンで DID 値の書き込み (writeDataByIdentifier 相当) が要求された
+場合、 本システムはこれを拒否すること。
+<<<
+RATIONALE: >>>
+読み出しと書き込みを別スコープで管理し、 誤書込・悪用を防ぐ。 本サンプルでは DID 書込 API は在域外のため、 本要求は将来の書込操作に対するガード方針として保持し、 レビューで担保する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DATA-L0-000
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 故障診断 (DTC)
+
+[REQUIREMENT]
+UID: DTC-L0-000
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 故障診断ドメイン
+STATEMENT: >>>
+本システムは、 故障コード (DTC)・フリーズフレームの遠隔取得とクリアをドメインとして提供すること。
+<<<
+RATIONALE: >>>
+DTC の各機能 (取得・フリーズフレーム・クリア・準拠) を束ねるドメイン要求。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
+
+[REQUIREMENT]
+UID: DTC-L0-001
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 故障コードの遠隔取得
+STATEMENT: >>>
+整備士が遠隔の SOVD クライアントから故障コード一覧を要求したとき、 本システムは
+車両に記録された全 DTC をステータスマスクとともに返すこと。
+<<<
+VERIFICATION: >>>
+代表的な DTC が、 status (active/pending/confirmed/permanent) 付きで取得できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-000
+
+[REQUIREMENT]
+UID: DTC-L0-002
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: フリーズフレームデータの取得
+STATEMENT: >>>
+本システムは、 DTC 発生時刻のスナップショット (フリーズフレーム) を取得できるように
+すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-000
+
+[REQUIREMENT]
+UID: DTC-L0-003
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L0_Stakeholder
+TITLE: DTC のクリア
+STATEMENT: >>>
+整備士が修理完了後に対象 DTC のクリアを要求したとき、 本システムは write:dtc スコープを確認したうえでクリアすること。
+<<<
+RATIONALE: >>>
+不正・誤った DTC クリアによる故障情報の隠蔽を防ぐ。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-000
+
+[REQUIREMENT]
+UID: DTC-L0-004
+TYPE: Restriction
+ASIL: C
+LAYER: L0_Stakeholder
+TITLE: 走行中の DTC クリア禁止
+STATEMENT: >>>
+もし車速が 0 km/h でない場合、 本システムは DTC クリア要求を拒否すること。
+<<<
+RATIONALE: >>>
+走行中に安全関連 DTC を消すと、 走行中の機能安全評価に影響するため。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
+
+[REQUIREMENT]
+UID: DTC-L0-005
+TYPE: Constraint
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: ISO 14229 セマンティクス準拠
+STATEMENT: >>>
+本システムの DTC 機能は、 ISO 14229-1 (UDS) Service 0x19 (ReadDTCInformation) および
+0x14 (ClearDiagnosticInformation) のセマンティクスを保つこと。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-000
+
+[REQUIREMENT]
+UID: DTC-L0-006
+TYPE: Restriction
+ASIL: QM
+CAL: CAL2
+LAYER: L0_Stakeholder
+TITLE: 安全関連 DTC クリアの追加権限
+STATEMENT: >>>
+もし安全関連 DTC のクリアが要求された場合、 本システムは通常の write:dtc に加えて
+追加の権限 (write:dtc:safety スコープ) を要求すること。
+<<<
+RATIONALE: >>>
+安全関連 DTC (ASIL B〜D が割り当てられた DTC) の不正・誤クリアは機能安全評価に
+影響するため、 上位権限を要する。 クリア機能 (DTC-L0-003) から独立した制約として切り出す。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: ソフトウェア更新 (OTA)
+
+[REQUIREMENT]
+UID: SWU-L0-000
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: ソフトウェア更新ドメイン
+STATEMENT: >>>
+本システムは、 車両 ECU ソフトウェアの OTA 更新 (配信・検証・適用・ロールバック・進捗可視化) をドメインとして提供すること。
+<<<
+RATIONALE: >>>
+OTA の各機能を束ねるドメイン要求。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SYS-L0-001
+
+[REQUIREMENT]
+UID: SWU-L0-001
+TYPE: Functional
+ASIL: QM
+CAL: CAL3
+LAYER: L0_Stakeholder
+TITLE: OTA による遠隔ソフトウェア更新の提供
+STATEMENT: >>>
+OEM が不具合修正ソフトを配信したいとき、 本システムは車両 ECU のソフトウェアを OTA (無線) で更新できるようにすること。
+<<<
+VERIFICATION: >>>
+署名付きパッケージの配信 → 適用が一連で行え、 適用後に新バージョンで起動すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-000
+
+[REQUIREMENT]
+UID: SWU-L0-002
+TYPE: Functional
+ASIL: D
+CAL: CAL4
+LAYER: L0_Stakeholder
+TITLE: 改ざん検知 (署名検証)
+STATEMENT: >>>
+本システムは、 更新パッケージのデジタル署名を検証し、 改ざん・偽造を検知すること。
+<<<
+RATIONALE: >>>
+不正なファームウェアの注入は安全関連 ECU の機能喪失に直結し (安全)、 かつ車両は
+攻撃対象となる (セキュリティ)。 そのため安全・セキュリティの双方で最高保証レベルとする。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-000
+
+[REQUIREMENT]
+UID: SWU-L0-003
+TYPE: Functional
+ASIL: C
+LAYER: L0_Stakeholder
+TITLE: ロールバック対応
+STATEMENT: >>>
+もし更新後に異常が検出された場合、 本システムは直前のバージョンへ自動または手動で
+ロールバックできること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-000
+
+[REQUIREMENT]
+UID: SWU-L0-004
+TYPE: Restriction
+ASIL: D
+LAYER: L0_Stakeholder
+TITLE: 走行中の更新禁止
+STATEMENT: >>>
+もし車両が IG-ON かつ車速 > 0 の場合、 本システムは ECU フラッシュ書込を開始しないこと。
+<<<
+RATIONALE: >>>
+走行中の書込中断や挙動変化は、 安全機能の喪失に直結するため。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-000
+
+[REQUIREMENT]
+UID: SWU-L0-005
+TYPE: Non-Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 更新所要時間
+STATEMENT: >>>
+本システムの 1 ECU 当たりの平均更新時間 (検証 + 書込 + 再起動) は、 5 分以内で
+あること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-000
+
+[REQUIREMENT]
+UID: SWU-L0-006
+TYPE: Restriction
+ASIL: D
+CAL: CAL4
+LAYER: L0_Stakeholder
+TITLE: 改ざんパッケージの不適用
+STATEMENT: >>>
+もし更新パッケージの署名検証に失敗した場合、 本システムは当該パッケージを
+インストールせず破棄すること。
+<<<
+RATIONALE: >>>
+SWU-L0-002 (改ざん検知) の検知結果を受けた安全反応。 検知と「適用しない」反応を
+分離し、 各々を独立に検証する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-000
+
+[REQUIREMENT]
+UID: SWU-L0-007
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 走行中のダウンロード許容
+STATEMENT: >>>
+本システムは、 更新パッケージのダウンロードについては、 走行中も実行できること。
+<<<
+RATIONALE: >>>
+書込 (フラッシュ) は走行中禁止 (SWU-L0-004) だが、 ダウンロードは安全に影響しない
+ため許容し、 停車後すぐ書込へ移れるようにする。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-000
+
+[REQUIREMENT]
+UID: SWU-L0-008
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 更新進捗の可視化
+STATEMENT: >>>
+本システムは、 OTA 更新の進捗を、 ドライバーが SOVD クライアントで確認できるように
+すること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-000
+
+[[/SECTION]]
