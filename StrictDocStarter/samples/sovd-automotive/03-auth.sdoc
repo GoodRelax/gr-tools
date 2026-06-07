@@ -237,6 +237,20 @@ RELATIONS:
 - TYPE: Parent
   VALUE: AUTH-L0-002
 
+[REQUIREMENT]
+UID: AUTH-L1-012
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L1_System
+TITLE: 監査ログの記録
+STATEMENT: >>>
+車両は、 認証・認可イベント (トークン発行・検証・失効・アクセス可否判定) を監査ログとして記録できること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: AUTH-L0-006
+
 [[/SECTION]]
 
 [[SECTION]]
@@ -390,7 +404,7 @@ RATIONALE: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: AUTH-L0-002
+  VALUE: AUTH-L1-012
 
 [[/SECTION]]
 
