@@ -1,0 +1,497 @@
+[DOCUMENT]
+TITLE: SOVD Vehicle Diagnostics System Requirements Specification - Overview (Overview / Foundation)
+
+[GRAMMAR]
+IMPORT_FROM_FILE: sovd-grammar.sgra
+
+[TEXT]
+STATEMENT: >>>
+This document is the **Overview (Foundation)** of the SOVD (Service-Oriented Vehicle Diagnostics)
+requirements specification sample bundled with StrictDocStarter. It consolidates the front matter
+shared by the subsequent requirements documents
+(03-auth / 04-data-access / 05-dtc-diagnostics / 06-sw-update) —
+purpose, background story, scope, system architecture, terminology, referenced standards, notation,
+assumptions, and revision history.
+
+This sample applies the chapter structure of the ANMS (AI-Native Minimal Spec) template (Foundation →
+Requirements → Architecture) to StrictDoc's custom grammar and L0→L3 hierarchical tracing, serving as a
+model of a "natural specification document" while also doubling as a demo of StrictDoc's notation
+(sections, custom fields, traceability, diagrams, math, tables). For how to write the notation itself,
+see the appendix `90-appendix-notation.sdoc`. All documents load the common requirement field
+definitions `sovd-grammar.sgra` via `IMPORT_FROM_FILE`.
+<<<
+
+[[SECTION]]
+TITLE: 1. Overview (Background / Issues / Goals)
+
+[TEXT]
+STATEMENT: >>>
+**1.1 Background — Why SOVD**
+
+When a car broke down in the past, the driver had no choice but to bring it to a dealer or workshop.
+A mechanic plugs a dedicated diagnostic tester into the car's diagnostic connector (OBD port)
+**via a wired connection**, and reads fault codes (DTCs) and vehicle data over the in-vehicle protocol
+UDS (ISO 14229) to investigate the cause. With this approach **nothing can be done unless the car is
+physically present**, and dedicated equipment and labor are also required. Handling breakdowns away
+from base, grasping the overall status of many vehicles (a fleet) at once, and early detection of
+faults are all difficult.
+
+Therefore, **we want to stop "going to the car and connecting via a wire" and instead diagnose
+remotely**. Realizing this is the subject of this specification. By combining the in-vehicle
+communication unit **TCU** (Telematics Control Unit = the "car's modem" that connects to the cloud over
+a cellular network) with the new diagnostic method **SOVD** (a mechanism that provides diagnostics as an
+HTTP/REST web API), it enables **only authorized parties** to remotely diagnose and remotely update the
+car over the Internet.
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**1.2 Issues — Who is troubled by what**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 76
+
+   * - Stakeholder
+     - Pain point
+   * - Driver / owner
+     - Even when the warning light comes on, the cause is unknown until reaching the workshop, which is unsettling. Wants to reduce trips to the workshop.
+   * - Mechanic
+     - Cannot diagnose until the car arrives. Even when it does, connecting the connector each time is a hassle.
+   * - OEM (manufacturer)
+     - Wants to grasp faults occurring in the field remotely and fix them with software updates.
+   * - Fleet operator
+     - Cannot go and check the health of hundreds of vehicles one by one.
+
+In addition, once diagnostics go **over the Internet**, the danger that "anyone can call it" arises.
+**Authentication, authorization, and encryption** that prevent spoofing, eavesdropping, and tampering
+become essential as the common foundation for all functions.
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**1.3 Goals**
+
+This specification defines the four functional domains of SOVD that support the remote diagnostics
+described above.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Domain (document)
+     - What becomes possible remotely
+   * - Authentication / Authorization (03-auth)
+     - The **foundation** where only legitimate mechanics / OEMs / fleets can access, with operations separated by privilege.
+   * - Data Access (04-data-access)
+     - Read vehicle data such as mileage, voltage, and each ECU's temperature, even from away.
+   * - DTC Diagnostics (05-dtc-diagnostics)
+     - Retrieve fault codes remotely to narrow down the cause, and clear them after repair.
+   * - SW Update / OTA (06-sw-update)
+     - Deliver new fault-fixing firmware over the air without bringing the car into the workshop.
+
+Each domain is decomposed into the four layers L0 (stakeholder) → L1 (system) → L2 (ECU software) →
+L3 (unit), chained via Parent/Child, and explicitly states the assurance levels for functional safety
+(ASIL) and cybersecurity (CAL).
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 2. Scope
+
+[TEXT]
+STATEMENT: >>>
+**In-scope:**
+
+- Authentication / authorization between the SOVD client (cloud / workshop tool) ↔ the vehicle gateway (03-auth)
+- Reading of vehicle data identifiers (DID) / periodic data / snapshots / bulk transfers (04-data-access)
+- Reading and clearing of diagnostic trouble codes (DTC) and freeze frames (05-dtc-diagnostics)
+- OTA software updates (download, signature verification, write, rollback) (06-sw-update)
+- Decomposing the above into L0 (stakeholder) → L1 (system) → L2 (ECU software) → L3 (unit)
+
+**Out-of-scope:**
+
+- Internal implementation specifications of the TCU and the OEM backend (cloud) side (this sample targets the vehicle-side requirements)
+- The physical and data-link layers of the in-vehicle network (CAN / Automotive Ethernet)
+- Application logic of individual ECUs (the functions of the diagnostic targets themselves)
+- The complete implementation specification of the SOVD server (vehicle side) (this sample goes only to the requirements level)
+- Actuator drive (SOVD operations / ``exec:actuator`` scope) — to focus the teaching material on the
+  four domains of authentication, data read, DTC, and OTA, this sample does not develop requirements,
+  APIs, or tests for it (SOVD itself provides actuator operations)
+- Bulk aggregation of many vehicles and fleet management dashboards (individual vehicle diagnostics are within the scope of this specification; aggregation and cross-vehicle monitoring are the responsibility of the OEM backend side)
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 3. System Architecture (Architecture Overview)
+
+[TEXT]
+STATEMENT: >>>
+**3.1 System architecture and mechanism**
+
+The remote diagnostics path is as follows. The cloud or workshop tool (SOVD client) connects to the
+vehicle over the Internet, and the in-vehicle TCU relays that communication over a cellular network.
+Inside the vehicle, the gateway ECU terminates SOVD (HTTP) and bridges to each ECU over UDS as before.
+
+.. raw:: html
+
+    <pre class="mermaid">
+    flowchart LR
+        Cloud["OEM cloud /<br/>workshop tool<br/>(SOVD client)"]
+        Net["Internet<br/>HTTPS / TLS 1.3"]
+        TCU["TCU<br/>(in-vehicle comms unit /<br/>cellular network)"]
+        GW["Gateway ECU<br/>SOVD termination +<br/>SOVD↔UDS conversion"]
+        E1["Engine ECU"]
+        E2["Brake ECU"]
+        E3["Body ECU"]
+        Cloud --> Net --> TCU --> GW
+        GW -->|UDS / in-vehicle NW| E1
+        GW -->|UDS / in-vehicle NW| E2
+        GW -->|UDS / in-vehicle NW| E3
+    </pre>
+
+The figure below is a detailed architecture diagram drawn in draw.io (also doubling as a demo of SVG embedding).
+
+.. image:: _assets/sovd-architecture.svg
+   :alt: SOVD remote diagnostics architecture (cloud - internet - TCU - gateway ECU - in-vehicle ECUs)
+   :width: 760px
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**3.2 Requirement layer model (L0 → L3)**
+
+All requirements of this specification are decomposed into four layers following A-SPICE / the V-model,
+and chained from upper to lower via Parent/Child. Each functional domain (03–06) runs vertically
+through these four layers. Furthermore, L3 units that are reused across functions are consolidated into
+`07-common-platform`, where the L2 requirements of each function converge (N→1) (the reverse direction
+of decomposition = sharing / reuse).
+
+.. raw:: html
+
+    <pre class="mermaid">
+    graph TD
+        L0["L0 Stakeholder<br/>stakeholder requirements<br/>(mechanic / OEM goals)"]
+        L1["L1 System<br/>system requirements<br/>(SOVD API / vehicle)"]
+        L2["L2 ECU Software<br/>ECU software requirements<br/>(gateway ECU)"]
+        L3["L3 Unit<br/>unit requirements<br/>(software components)"]
+        L0 --> L1 --> L2 --> L3
+    </pre>
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**3.3 Mapping of SOVD resources to functional domains**
+
+SOVD exposes functions as HTTP resources (method + path). Each resource is associated with a required
+scope (defined in 03-auth).
+
+.. list-table::
+   :header-rows: 1
+   :widths: 12 40 28 20
+
+   * - Method
+     - SOVD resource (example)
+     - Functional domain (document)
+     - Required scope
+   * - GET
+     - ``/components/{ecu}/data/{did}``
+     - Data Access (04)
+     - ``read:did``
+   * - GET
+     - ``/components/{ecu}/faults``
+     - DTC / Diagnostics (05)
+     - ``read:dtc``
+   * - DELETE
+     - ``/components/{ecu}/faults``
+     - DTC / Diagnostics (05)
+     - ``write:dtc``
+   * - POST
+     - ``/updates``
+     - SW Update / OTA (06)
+     - ``write:swupdate``
+
+Note: This table shows representative examples of SOVD resources; for the formal contract of the HTTP
+API, see `09-api.sdoc` (as this sample is teaching material, the API contract excerpts the main
+resources. Some entries in this table, such as clearing all DTCs at once, are omitted from the
+contract).
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**3.4 Document structure**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Document
+     - Content
+     - Layer
+   * - 00-overview (this document)
+     - Purpose, background story, scope, terminology, referenced standards, notation, revision history
+     - Front matter
+   * - 01-stakeholder-requirements
+     - Stakeholder requirements (top-level SYS-L0-001 + each domain's L0, EARS)
+     - L0 requirements
+   * - 02-usecases
+     - Use cases (actors, UC diagram, UC-000–004 scenarios)
+     - L0 UC
+   * - 03-auth
+     - Authentication / authorization (OAuth2 / JWT / TLS / RBAC)
+     - L1–L3
+   * - 04-data-access
+     - Vehicle data identification (DID) / read
+     - L1–L3
+   * - 05-dtc-diagnostics
+     - DTC / freeze frame
+     - L1–L3
+   * - 06-sw-update
+     - OTA update / signature verification / rollback
+     - L1–L3
+   * - 07-common-platform
+     - Common platform: shared units reused by multiple functions (UDS transfer / authorization / TLS / JSON)
+     - L3 (shared)
+   * - 08-architecture
+     - System architecture: approach / components / modules / classes / behavior / ADR
+     - Design (HOW)
+   * - 09-api
+     - SOVD HTTP API contract (for integration partners)
+     - Contract
+   * - 10-test-spec
+     - Test specification (strategy + unit / integration / system / acceptance)
+     - Test (specification)
+   * - 11-test-results
+     - Test results (execution records, separated from the specification. 1 spec : N results)
+     - Test (results)
+   * - 90-appendix-notation
+     - Notation / markup reference (RST / Markdown / Mermaid / math / tables / code)
+     - Appendix
+
+This sample traces the V-model of "**stakeholder requirements (01) / use cases (02) → requirements
+(03-07) → design (08) → API contract (09) → test specification (10) → results (11)**" end to end with
+the ``Implements`` / ``Satisfies`` / ``Verifies`` / ``ResultOf`` relations (DEEP TRACE lets you follow
+requirements' test coverage and gaps). Use cases (02-usecases) implement the requirements (01), and
+acceptance tests (AT) verify the UCs (separating requirements and UCs in the IEEE 29148 style).
+
+Note: The requirement field definitions shared by all .sdoc files are placed in `sovd-grammar.sgra`
+(a StrictDoc grammar file), which each document loads via `IMPORT_FROM_FILE`.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 4. Glossary
+
+[TEXT]
+STATEMENT: >>>
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - Term
+     - Description
+   * - SOVD
+     - Service-Oriented Vehicle Diagnostics. An HTTP/REST-based vehicle diagnostics method (ASAM SOVD / ISO 17978).
+   * - UDS
+     - Unified Diagnostic Services (ISO 14229). The traditional in-vehicle diagnostic protocol. The gateway converts from SOVD to UDS.
+   * - OBD port
+     - The vehicle's diagnostic connector. Traditionally the physical IF where a diagnostic tester is connected by wire.
+   * - TCU
+     - Telematics Control Unit. The in-vehicle communication unit that connects to the cloud over a cellular network (the "car's modem"). It relays remote diagnostics communication.
+   * - ECU
+     - Electronic Control Unit. The in-vehicle electronic control unit.
+   * - Gateway ECU
+     - The in-vehicle gateway that terminates the external IF (SOVD/HTTP) and relays UDS to the internal ECUs.
+   * - DID
+     - Data Identifier. A 16-bit number that identifies a vehicle data item (e.g., 0xF40C = engine RPM).
+   * - DTC
+     - Diagnostic Trouble Code. A fault code. A record of "what is wrong" with the car.
+   * - Freeze Frame
+     - A snapshot of the vehicle state at the moment a DTC occurs.
+   * - OTA
+     - Over-The-Air. Wireless software updating.
+   * - OAuth 2.0 / PKCE
+     - An authorization framework (RFC 6749) and a protection extension for public clients (PKCE, RFC 7636).
+   * - JWT
+     - JSON Web Token (RFC 7519). A signed access token format.
+   * - mTLS
+     - Mutual TLS. A method in which both the server and the client authenticate with X.509 certificates.
+   * - Scope
+     - The range of operations a token permits (e.g., ``read:did`` / ``write:dtc`` / ``write:swupdate``).
+   * - ASIL
+     - Automotive Safety Integrity Level (ISO 26262). The functional safety assurance level (QM < A < B < C < D).
+   * - CAL
+     - Cybersecurity Assurance Level (ISO/SAE 21434). The cybersecurity assurance level (CAL1 < … < CAL4).
+   * - NRC
+     - Negative Response Code. The UDS negative response code.
+   * - A/B partition
+     - A method that holds two firmware regions for updating, switching between them to update and roll back.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 5. Referenced Standards
+
+[TEXT]
+STATEMENT: >>>
+- **ASAM SOVD v1.0** — Service-Oriented Vehicle Diagnostics (Part 1: Common, Part 2: Data Model)
+- **ISO 17978** — International standardization of SOVD
+- **ISO 14229-1** — UDS (Unified Diagnostic Services)
+- **ISO 26262** — Automotive functional safety (ASIL)
+- **ISO/SAE 21434** — Automotive cybersecurity engineering (CAL)
+- **RFC 6749 / RFC 7636** — OAuth 2.0 / PKCE
+- **RFC 7519** — JSON Web Token (JWT)
+- **RFC 8446** — TLS 1.3
+- **RFC 8259** — JSON data interchange format
+- **RFC 2119 / RFC 8174** — Requirement level keywords (MUST / SHALL / SHOULD / MAY)
+- **MISRA C:2012** — Automotive C coding guidelines (implementation constraint for L3 units)
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 6. Notation
+
+[TEXT]
+STATEMENT: >>>
+**6.1 Requirement level keywords (RFC 2119 / 8174)**
+
+"Shall do" (= SHALL / MUST) denotes mandatory, "recommended" (= SHOULD) denotes recommended, and
+"may do" (= MAY) denotes optional. EARS's ``shall`` is synonymous with SHALL.
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**6.2 EARS syntax (requirement statement format)**
+
+All requirement statements follow EARS (Easy Approach to Requirements Syntax), written with an explicit
+subject in the active voice, as a single requirement, in a verifiable form. The correspondence with the
+Japanese keywords is as follows.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 33 45
+
+   * - Pattern
+     - Japanese form
+     - Use
+   * - Ubiquitous
+     - "The <subject> shall <response>."
+     - A requirement that always holds
+   * - Event-driven
+     - "When <trigger>, the <subject> shall <response>."
+     - An event-triggered requirement
+   * - State-driven
+     - "While <state>, the <subject> shall <response>."
+     - A state-dependent requirement
+   * - Unwanted
+     - "If <trigger>, then the <subject> shall <response>."
+     - Abnormal cases / prohibitions
+   * - Optional
+     - "Where <feature is included>, the <subject> shall <response>."
+     - Optional functions
+   * - Complex
+     - A combination of the above
+     - Compound conditions
+
+The subject is made concrete per layer: L0 = the system, L1 = the vehicle (SOVD gateway),
+L2 = the gateway ECU, L3 = each software unit.
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**6.3 Assurance levels: distinguishing ASIL and CAL (important)**
+
+In this specification, **safety** and **security** are classified by separate standards and are not
+conflated.
+
+- **ASIL** (ISO 26262, functional safety): determined by whether a malfunction of the E/E system gives
+  rise to **a hazard that leads to personal injury** (QM / A / B / C / D). Requirements that are not
+  safety-related are **QM**.
+- **CAL** (ISO/SAE 21434, cybersecurity): a security assurance level based on the feasibility and impact
+  of an attack (CAL1–CAL4).
+
+Accordingly, **purely security requirements** such as authentication, encryption, and tokens are set to
+**ASIL=QM**, and their assurance level is expressed by **CAL** instead. On the other hand, requirements
+where **a malfunction directly leads to a hazard**, such as prohibiting flash writes while the vehicle
+is moving or safety-related DTCs, are assigned an **ASIL (B–D)**. Requirements that involve both (e.g.,
+preventing the application of tampered FW) carry both an ASIL and a CAL.
+<<<
+
+[TEXT]
+STATEMENT: >>>
+**6.4 Requirement fields (custom grammar)**
+
+Each [REQUIREMENT] has the following fields. Their definitions are in the shared file
+`sovd-grammar.sgra`, which each document loads via `[GRAMMAR] / IMPORT_FROM_FILE`.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Field
+     - Meaning
+   * - UID
+     - Unique identifier. ``<domain>-<layer>-<sequence>`` (e.g., ``AUTH-L1-001``).
+   * - TYPE
+     - Functional / Non-Functional / Constraint / Restriction / UseCase
+   * - ASIL
+     - Functional safety assurance level (QM / A / B / C / D)
+   * - CAL
+     - Cybersecurity assurance level (CAL1–CAL4, security-related requirements only)
+   * - LAYER
+     - L0_Stakeholder / L1_System / L2_ECU_SW / L3_Unit
+   * - STATEMENT
+     - The requirement statement in EARS form
+   * - RATIONALE
+     - Rationale (why this requirement is needed. Optional)
+   * - VERIFICATION
+     - Acceptance criteria (how to verify that it is satisfied. Optional)
+   * - RELATIONS
+     - Traces to upper / lower requirements via Parent / Child
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 7. Assumptions & Constraints
+
+[TEXT]
+STATEMENT: >>>
+- It is assumed that the vehicle can connect to the cloud over a cellular network via the TCU and be
+  reached remotely over SOVD (HTTP/TLS). Proximity connections (such as a workshop LAN) are also handled
+  by the same SOVD API.
+- The gateway ECU terminates SOVD and bridges internally to UDS.
+- The trust boundary is placed at the external IF of the vehicle gateway. The inside of the in-vehicle network is assumed to be protected by separate safety mechanisms.
+- This sample is teaching material; the figures (latency, capacity, etc.) are representative guidelines and not the actual values of a specific vehicle.
+- The implementation language of the L3 units is assumed to be C conforming to MISRA C:2012 (safety- and security-related).
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: 8. Revision History
+
+[TEXT]
+STATEMENT: >>>
+.. list-table::
+   :header-rows: 1
+   :widths: 14 18 68
+
+   * - Version
+     - Date
+     - Change description
+   * - v0.1
+     - 2026-06-06
+     - Initial version. Fully rewritten to conform to the ANMS template. Established the front matter
+       (this document) starting from the background story of remote diagnostics, converted requirement
+       statements to EARS, separated ASIL/CAL, and arranged acceptance criteria (VERIFICATION) and
+       traces. Made the grammar common in `sovd-grammar.sgra`. Integrated the old 05/06 notation demos
+       into the body and reorganized them into appendix 90.
+<<<
+
+[[/SECTION]]
