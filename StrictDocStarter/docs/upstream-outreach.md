@@ -110,3 +110,18 @@ maintainer は雑な物にはリンクしない。最低限：
 - **採用（推奨）: README/docs に「ダークモードで見るには」節を追記**（実施済 2026-06-07, README）し、ユーザー各自が **(1) ブラウザ標準の強制ダーク（拡張不要）**＝Edge: `edge://flags/#enable-force-dark` / Chrome: `chrome://flags/#enable-force-dark` の "Auto Dark Mode for Web Contents" を Enabled、または **(2) Dark Reader 拡張**（1クリックでサイト単位トグル）で切り替える、と案内する。注意: ブラウザ「設定→外観」のダークは UI のみ・Web ページは暗くならない。フラグは実験的（一律反転で崩れうる）。
   - 理由: **StrictDoc を一切改変しない** → 上流PRが入ったら注記を消すだけ（**後始末ゼロ・前方互換**）。各ユーザーが好みで ON/OFF。「暫定なのに小さなフォークを保守」になるのを避ける（D-5 合致）。
 - **不採用（重い）: manage-strictdoc 起動時に `base.css` へ同じ `@media` を自動注入**（OS追従ダークをツール内で即実現できるが、site-packages 改変・`pip upgrade` で再注入要・PR後に重複/不要）。拡張なしの自動ダークがどうしても要る場合のみ検討。
+
+---
+
+## 7. 候補コントリビューション #2: トレーサビリティの深さ制限 (Deep Trace depth limit) — 提案のみ
+
+- 記録日: 2026-06-07。 きっかけ: SOVD サンプル閲覧時、 上位要求から「1 つ下の階層だけ」を横並びで見たいが、 Deep Traceability は全階層を再帰展開するため縦スクロールが長い。
+- 現状確認 (2026-06-07, strictdoc 0.23.1, ソース実機確認): トレース画面は **2 種のみ**。
+  - `TRACEABILITY_SCREEN` = 各要求の**直接の親子 (1 階層)** を左右表示 (`*-TRACE.html`)。
+  - `DEEP_TRACEABILITY_SCREEN` = **全階層**を再帰展開 (`*-DEEP-TRACE.html`)。
+  - **「N 段で打ち切る」深さ制限オプションは無い** (`core/project_config.py` に該当設定なし。 `grep` で出る `max_depth` は `server/reload_config.py` のフォルダ監視用で無関係)。 つまり **1 階層 か 全階層 かの 2 択**。
+- 提案: Deep Traceability に **深さ制限 (例: `max_depth=N`)** を追加。 `strictdoc_config.py` の設定、 もしくは画面の URL パラメータ / UI コントロールで「上位から N 段」を指定 → 大規模ツリーの可読性が上がる (既存の 1 階層と ∞ の中間を埋める)。
+- アプローチ (推測): Deep Trace の再帰展開ビュー/テンプレートに深さガードを 1 つ足すだけ。 JS/依存は不要。 中規模。
+- 暫定対策 (改変不要・実施可能): **Traceability (1 階層) ビューを使う**。 上位要求のページで直下の子だけ横並び＝スクロール最小。 俯瞰は Traceability Matrix。 → StrictDoc 無改変で目的達成 (D-5 合致)。
+- 進め方: ダークモード (#1) と同様、 まず GitHub Discussion / Issue で需要を打診 (「Deep Trace の深さ制限オプションは需要があるか?」) → GO なら小さな PR。 自前フォークはしない (D-5)。
+- **ステータス: 提案メモのみ** (暫定は 1 階層ビュー運用で足りるため PR 優先度は低)。

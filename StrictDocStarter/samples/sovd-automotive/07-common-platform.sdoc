@@ -26,9 +26,9 @@ STATEMENT: >>>
     <pre class="mermaid">
     flowchart TB
         subgraph FEAT["機能ドメイン (L2 要求)"]
-            A["01 Auth"]
-            D["02 Data Access"]
-            T["03 DTC"]
+            A["03 Auth"]
+            D["04 Data Access"]
+            T["05 DTC"]
         end
         subgraph PLAT["共通プラットフォーム (L3 共有ユニット)"]
             TLS["TlsTerminator<br/>PLAT-L3-003"]

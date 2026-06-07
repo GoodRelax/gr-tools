@@ -185,9 +185,11 @@ SCOPE: write:swupdate
 TITLE: 更新パッケージ投入
 STATEMENT: >>>
 - (Ubiquitous) 本 API は write:swupdate スコープを要求すること。
-- (Event) 署名付きパッケージが投入されたとき、 本 API は署名検証の成功後に更新を開始し
-  202 を返すこと。
-- (Unwanted) もし署名検証に失敗した場合、 本 API はパッケージを破棄し 400 を返すこと。
+- (Event) 署名付きパッケージが投入されたとき、 本 API は要求を受理して更新処理
+  (ダウンロード → 署名検証 → 適用) を開始し、 202 Accepted を返すこと。
+- (Unwanted) もしスコープが不足する場合、 本 API は 403 を返すこと。
+- 署名検証はダウンロード後の非同期フェーズで行い、 失敗時は更新を Failed とする
+  (GET /updates/progress で観測。 同期エラーは返さない)。
 <<<
 RESPONSE: >>>
 202 Accepted
@@ -225,7 +227,7 @@ TITLE: ロールバック
 STATEMENT: >>>
 - (Ubiquitous) 本 API は write:swupdate スコープを要求すること。
 - (Event) クライアントが呼んだとき、 本 API は前バージョンへロールバックし 202 を返すこと。
-- (State) ロールバックを実行している間、 システムは車両機能を制限すること。
+- (State) ロールバックを実行している間、 システムは新規の更新・書込系操作を受け付けないこと。
 <<<
 RESPONSE: >>>
 202 Accepted

@@ -59,6 +59,8 @@ STATEMENT: >>>
 RELATIONS:
 - TYPE: Parent
   VALUE: SWU-L0-001
+- TYPE: Parent
+  VALUE: SWU-L0-007
 
 [REQUIREMENT]
 UID: SWU-L1-002
@@ -68,11 +70,10 @@ CAL: CAL4
 LAYER: L1_System
 TITLE: パッケージ署名検証
 STATEMENT: >>>
-パッケージをダウンロードしたとき、 車両は OEM ルート証明書チェーンで RSA-PSS
-2048-bit 以上の署名を検証し、 もし失敗した場合はパッケージを破棄すること。
+パッケージをダウンロードしたとき、 車両は OEM ルート証明書チェーンで RSA-PSS 2048-bit 以上の署名を検証すること。
 <<<
 VERIFICATION: >>>
-改ざんされたパッケージが破棄され、 インストールに進まないこと。
+改ざんされたパッケージの署名検証が失敗 (invalid) と判定されること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -118,7 +119,7 @@ LAYER: L1_System
 TITLE: ロールバック API
 STATEMENT: >>>
 車両は POST /updates/rollback で前バージョンへの即時ロールバックを実行できるように
-すること。 ロールバック中は車両機能を制限すること。
+すること。 ロールバック実行中は、 本システムは新規の更新・フラッシュ書込・診断書込系の操作要求を受け付けないこと。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -136,7 +137,7 @@ STATEMENT: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: SWU-L0-001
+  VALUE: SWU-L0-008
 
 [REQUIREMENT]
 UID: SWU-L1-007
@@ -164,13 +165,11 @@ STATEMENT: >>>
 Installing に遷移せず Failed とし、 フラッシュ失敗時は RolledBack で旧版に戻すこと。
 <<<
 RATIONALE: >>>
-署名検証に失敗したパッケージの適用を、 状態遷移によって構造的に禁止する。 同じ状態機械が
-フラッシュ失敗時の RolledBack 遷移によりロールバック (SWU-L0-003) も実現するため、
-1 つの要求で 2 つの上位要求 (改ざん検知・ロールバック) を満たす収束 (N→1) の例。
+署名検証に失敗したパッケージの適用を、 状態遷移によって構造的に禁止する。 同じ状態機械がフラッシュ失敗時の RolledBack 遷移も扱うため、 改ざん検知 (SWU-L0-002) と書込失敗時の自動ロールバックを 1 状態機械で満たす収束 (N→1) の例 (異常検出・手動ロールバックは SWU-L1-005 が担う)。
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: SWU-L0-002
+  VALUE: SWU-L0-006
 - TYPE: Parent
   VALUE: SWU-L0-003
 

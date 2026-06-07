@@ -160,7 +160,7 @@ STATEMENT: >>>
 **3.2 要求レイヤモデル (L0 → L3)**
 
 本仕様の全要求は、 A-SPICE / V 字に倣った 4 層で分解され、 上位から下位へ
-Parent/Child で連鎖する。 各機能ドメイン (01〜04) はこの 4 層を縦に貫く。 さらに、
+Parent/Child で連鎖する。 各機能ドメイン (03〜06) はこの 4 層を縦に貫く。 さらに、
 機能をまたいで再利用される L3 ユニットは `07-common-platform` に集約し、 各機能の
 L2 要求がそこへ収束 (N→1) する (分解の逆向き＝共有・再利用)。
 
@@ -193,19 +193,19 @@ SOVD は機能を HTTP リソース (method + path) として公開する。 各
      - 必要スコープ
    * - GET
      - ``/components/{ecu}/data/{did}``
-     - Data Access (02)
+     - Data Access (04)
      - ``read:did``
    * - GET
      - ``/components/{ecu}/faults``
-     - DTC / Diagnostics (03)
+     - DTC / Diagnostics (05)
      - ``read:dtc``
    * - DELETE
      - ``/components/{ecu}/faults``
-     - DTC / Diagnostics (03)
+     - DTC / Diagnostics (05)
      - ``write:dtc``
    * - POST
      - ``/updates``
-     - SW Update / OTA (04)
+     - SW Update / OTA (06)
      - ``write:swupdate``
 
 ※ 本表は SOVD リソースの代表例であり、 HTTP API の正式な契約は `09-api.sdoc` を

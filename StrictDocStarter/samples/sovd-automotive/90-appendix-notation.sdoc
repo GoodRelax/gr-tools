@@ -7,14 +7,14 @@ OPTIONS:
 STATEMENT: >>>
 ## A. この付録について
 
-本付録は、 SOVD 要求仕様 (00〜04) で使う **StrictDoc の記法 (notation)** をまとめた
+本付録は、 SOVD 要求仕様 (00〜11) で使う **StrictDoc の記法 (notation)** をまとめた
 リファレンスである。 要求そのものではなく、 「図・数式・表・画像・コードをどう書くと
 StrictDoc で描画されるか」 を一箇所に集約し、 同時に **Markdown マークアップの記法を
 実際に描画して示す** デモを兼ねる。
 
-本文書だけ `OPTIONS: MARKUP: Markdown` を宣言している (00〜04 は StrictDoc 既定の
+本文書だけ `OPTIONS: MARKUP: Markdown` を宣言している (00〜11 は StrictDoc 既定の
 **RST**)。 マークアップは **文書単位** で決まるため、 RST 記法 (raw html の Mermaid・
-`.. math::`・`.. image::`・`.. list-table::`) は 00〜04 の本文中で実際に使われており、
+`.. math::`・`.. image::`・`.. list-table::`) は 00〜11 の本文中で実際に使われており、
 Markdown 記法 (フェンス・`![]()`・パイプ表) は本付録で実演する。
 <<<
 
@@ -22,7 +22,7 @@ Markdown 記法 (フェンス・`![]()`・パイプ表) は本付録で実演す
 STATEMENT: >>>
 ## B. マークアップの選択 (RST と Markdown)
 
-| 記法 | RST (00〜04 で使用) | Markdown (本付録で使用) |
+| 記法 | RST (00〜11 で使用) | Markdown (本付録で使用) |
 |---|---|---|
 | 見出し | セクション `[[SECTION]]` / RST 見出し | `##` 見出し |
 | Mermaid 図 | `.. raw:: html` + `<pre class="mermaid">` (全版) | ` ```mermaid ` フェンス (0.23.0+) |
@@ -41,7 +41,7 @@ STATEMENT: >>>
 STATEMENT: >>>
 ## C. Mermaid 図 (Markdown フェンスの実演)
 
-RST 側 (00〜04) では `.. raw:: html` + `<pre class="mermaid">` を使う。 Markdown では
+RST 側 (00〜11) では `.. raw:: html` + `<pre class="mermaid">` を使う。 Markdown では
 以下の ` ```mermaid ` フェンスがそのまま図として描画される。
 
 ```mermaid

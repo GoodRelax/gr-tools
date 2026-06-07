@@ -89,8 +89,7 @@ ASIL: QM
 LAYER: L1_System
 TITLE: JSON ペイロード形式
 STATEMENT: >>>
-車両が返す DID 値の応答は、 JSON 形式とし、 スキーマは ASAM SOVD 仕様 Part 2
-(Data Model) に準拠すること。
+車両のデータアクセス API が返す DID 値応答は JSON 形式とし、 スキーマおよびデータ識別子モデルは ASAM SOVD v1.0 Part 2 (Data Model) に準拠すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -128,18 +127,7 @@ RATIONALE: >>>
 <<<
 RELATIONS:
 - TYPE: Parent
-  VALUE: DATA-L0-005
-
-[REQUIREMENT]
-UID: DATA-L1-007
-TYPE: Constraint
-ASIL: QM
-LAYER: L1_System
-TITLE: ASAM SOVD データモデル準拠
-STATEMENT: >>>
-車両のデータアクセス API は、 ASAM SOVD v1.0 Part 2 のデータ識別子モデルに
-準拠すること。
-<<<
+  VALUE: AUTH-L0-002
 
 [[/SECTION]]
 

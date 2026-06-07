@@ -99,8 +99,7 @@ ASIL: C
 LAYER: L1_System
 TITLE: クリア前の車速ゼロチェック
 STATEMENT: >>>
-DTC クリア要求を受信したとき、 車両は現在の車速 (DID 0xF40D) を読み出し、 もし
-0 km/h でなければ HTTP 409 Conflict を返すこと。
+DTC クリア要求を受信したとき、 車両は現在の車速 (DID 0xF40D) を読み出し、 もし 0 km/h でなければ HTTP 409 Conflict を返すこと。 車速を取得できない場合も、 安全側に倒してクリアを実行せず拒否すること。
 <<<
 VERIFICATION: >>>
 車速 > 0 でのクリア要求が 409 で拒否され、 車速 0 でのみ成功すること。
@@ -123,6 +122,8 @@ STATEMENT: >>>
 RELATIONS:
 - TYPE: Parent
   VALUE: DTC-L0-003
+- TYPE: Parent
+  VALUE: DTC-L0-004
 
 [REQUIREMENT]
 UID: DTC-L1-006
@@ -147,12 +148,31 @@ ASIL: QM
 LAYER: L1_System
 TITLE: DTC 発生履歴
 STATEMENT: >>>
-車両は、 過去 24 時間分の DTC 発生履歴を最低 100 件保持し、 GET
+車両は、 直近 1024 件 (概ね 24 時間相当) の DTC 発生履歴を保持し、 GET
 /components/{ecu}/faults/history で取得できるようにすること。
 <<<
 RELATIONS:
 - TYPE: Parent
   VALUE: DTC-L0-001
+
+[REQUIREMENT]
+UID: DTC-L1-008
+TYPE: Functional
+ASIL: QM
+CAL: CAL2
+LAYER: L1_System
+TITLE: 安全関連 DTC クリアの権限検証
+STATEMENT: >>>
+もし安全関連 DTC のクリアが要求された場合、 車両は write:dtc:safety スコープを
+検証し、 欠く場合は HTTP 403 を返すこと。
+<<<
+VERIFICATION: >>>
+安全関連 DTC のクリアが、 write:dtc のみのトークンで 403、 write:dtc:safety を
+伴う場合に許可されること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-006
 
 [[/SECTION]]
 
@@ -210,7 +230,7 @@ ASIL: C
 LAYER: L2_ECU_SW
 TITLE: VehicleSpeedGuard
 STATEMENT: >>>
-全 DTC クリア要求の前に、 ゲートウェイ ECU は VehicleSpeedGuard により車速 == 0 を
+全ての DTC クリア要求 (個別・一括を問わず) の前に、 ゲートウェイ ECU は VehicleSpeedGuard により車速 == 0 を
 100 ms 以内に検証すること。
 <<<
 VERIFICATION: >>>

@@ -67,8 +67,8 @@ CAL: CAL3
 LAYER: L0_Stakeholder
 TITLE: 役割に応じた診断権限の制限
 STATEMENT: >>>
-本システムは、 利用者の役割 (整備士 / OEM エンジニア / サードパーティ) に応じて、
-利用可能な診断機能 (読み出し / 書き込み 等) を制限すること。
+本システムは、 利用者の役割 (整備士 / OEM エンジニア / フリート運用者) に応じて、
+利用可能な診断機能 (読み出し / 書き込み) を制限すること。
 <<<
 RATIONALE: >>>
 過剰な権限付与は安全関連操作の誤用・悪用に直結する。
@@ -214,7 +214,7 @@ STATEMENT: >>>
 場合、 本システムはこれを拒否すること。
 <<<
 RATIONALE: >>>
-読み出しと書き込みを別スコープで管理し、 誤書込・悪用を防ぐ。
+読み出しと書き込みを別スコープで管理し、 誤書込・悪用を防ぐ。 本サンプルでは DID 書込 API は在域外のため、 本要求は将来の書込操作に対するガード方針として保持し、 レビューで担保する。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -264,8 +264,7 @@ CAL: CAL2
 LAYER: L0_Stakeholder
 TITLE: DTC のクリア
 STATEMENT: >>>
-整備士が修理完了後に対象 DTC のクリアを要求したとき、 本システムは適切な権限を
-確認したうえでクリアすること。 安全関連 DTC のクリアには追加の権限を要する。
+整備士が修理完了後に対象 DTC のクリアを要求したとき、 本システムは write:dtc スコープを確認したうえでクリアすること。
 <<<
 RATIONALE: >>>
 不正・誤った DTC クリアによる故障情報の隠蔽を防ぐ。
@@ -304,6 +303,25 @@ RELATIONS:
 - TYPE: Parent
   VALUE: DTC-L0-001
 
+[REQUIREMENT]
+UID: DTC-L0-006
+TYPE: Restriction
+ASIL: QM
+CAL: CAL2
+LAYER: L0_Stakeholder
+TITLE: 安全関連 DTC クリアの追加権限
+STATEMENT: >>>
+もし安全関連 DTC のクリアが要求された場合、 本システムは通常の write:dtc に加えて
+追加の権限 (write:dtc:safety スコープ) を要求すること。
+<<<
+RATIONALE: >>>
+安全関連 DTC (ASIL B〜D が割り当てられた DTC) の不正・誤クリアは機能安全評価に
+影響するため、 上位権限を要する。 クリア機能 (DTC-L0-003) から独立した制約として切り出す。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: DTC-L0-003
+
 [[/SECTION]]
 
 [[SECTION]]
@@ -317,13 +335,10 @@ CAL: CAL3
 LAYER: L0_Stakeholder
 TITLE: OTA による遠隔ソフトウェア更新の提供
 STATEMENT: >>>
-OEM が不具合修正ソフトを配信したいとき、 本システムは車両 ECU のソフトウェアを OTA
-(無線) で更新できるようにし、 ドライバーが進捗を SOVD クライアントで確認できるように
-すること。
+OEM が不具合修正ソフトを配信したいとき、 本システムは車両 ECU のソフトウェアを OTA (無線) で更新できるようにすること。
 <<<
 VERIFICATION: >>>
-署名付きパッケージの配信 → 適用 → 進捗確認が一連で行え、 適用後に新バージョンで
-起動すること。
+署名付きパッケージの配信 → 適用が一連で行え、 適用後に新バージョンで起動すること。
 <<<
 RELATIONS:
 - TYPE: Parent
@@ -337,8 +352,7 @@ CAL: CAL4
 LAYER: L0_Stakeholder
 TITLE: 改ざん検知 (署名検証)
 STATEMENT: >>>
-本システムは、 更新パッケージのデジタル署名を検証して改ざん・偽造を検知すること。
-もし署名検証に失敗した場合、 当該パッケージをインストールしないこと。
+本システムは、 更新パッケージのデジタル署名を検証し、 改ざん・偽造を検知すること。
 <<<
 RATIONALE: >>>
 不正なファームウェアの注入は安全関連 ECU の機能喪失に直結し (安全)、 かつ車両は
@@ -369,8 +383,7 @@ ASIL: D
 LAYER: L0_Stakeholder
 TITLE: 走行中の更新禁止
 STATEMENT: >>>
-もし車両が IG-ON かつ車速 > 0 の場合、 本システムは ECU フラッシュ書込を開始しない
-こと。 ダウンロードのみ走行中も許容する。
+もし車両が IG-ON かつ車速 > 0 の場合、 本システムは ECU フラッシュ書込を開始しないこと。
 <<<
 RATIONALE: >>>
 走行中の書込中断や挙動変化は、 安全機能の喪失に直結するため。
@@ -388,6 +401,56 @@ TITLE: 更新所要時間
 STATEMENT: >>>
 本システムの 1 ECU 当たりの平均更新時間 (検証 + 書込 + 再起動) は、 5 分以内で
 あること。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-001
+
+[REQUIREMENT]
+UID: SWU-L0-006
+TYPE: Restriction
+ASIL: D
+CAL: CAL4
+LAYER: L0_Stakeholder
+TITLE: 改ざんパッケージの不適用
+STATEMENT: >>>
+もし更新パッケージの署名検証に失敗した場合、 本システムは当該パッケージを
+インストールせず破棄すること。
+<<<
+RATIONALE: >>>
+SWU-L0-002 (改ざん検知) の検知結果を受けた安全反応。 検知と「適用しない」反応を
+分離し、 各々を独立に検証する。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-001
+
+[REQUIREMENT]
+UID: SWU-L0-007
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 走行中のダウンロード許容
+STATEMENT: >>>
+本システムは、 更新パッケージのダウンロードについては、 走行中も実行できること。
+<<<
+RATIONALE: >>>
+書込 (フラッシュ) は走行中禁止 (SWU-L0-004) だが、 ダウンロードは安全に影響しない
+ため許容し、 停車後すぐ書込へ移れるようにする。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: SWU-L0-001
+
+[REQUIREMENT]
+UID: SWU-L0-008
+TYPE: Functional
+ASIL: QM
+LAYER: L0_Stakeholder
+TITLE: 更新進捗の可視化
+STATEMENT: >>>
+本システムは、 OTA 更新の進捗を、 ドライバーが SOVD クライアントで確認できるように
+すること。
 <<<
 RELATIONS:
 - TYPE: Parent

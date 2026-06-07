@@ -30,7 +30,7 @@ STATEMENT: >>>
      - Verifies 先
      - 方針
    * - 単体 (Unit)
-     - コンポーネント / クラス (06)
+     - コンポーネント / クラス (08)
      - COMPONENT
      - 各コンポの振る舞いごとに 1 シナリオ。 分岐・境界網羅
    * - 結合 (Integration)
@@ -42,7 +42,7 @@ STATEMENT: >>>
      - L1 要求
      - 主要機能の end-to-end
    * - 受入 (Acceptance)
-     - ステークホルダ / API (L0 / 07)
+     - ステークホルダ / API (L0 / 09)
      - L0 要求 / API
      - 全ユースケース
 
@@ -1055,7 +1055,8 @@ STATEMENT: >>>
 
     Feature: OTA 失敗ロールバック E2E
       Scenario: 書込失敗
-        Given Installing 中にフラッシュ書込が失敗する
+        Given Installing 中
+        When フラッシュ書込が失敗する
         Then 状態は RolledBack となり、 旧バージョンで起動する
 <<<
 RELATIONS:
@@ -1207,6 +1208,9 @@ RELATIONS:
   ROLE: Verifies
 - TYPE: Parent
   VALUE: SWU-L1-002
+  ROLE: Verifies
+- TYPE: Parent
+  VALUE: SWU-L0-006
   ROLE: Verifies
 
 [TEST]
@@ -1582,7 +1586,7 @@ STATEMENT: >>>
      - 例 (トレース)
    * - ユースケース (L0)
      - 受入テスト (UAT / Gherkin) → 結果
-     - AUTH-L0-001 ← AT ← TR-AT
+     - UC-001 ← AT-001 ← TR-AT-001
    * - システム要求 (L1)
      - システムテスト (ST)
      - DATA-L1-001 ← ST-001
