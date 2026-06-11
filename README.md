@@ -13,7 +13,8 @@ A collection of utility tools by GoodRelax designed to enhance development workf
 [🖼️ gr-svg-extractor](./gr-svg-extractor/)&nbsp;&nbsp;  
 [📂 js_renamer](./js_renamer/)&nbsp;&nbsp;  
 [📂 cat_files](./cat_files/)&nbsp;&nbsp;  
-[🚀 StrictDocStarter](./StrictDocStarter/)&nbsp;&nbsp;
+[🚀 StrictDocStarter](./StrictDocStarter/)&nbsp;&nbsp;  
+[📐 drawio-uml](./drawio-uml/)&nbsp;&nbsp;
 
 <br>
 
@@ -127,6 +128,24 @@ A one-click installer that sets up a clean Windows 11 PC with the full StrictDoc
 
 [Go to StrictDocStarter >](./StrictDocStarter/)
 
+<br>
+
+### [📐 drawio-uml](./drawio-uml/)
+
+#### Overview
+
+**Clean UML Diagrams in draw.io — Claude Code skill + generator**
+Generates publication-quality UML / node-link diagrams (class, state machine, use-case, component, activity, package, ER) as native draw.io files. Layout is computed automatically by Graphviz dot — node positions AND orthogonal edge routes — so lines never overlap or cut through boxes. Use it as a Claude Code skill, or run the Python generator standalone.
+
+#### Platform / Requirements
+
+- Graphviz (dot), draw.io desktop, Python 3.10+
+- Cross-platform (Windows / macOS / Linux)
+
+#### Details
+
+[Go to drawio-uml >](./drawio-uml/)
+
 ## <br>
 
 ## Japanese Description
@@ -237,6 +256,24 @@ HTMLファイル内に埋め込まれたJavaScriptの変数や関数名を、AST
 #### 詳細
 
 [StrictDocStarter のフォルダへ >](./StrictDocStarter/)
+
+<br>
+
+### [📐 drawio-uml](./drawio-uml/)
+
+#### 概要
+
+**draw.io で綺麗な UML 図を — Claude Code スキル + ジェネレータ**
+クラス図・状態機械・ユースケース・コンポーネント・アクティビティ・パッケージ・ER 等を、ネイティブ draw.io 図形で生成します。配置（座標と直交エッジ経路）は Graphviz dot が自動計算するので、線の被りや箱の貫通が起きません。Claude Code スキルとして、または Python ジェネレータ単体で利用できます。
+
+#### 動作環境 / 必須要件
+
+- Graphviz (dot)、draw.io desktop、Python 3.10+
+- クロスプラットフォーム (Windows / macOS / Linux)
+
+#### 詳細
+
+[drawio-uml のフォルダへ >](./drawio-uml/)
 
 <br>
 
