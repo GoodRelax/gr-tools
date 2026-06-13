@@ -590,6 +590,9 @@ def _route_pinned(nodes, edges, nid, opt, pos):
             out = r.stdout
             break
     if out is None:
+        print("draw: warning: neato/fdp unavailable; box-avoiding routing "
+              "skipped, falling back to draw.io auto-routing (FR-D-07a)",
+              file=sys.stderr)
         return {}
 
     centres, polylines = _parse_plain_raw(out)
