@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "drawio-uml model",
+  "description": "Single JSON input for the drawio-uml suite, consumed by both generators: draw (model -> .drawio) and table (model -> .md). Machine-readable form of the model schema; the prose spec (docs/spec-ja.md, chapter 3.4) is the SSOT.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "options": { "$ref": "#/definitions/options" },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/node" },
+      "description": "Diagram boxes. Preferred key."
+    },
+    "classes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/node" },
+      "description": "Back-compat alias for `nodes`. If both are present, draw uses `nodes`."
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/edge" },
+      "description": "Relations between nodes."
+    }
+  },
+  "definitions": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "description": "Unique node identifier; referenced by edge source/target." },
+        "shape": { "type": "string", "description": "One of: class, entity, object, component, package, node, usecase, actor, state, action, decision, initial, final, note. Unknown values render as node (FR-D-05)." },
+        "stereotype": { "type": "string", "description": "UML <<...>> tag above the name. interface/abstract italicise the name; object underlines it." },
+        "italic": { "type": "boolean", "description": "Force the name into italics." },
+        "cluster": { "type": "string", "description": "Group path, /-separated (e.g. a/b/c). draw treats it as one opaque label; table interprets the hierarchy." },
+        "attrs": { "type": "array", "items": { "type": "string" }, "description": "Attribute compartment rows (class/entity/object)." },
+        "methods": { "type": "array", "items": { "type": "string" }, "description": "Operation compartment rows (class/entity/object)." },
+        "fill": { "type": "string", "description": "Box fill colour (e.g. #D5E8D4). Authoritative over cluster tint." },
+        "stroke": { "type": "string", "description": "Box border colour (e.g. #82B366)." },
+        "style": { "type": "string", "description": "Raw draw.io style string. Suppresses shape preset and compartments (FR-D-10)." },
+        "w": { "type": "number", "description": "Override width in px." },
+        "h": { "type": "number", "description": "Override height in px." },
+        "description": { "type": "string", "description": "Responsibility (single main line). Ignored by draw; consumed by table (FR-D-08)." },
+        "remark": { "type": "string", "description": "Side note not shown in attributes (origin, ADR, constraint). Ignored by draw; consumed by table." }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target"],
+      "properties": {
+        "source": { "type": "string", "description": "Source node name." },
+        "target": { "type": "string", "description": "Target node name. If equal to source, draw skips routing (FR-D-15)." },
+        "arrow": { "type": "string", "description": "One of: gen, real, comp, aggr, assoc, dep, transition, line. Unknown or unset values render as assoc (FR-D-06)." },
+        "kind": { "type": "string", "description": "Back-compat alias for `arrow`. Used only if `arrow` is absent." },
+        "label": { "type": "string", "description": "Relation label shown on the edge." },
+        "description": { "type": "string", "description": "Ignored by draw; consumed by table." },
+        "remark": { "type": "string", "description": "Ignored by draw; consumed by table." }
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rankdir": { "type": "string", "enum": ["TB", "LR"], "description": "Layout direction. Default TB." },
+        "col_w": { "type": "number", "description": "Compartment column width hint (px)." },
+        "nodesep": { "type": "number", "description": "dot nodesep (inches)." },
+        "ranksep": { "type": "number", "description": "dot ranksep (inches)." },
+        "clusters": {
+          "type": "object",
+          "description": "Cluster definitions, keyed by cluster name. Presence triggers the clustered path and the legend (FR-D-12).",
+          "additionalProperties": { "$ref": "#/definitions/cluster" }
+        },
+        "layout": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Banded layout. Presence triggers the clustered path (FR-D-03).",
+          "properties": {
+            "rows": {
+              "type": "array",
+              "description": "Bands of cluster keys. Row 0 is the top band; within a row, left to right (FR-D-04). Should enumerate every cluster key (FR-D-14).",
+              "items": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "description": "Cluster-box title and legend text." },
+        "color": { "type": "string", "description": "Dashed cluster-box border and legend swatch colour. Defaults to #888888 when a node references an undefined cluster key (FR-D-13)." },
+        "tint": { "type": "string", "description": "Suggested node fill; per-node fill/stroke remain authoritative." }
+      }
+    }
+  }
+}
