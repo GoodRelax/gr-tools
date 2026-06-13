@@ -39,7 +39,7 @@ After installing Graphviz on Windows, open a new shell so `dot` is on PATH (`dot
 
 ## 3. Node shape catalog
 
-Set per node via `"shape"`. `{fill}`/`{stroke}` come from the node's `fill`/`stroke`. Any node may instead supply a raw `"style"` to override, and `"w"`/`"h"` to resize.
+Set per node via `"shape"`. `{fill}`/`{stroke}` come from the node's `fill`/`stroke`. Any node may instead supply a raw `"style"` to override, and `"width"`/`"height"` to resize.
 
 | shape | draw.io style | default w×h | notes |
 |-------|---------------|-------------|-------|
@@ -53,7 +53,7 @@ Set per node via `"shape"`. `{fill}`/`{stroke}` come from the node's `fill`/`str
 | `action` | `rounded=1;arcSize=45;whiteSpace=wrap;html=1;` | 150×50 | flatter rounded rect |
 | `decision` | `rhombus;whiteSpace=wrap;html=1;` | 100×70 | activity decision/merge |
 | `initial` | `ellipse;fillColor=#333333;strokeColor=#333333;` | 30×30 | filled start dot (no label) |
-| `final` | `ellipse;…` + inner filled dot | 34×34 | bullseye (generator adds the inner dot) |
+| `final` | `ellipse;fillColor=none;strokeColor=#333333;strokeWidth=2;` + inner filled dot (centred, ~46%) | 34×34 | bullseye (generator adds the inner dot) |
 | `note` | `shape=note;whiteSpace=wrap;html=1;` | 170×70 | dog-eared annotation |
 
 Title rendering: `«stereotype»` on its own line above a bold name; `interface`/`abstract` stereotypes (or `"italic": true`) italicise the name; `object` underlines it.
@@ -198,7 +198,7 @@ Applying the same transform to node corners and edge polyline points is what kee
 | diagram blank / won't open | malformed XML (unescaped `& < >`) | escape them; the generator validates with `minidom` and fails fast |
 | draw.io CLI hangs on Linux | Electron has no display | `xvfb-run -a "$DRAWIO" … --no-sandbox` |
 | a shape renders as a plain box | unknown `shape` name | use a catalog name (section 3) or pass a raw `"style"` |
-| labels clipped in a class box | box too narrow | raise `options.col_w` or set per-node `"w"` |
+| labels clipped in a class box | box too narrow | raise `options.column_width` or set per-node `"width"` |
 | self-transition missing | `splines=ortho` drops self-loops | model recursion as an attribute, or add the self-edge by hand in draw.io |
 | `'cp932' codec can't encode '—'` | Windows console encoding on the dot subprocess | the generator passes `encoding="utf-8"` to dot on the cluster paths; keep it |
 | asked for a sequence diagram | not a graph-layout problem | decline; suggest Mermaid `sequenceDiagram` or PlantUML |

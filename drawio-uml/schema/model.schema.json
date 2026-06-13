@@ -46,7 +46,7 @@
       "properties": {
         "source": { "type": "string", "description": "Source node name." },
         "target": { "type": "string", "description": "Target node name. If equal to source, draw skips routing (FR-D-15)." },
-        "arrow": { "type": "string", "description": "One of: generalization, realization, composition, aggregation, directed_association, dependency, transition, association. Unknown or unset values render as association (FR-D-06)." },
+        "arrow": { "type": "string", "description": "One of: generalization, realization, composition, aggregation, directed_association, dependency, transition, association. draw renders unknown/unset values as association (FR-D-06); table outputs the literal value, empty cell when unset (FR-T-03)." },
         "label": { "type": "string", "description": "Relation label shown on the edge." },
         "description": { "type": "string", "description": "Ignored by draw; consumed by table." },
         "remark": { "type": "string", "description": "Ignored by draw; consumed by table." }
@@ -72,7 +72,7 @@
           "properties": {
             "rows": {
               "type": "array",
-              "description": "Bands of cluster keys. Row 0 is the top band; within a row, left to right (FR-D-04). Should enumerate every cluster key (FR-D-14).",
+              "description": "Bands of cluster keys. Row 0 is the top band; within a row, left to right (FR-D-04). Must enumerate every cluster key (FR-D-14).",
               "items": { "type": "array", "items": { "type": "string" } }
             }
           }
