@@ -37,6 +37,9 @@ documented in `SKILL.md` and `references/drawio-uml-reference.md` (§9–§13).
 |------|---------|
 | `SKILL.md` | The Claude Code skill manifest (frontmatter + workflow + new schema keys). |
 | `scripts/draw.py` | Generator: JSON model → `.drawio` (native shapes + dot layout + pinned routing). |
+| `scripts/table.py` | Generator: JSON model → `.md` node/edge tables (consumes `description`/`remark`). |
+| `drawio-uml.bat` | Windows launcher: drag-and-drop model JSON → `.drawio` + `.md` + `.svg` + `.png`. |
+| `schema/model.schema.json` | JSON Schema (draft-07) for the model — editor autocomplete / validation. |
 | `references/drawio-uml-reference.md` | Concepts, install matrix, full shape/arrow catalog, per-type examples, clusters/legend/banded/edge-routing sections, troubleshooting. |
 | `README.md` | This file. |
 
@@ -105,7 +108,16 @@ After installing, ask Claude e.g. *"draw a class diagram of `src/` in draw.io"*,
 *"make a clustered domain model with an input/consider/output banded layout"*, or
 *"clean up this messy Mermaid diagram"*.
 
-## Quick usage (by hand, no Claude)
+## Quick usage
+
+**Easiest (Windows) — drag and drop.** Drop one or more `model.json` files onto
+`drawio-uml.bat`. For each it writes, next to the input with the same base name,
+a `.drawio` diagram, a `.md` table, and `.svg` + `.png` exports. From a shell you
+can also run `drawio-uml.bat MODEL.json [MORE.json ...] [--cluster KEY | -c KEY]`
+— `--cluster`/`-c` narrows the **table** to a cluster subtree (the diagram always
+shows the whole model).
+
+**By hand (any OS, no Claude):**
 
 1. Write a `model.json`:
 
