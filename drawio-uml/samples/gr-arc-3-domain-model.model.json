@@ -1,106 +1,490 @@
 {
-  "options": {
-    "rankdir": "TB", "node_separation": 0.85, "rank_separation": 1.3, "column_width": 300,
-    "layout": {"rows": [["input", "consider", "output"], ["vocabulary"]]},
-    "clusters": {
-      "input":      {"label": "Input port — perception (perceive)", "stroke": "#2F8FA8", "fill": "#E3F2F5"},
-      "consider":   {"label": "Consider — the Conception (decide)", "stroke": "#9673A6", "fill": "#EDE7F6"},
-      "output":     {"label": "Output port — action (act)", "stroke": "#D79B00", "fill": "#FFF0DD"},
-      "vocabulary": {"label": "Vocabulary — Lexicon (Dimensions + Relations)", "stroke": "#82B366", "fill": "#E7F4E7"}
-    }
+ "options": {
+  "direction": "column",
+  "node_separation": 0.85,
+  "rank_separation": 1.3,
+  "column_width": 300
+ },
+ "nodes": [
+  {
+   "name": "Conception",
+   "shape": "class",
+   "stereotype": "answer",
+   "attributes": [
+    "world : WorldModel",
+    "goal : GoalPredicate",
+    "plan : GamePlan",
+    "score : float",
+    "status : active|committed|retired"
+   ]
   },
-  "nodes": [
-    {"name": "Conception", "shape": "class", "stereotype": "answer", "cluster": "consider",
-     "attributes": ["world : WorldModel", "goal : GoalPredicate", "plan : GamePlan", "score : float", "status : active|committed|retired"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-    {"name": "WorldModel", "shape": "class", "stereotype": "entity", "cluster": "consider",
-     "attributes": ["rules : InteractionRule[*]", "pi : PiStateAbstraction", "impl : Symbolic|Learned|Graph"],
-     "methods": ["predict(state, move) : (MarkovState, win?)"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-    {"name": "GoalPredicate", "shape": "class", "stereotype": "entity", "cluster": "consider",
-     "attributes": ["kind : Atom|AND|OR|SEQUENCE", "children : GoalPredicate[*]  (ordered for SEQUENCE)", "condition : quantified over objects  (Profile & Relation)", "status : provisional|confirmed"],
-     "methods": ["test(state) : bool"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-    {"name": "GamePlan", "shape": "class", "stereotype": "entity", "cluster": "consider",
-     "attributes": ["steps : Step[*]  (ordered)", "horizon : int"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-    {"name": "Step", "shape": "class", "stereotype": "value", "cluster": "consider",
-     "attributes": ["move : GameMove", "expect : MarkovState", "servesSubGoal : GoalPredicate"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-    {"name": "PiStateAbstraction", "shape": "class", "stereotype": "function pi", "cluster": "consider",
-     "attributes": ["selects : salient objects, features & relations"],
-     "methods": ["project(Frame) : MarkovState"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-    {"name": "InteractionRule", "shape": "class", "stereotype": "entity", "cluster": "consider",
-     "attributes": ["trigger : objects + relations", "effect : object config", "confidence"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-    {"name": "MarkovState", "shape": "class", "stereotype": "value", "cluster": "consider",
-     "attributes": ["objects : role -> salient Profile", "relations : salient Relation holds"],
-     "methods": ["hash() : int"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-    {"name": "GoalPatterns", "shape": "class", "stereotype": "baked prior", "cluster": "consider",
-     "attributes": ["templates over object roles & relations"],
-     "methods": ["instantiate(objects) : GoalPredicate"],
-     "fill": "#EDE7F6", "stroke": "#9673A6"},
-
-    {"name": "TurnRecord", "shape": "class", "stereotype": "entity", "cluster": "input",
-     "attributes": ["played : GameMove", "frames : Frame[*]"],
-     "fill": "#E3F2F5", "stroke": "#2F8FA8"},
-    {"name": "Probe", "shape": "class", "stereotype": "entity", "cluster": "input",
-     "attributes": ["moves : GameMove[*]", "expected_observation"],
-     "fill": "#E3F2F5", "stroke": "#2F8FA8"},
-
-    {"name": "GameMove", "shape": "class", "stereotype": "value", "cluster": "output",
-     "attributes": ["kind", "params (coords?)"],
-     "fill": "#FFF0DD", "stroke": "#D79B00"},
-    {"name": "Action", "shape": "class", "stereotype": "boundary (API)", "cluster": "output",
-     "attributes": ["raw : ARC action (enum / x,y)"],
-     "fill": "#FFF0DD", "stroke": "#D79B00"},
-
-    {"name": "GameObject", "shape": "class", "stereotype": "entity", "cluster": "vocabulary",
-     "attributes": ["id", "cells", "parts : sub-objects  (composite)", "profile : Profile"],
-     "fill": "#E7F4E7", "stroke": "#82B366"},
-    {"name": "Profile", "shape": "class", "stereotype": "entity", "cluster": "vocabulary",
-     "attributes": ["entries : DimId -> (value, conf)"],
-     "methods": ["render(lexicon) : name"],
-     "fill": "#E7F4E7", "stroke": "#82B366"},
-    {"name": "Lexicon", "shape": "class", "stereotype": "entity", "cluster": "vocabulary",
-     "attributes": ["base : Dimension + Relation[*]  (LTM)", "overlay : Dimension + Relation[*]  (WM)"],
-     "methods": ["get(id)", "extend(feature)"],
-     "fill": "#E7F4E7", "stroke": "#82B366"},
-    {"name": "Dimension", "shape": "class", "stereotype": "unary feature", "cluster": "vocabulary",
-     "attributes": ["id", "detector : object -> value", "domain", "rank"],
-     "fill": "#E7F4E7", "stroke": "#82B366"},
-    {"name": "Relation", "shape": "class", "stereotype": "n-ary feature", "cluster": "vocabulary",
-     "attributes": ["id", "arity : n", "detector : objects -> value/bool", "domain"],
-     "fill": "#E7F4E7", "stroke": "#82B366"}
-  ],
-  "edges": [
-    {"source": "Conception", "target": "WorldModel", "arrow": "composition", "label": "world"},
-    {"source": "Conception", "target": "GoalPredicate", "arrow": "composition", "label": "goal"},
-    {"source": "Conception", "target": "GamePlan", "arrow": "composition", "label": "plan"},
-    {"source": "WorldModel", "target": "InteractionRule", "arrow": "composition", "label": "rules  1..*"},
-    {"source": "WorldModel", "target": "PiStateAbstraction", "arrow": "composition", "label": "abstraction  1"},
-    {"source": "GamePlan", "target": "Step", "arrow": "composition", "label": "ordered steps  1..*"},
-    {"source": "GameObject", "target": "Profile", "arrow": "composition", "label": "has  1"},
-    {"source": "Lexicon", "target": "Dimension", "arrow": "composition", "label": "defines (unary)  *"},
-    {"source": "Lexicon", "target": "Relation", "arrow": "composition", "label": "defines (n-ary)  *"},
-    {"source": "Probe", "target": "GameMove", "arrow": "aggregation", "label": "trial moves (to LEARN)  1..*"},
-    {"source": "GamePlan", "target": "GoalPredicate", "arrow": "directed_association", "label": "aims at"},
-    {"source": "Step", "target": "GameMove", "arrow": "directed_association", "label": "move"},
-    {"source": "TurnRecord", "target": "GameMove", "arrow": "directed_association", "label": "records played"},
-    {"source": "Profile", "target": "Dimension", "arrow": "directed_association", "label": "value per Dimension"},
-    {"source": "Relation", "target": "GameObject", "arrow": "directed_association", "label": "over (n) objects"},
-    {"source": "GoalPatterns", "target": "GoalPredicate", "arrow": "dependency", "label": "instantiated into (bind roles to objects)"},
-    {"source": "Step", "target": "MarkovState", "arrow": "dependency", "label": "expect (predicted)"},
-    {"source": "Action", "target": "GameMove", "arrow": "dependency", "label": "external encoding; GameIO translates"},
-    {"source": "PiStateAbstraction", "target": "MarkovState", "arrow": "dependency", "label": "maps Frame to MarkovState"},
-    {"source": "InteractionRule", "target": "MarkovState", "arrow": "dependency", "label": "(MarkovState, GameMove) to next"},
-    {"source": "InteractionRule", "target": "Relation", "arrow": "dependency", "label": "triggers on / sets relations"},
-    {"source": "GoalPredicate", "target": "MarkovState", "arrow": "dependency", "label": "tests (win?)"},
-    {"source": "GoalPredicate", "target": "GameObject", "arrow": "dependency", "label": "conditions over objects"},
-    {"source": "GoalPredicate", "target": "Relation", "arrow": "dependency", "label": "tests relations"},
-    {"source": "WorldModel", "target": "GameObject", "arrow": "dependency", "label": "models object dynamics"},
-    {"source": "PiStateAbstraction", "target": "GameObject", "arrow": "dependency", "label": "abstracts salient objects"}
+  {
+   "name": "WorldModel",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "rules : InteractionRule[*]",
+    "pi : PiStateAbstraction",
+    "impl : Symbolic|Learned|Graph"
+   ],
+   "methods": [
+    "predict(state, move) : (MarkovState, win?)"
+   ]
+  },
+  {
+   "name": "GoalPredicate",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "kind : Atom|AND|OR|SEQUENCE",
+    "children : GoalPredicate[*]  (ordered for SEQUENCE)",
+    "condition : quantified over objects  (Profile & Relation)",
+    "status : provisional|confirmed"
+   ],
+   "methods": [
+    "test(state) : bool"
+   ]
+  },
+  {
+   "name": "GamePlan",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "steps : Step[*]  (ordered)",
+    "horizon : int"
+   ]
+  },
+  {
+   "name": "Step",
+   "shape": "class",
+   "stereotype": "value",
+   "attributes": [
+    "move : GameMove",
+    "expect : MarkovState",
+    "servesSubGoal : GoalPredicate"
+   ]
+  },
+  {
+   "name": "PiStateAbstraction",
+   "shape": "class",
+   "stereotype": "function pi",
+   "attributes": [
+    "selects : salient objects, features & relations"
+   ],
+   "methods": [
+    "project(Frame) : MarkovState"
+   ]
+  },
+  {
+   "name": "InteractionRule",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "trigger : objects + relations",
+    "effect : object config",
+    "confidence"
+   ]
+  },
+  {
+   "name": "MarkovState",
+   "shape": "class",
+   "stereotype": "value",
+   "attributes": [
+    "objects : role -> salient Profile",
+    "relations : salient Relation holds"
+   ],
+   "methods": [
+    "hash() : int"
+   ]
+  },
+  {
+   "name": "GoalPatterns",
+   "shape": "class",
+   "stereotype": "baked prior",
+   "attributes": [
+    "templates over object roles & relations"
+   ],
+   "methods": [
+    "instantiate(objects) : GoalPredicate"
+   ]
+  },
+  {
+   "name": "TurnRecord",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "played : GameMove",
+    "frames : Frame[*]"
+   ]
+  },
+  {
+   "name": "Probe",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "moves : GameMove[*]",
+    "expected_observation"
+   ]
+  },
+  {
+   "name": "GameMove",
+   "shape": "class",
+   "stereotype": "value",
+   "attributes": [
+    "kind",
+    "params (coords?)"
+   ]
+  },
+  {
+   "name": "Action",
+   "shape": "class",
+   "stereotype": "boundary (API)",
+   "attributes": [
+    "raw : ARC action (enum / x,y)"
+   ]
+  },
+  {
+   "name": "GameObject",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "id",
+    "cells",
+    "parts : sub-objects  (composite)",
+    "profile : Profile"
+   ]
+  },
+  {
+   "name": "Profile",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "entries : DimId -> (value, conf)"
+   ],
+   "methods": [
+    "render(lexicon) : name"
+   ]
+  },
+  {
+   "name": "Lexicon",
+   "shape": "class",
+   "stereotype": "entity",
+   "attributes": [
+    "base : Dimension + Relation[*]  (LTM)",
+    "overlay : Dimension + Relation[*]  (WM)"
+   ],
+   "methods": [
+    "get(id)",
+    "extend(feature)"
+   ]
+  },
+  {
+   "name": "Dimension",
+   "shape": "class",
+   "stereotype": "unary feature",
+   "attributes": [
+    "id",
+    "detector : object -> value",
+    "domain",
+    "rank"
+   ]
+  },
+  {
+   "name": "Relation",
+   "shape": "class",
+   "stereotype": "n-ary feature",
+   "attributes": [
+    "id",
+    "arity : n",
+    "detector : objects -> value/bool",
+    "domain"
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "source": "Conception",
+   "target": "WorldModel",
+   "arrow": "composition",
+   "label": "world"
+  },
+  {
+   "source": "Conception",
+   "target": "GoalPredicate",
+   "arrow": "composition",
+   "label": "goal"
+  },
+  {
+   "source": "Conception",
+   "target": "GamePlan",
+   "arrow": "composition",
+   "label": "plan"
+  },
+  {
+   "source": "WorldModel",
+   "target": "InteractionRule",
+   "arrow": "composition",
+   "label": "rules  1..*"
+  },
+  {
+   "source": "WorldModel",
+   "target": "PiStateAbstraction",
+   "arrow": "composition",
+   "label": "abstraction  1"
+  },
+  {
+   "source": "GamePlan",
+   "target": "Step",
+   "arrow": "composition",
+   "label": "ordered steps  1..*"
+  },
+  {
+   "source": "GameObject",
+   "target": "Profile",
+   "arrow": "composition",
+   "label": "has  1"
+  },
+  {
+   "source": "Lexicon",
+   "target": "Dimension",
+   "arrow": "composition",
+   "label": "defines (unary)  *"
+  },
+  {
+   "source": "Lexicon",
+   "target": "Relation",
+   "arrow": "composition",
+   "label": "defines (n-ary)  *"
+  },
+  {
+   "source": "Probe",
+   "target": "GameMove",
+   "arrow": "aggregation",
+   "label": "trial moves (to LEARN)  1..*"
+  },
+  {
+   "source": "GamePlan",
+   "target": "GoalPredicate",
+   "arrow": "directed_association",
+   "label": "aims at"
+  },
+  {
+   "source": "Step",
+   "target": "GameMove",
+   "arrow": "directed_association",
+   "label": "move"
+  },
+  {
+   "source": "TurnRecord",
+   "target": "GameMove",
+   "arrow": "directed_association",
+   "label": "records played"
+  },
+  {
+   "source": "Profile",
+   "target": "Dimension",
+   "arrow": "directed_association",
+   "label": "value per Dimension"
+  },
+  {
+   "source": "Relation",
+   "target": "GameObject",
+   "arrow": "directed_association",
+   "label": "over (n) objects"
+  },
+  {
+   "source": "GoalPatterns",
+   "target": "GoalPredicate",
+   "arrow": "dependency",
+   "label": "instantiated into (bind roles to objects)"
+  },
+  {
+   "source": "Step",
+   "target": "MarkovState",
+   "arrow": "dependency",
+   "label": "expect (predicted)"
+  },
+  {
+   "source": "Action",
+   "target": "GameMove",
+   "arrow": "dependency",
+   "label": "external encoding; GameIO translates"
+  },
+  {
+   "source": "PiStateAbstraction",
+   "target": "MarkovState",
+   "arrow": "dependency",
+   "label": "maps Frame to MarkovState"
+  },
+  {
+   "source": "InteractionRule",
+   "target": "MarkovState",
+   "arrow": "dependency",
+   "label": "(MarkovState, GameMove) to next"
+  },
+  {
+   "source": "InteractionRule",
+   "target": "Relation",
+   "arrow": "dependency",
+   "label": "triggers on / sets relations"
+  },
+  {
+   "source": "GoalPredicate",
+   "target": "MarkovState",
+   "arrow": "dependency",
+   "label": "tests (win?)"
+  },
+  {
+   "source": "GoalPredicate",
+   "target": "GameObject",
+   "arrow": "dependency",
+   "label": "conditions over objects"
+  },
+  {
+   "source": "GoalPredicate",
+   "target": "Relation",
+   "arrow": "dependency",
+   "label": "tests relations"
+  },
+  {
+   "source": "WorldModel",
+   "target": "GameObject",
+   "arrow": "dependency",
+   "label": "models object dynamics"
+  },
+  {
+   "source": "PiStateAbstraction",
+   "target": "GameObject",
+   "arrow": "dependency",
+   "label": "abstracts salient objects"
+  }
+ ],
+ "layout": {
+  "direction": "column",
+  "clusters": [
+   {
+    "direction": "row",
+    "clusters": [
+     {
+      "name": "input",
+      "label": "Input port — perception (perceive)",
+      "color": "#2F8FA8",
+      "fill": "#E3F2F5",
+      "nodes": [
+       "TurnRecord",
+       "Probe"
+      ]
+     },
+     {
+      "label": "Consider — the Conception (decide)",
+      "color": "#9673A6",
+      "fill": "#EDE7F6",
+      "name": "consider",
+      "clusters": [
+       {
+        "nodes": [
+         "Conception"
+        ]
+       },
+       {
+        "direction": "row",
+        "clusters": [
+         {
+          "name": "world",
+          "label": "world — model the world",
+          "color": "#555555",
+          "nodes": [
+           "WorldModel",
+           "PiStateAbstraction",
+           "InteractionRule",
+           "MarkovState"
+          ]
+         },
+         {
+          "name": "goal",
+          "label": "goal — decide the goal",
+          "color": "#555555",
+          "nodes": [
+           "GoalPredicate",
+           "GoalPatterns"
+          ]
+         },
+         {
+          "name": "plan",
+          "label": "plan — plan toward the goal",
+          "color": "#555555",
+          "nodes": [
+           "GamePlan",
+           "Step"
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "name": "output",
+      "label": "Output port — action (act)",
+      "color": "#D79B00",
+      "fill": "#FFF0DD",
+      "nodes": [
+       "GameMove",
+       "Action"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "vocabulary",
+    "label": "Vocabulary — Lexicon (Dimensions + Relations)",
+    "color": "#82B366",
+    "fill": "#E7F4E7",
+    "direction": "row",
+    "nodes": [
+     "GameObject",
+     "Profile",
+     "Lexicon",
+     "Dimension",
+     "Relation"
+    ]
+   }
   ]
+ },
+ "views": {
+  "answer": {
+   "label": "The Conception (answer)",
+   "nodes": [
+    "Conception",
+    "WorldModel",
+    "GoalPredicate",
+    "GamePlan",
+    "Step"
+   ]
+  },
+  "world": {
+   "label": "World & prediction",
+   "clusters": [
+    "world"
+   ]
+  },
+  "vocab": {
+   "label": "Vocabulary",
+   "clusters": [
+    "vocabulary"
+   ]
+  },
+  "io": {
+   "label": "I/O ports",
+   "clusters": [
+    "input",
+    "output"
+   ]
+  },
+  "conception": {
+   "label": "Conception internals",
+   "clusters": [
+    "consider"
+   ]
+  }
+ }
 }
