@@ -1,79 +1,57 @@
 #!/usr/bin/env python3
-"""drawio-uml: clean UML / node-link diagrams (.drawio) from a JSON model.
+"""drawio-uml: clean UML / node-link diagrams (.drawio) from a JSON model (0.3.0).
 
 Native draw.io shapes laid out by Graphviz `dot`, which computes BOTH node
 positions AND orthogonal edge routes (splines=ortho). The edge routes are
 imported as draw.io waypoints so lines route around boxes instead of through them.
 
-Supported (any node-link diagram dot can lay out):
-  class, object, component, package, deployment, state-machine, activity,
-  use-case, ER.  NOT supported: sequence / timing diagrams — those are
-  time-ordered lifelines, not a graph-layout problem; use a different tool.
+0.3.0 model (see schema/model.schema.json):
+  * nodes  : flat node definitions, referenced elsewhere by name.
+  * edges  : relations between nodes.
+  * layout : a RECURSIVE cluster tree. Each cluster arranges its contents along
+             `direction` (row=left->right / column=top->bottom), draws a dashed
+             labelled box iff it has a `label`, cascades color/fill to descendant
+             nodes (nearest ancestor wins), and holds EXACTLY ONE of `clusters`
+             (child clusters) or `nodes` (member node names). Omit `layout` for a
+             flat diagram (dot lays out everything; flow = options.direction).
+  * views  : named node subsets; --view KEY renders the induced subgraph (the
+             master layout pruned to the selected nodes).
+  * options: direction (default column=TB), column_width, node_separation,
+             rank_separation.
 
-This is the IMPROVED generator: it is a strict superset of the stock global
-drawio-uml skill. A model that sets NONE of the cluster/banded keys renders
-BYTE-IDENTICALLY to the stock skill (the flat code path below is kept verbatim).
-On top of that it adds, opt-in:
-  * cluster grouping        -- per-node "cluster" key -> a labelled, coloured box
-  * a legend                -- cluster swatches + UML arrow-kind glyphs
-  * banded / compass layout -- options.layout.rows = [[clusterKey, ...], ...]
-  * box-avoiding routing    -- a FINAL position-pinned Graphviz pass (neato -n2 /
-    fdp -n2) routes EVERY edge -- including cross-cluster edges -- around the
-    placed boxes, so no edge cuts through a class box.
+Layout engine (clustered path): each LEAF cluster is laid out in its own dot run
+(reliable on a single simple group); Python composes children by `direction`
+(so sibling order is guaranteed); a final position-pinned neato/fdp pass routes
+EVERY edge around the placed boxes.
 
 Requires Python 3.10+ and Graphviz `dot` on PATH (plus `neato`/`fdp` for the
-pinned routing pass used by the cluster paths).
+pinned routing pass used by the clustered path).
 
 Usage:
-    python draw.py MODEL.json OUT.drawio
-
-Model schema (see references/drawio-uml-reference.md for the full menu):
-{
-  "options": {"rankdir": "TB", "column_width": 260, "node_separation": 0.7, "rank_separation": 1.1},
-  "nodes": [
-    {"name": "Animal", "shape": "class", "stereotype": "abstract",
-     "fill": "#DAE8FC", "stroke": "#6C8EBF",
-     "attributes": ["+ name: str"], "methods": ["+ speak(): str"]},
-    {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
-    {"name": "start", "shape": "initial"}
-  ],
-  "edges": [
-    {"source": "Dog", "target": "Animal", "arrow": "generalization"},
-    {"source": "Idle", "target": "Running", "arrow": "transition", "label": "play()"}
-  ]
-}
-
-Opt-in clustering / banding (additive - omit for the stock behaviour):
-  options.clusters = { "<key>": {"label": str, "stroke": "#RRGGBB", "fill": "#RRGGBB"} }
-  options.layout   = { "rows": [["input","consider","output"], ["vocabulary"]] }
-  each node may carry  "cluster": "<key>"
-
-A node with attributes/methods and no shape defaults to a class box.
-Any node may set a raw draw.io "style" string to override the shape preset.
+    python draw.py MODEL.json OUT.drawio [--view KEY]
 """
 import json
 import re
 import subprocess
 import sys
 import xml.dom.minidom as minidom
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 
 # ---------------------------------------------------------------- edge arrows
 ARROW = {
-    "generalization":       "endArrow=block;endFill=0;endSize=14;",                                   # generalization
-    "realization":          "endArrow=block;endFill=0;endSize=14;dashed=1;",                          # realization
-    "composition":          "startArrow=diamondThin;startFill=1;startSize=14;endArrow=open;endFill=0;",  # composition
-    "aggregation":          "startArrow=diamondThin;startFill=0;startSize=14;endArrow=open;endFill=0;",  # aggregation
-    "directed_association": "endArrow=open;",                                                          # association with navigability arrow
-    "dependency":           "endArrow=open;dashed=1;",                                                 # dependency / include / extend
-    "transition":           "endArrow=block;endFill=1;endSize=10;",                                    # state / activity flow
-    "association":          "endArrow=none;",                                                          # plain association (no arrowhead)
+    "generalization":       "endArrow=block;endFill=0;endSize=14;",
+    "realization":          "endArrow=block;endFill=0;endSize=14;dashed=1;",
+    "composition":          "startArrow=diamondThin;startFill=1;startSize=14;endArrow=open;endFill=0;",
+    "aggregation":          "startArrow=diamondThin;startFill=0;startSize=14;endArrow=open;endFill=0;",
+    "directed_association": "endArrow=open;",
+    "dependency":           "endArrow=open;dashed=1;",
+    "transition":           "endArrow=block;endFill=1;endSize=10;",
+    "association":          "endArrow=none;",
 }
 EDGE_BASE = ("edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#3A3A3A;"
              "fontSize=11;fontColor=#222222;labelBackgroundColor=#FFFFFF;")
 
 # ------------------------------------------------------- node shape presets
-# shape -> (style_template, default_w, default_h). {fill}/{stroke} are substituted.
 SHAPES = {
     "component": ("rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;spacingTop=4;fillColor={fill};strokeColor={stroke};", 180, 70),
     "package":   ("shape=folder;tabWidth=64;tabHeight=18;tabPosition=left;whiteSpace=wrap;html=1;verticalAlign=top;fillColor={fill};strokeColor={stroke};", 200, 100),
@@ -87,17 +65,19 @@ SHAPES = {
     "final":     ("ellipse;fillColor=none;strokeColor=#333333;strokeWidth=2;", 34, 34),
     "note":      ("shape=note;whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};", 170, 70),
 }
-COMPARTMENT = {"class", "entity", "object"}     # rendered as swimlanes with member rows
+COMPARTMENT = {"class", "entity", "object"}
 NO_LABEL = {"initial", "final"}
 
 DEFAULT_FILL, DEFAULT_STROKE = "#EEF0FF", "#5B5FC7"
 TITLE_H, ROW_H, DIV_H = 40, 22, 10
 
-# -- clustered-layout constants (only used on the opt-in cluster/banded path) --
-MARGIN = 70            # canvas margin (room for top-left cluster labels)
-PAD, TOP_PAD = 24, 34  # cluster box padding (sides / top for its label)
-BAND_GAP = 150         # vertical gap between stacked layout bands (options.layout)
-CLUSTER_GAP = 90       # horizontal gap between clusters within one band
+# -- clustered-layout constants --
+MARGIN = 70             # canvas margin (room for top-left cluster labels)
+PAD, TOP_PAD = 24, 34   # cluster box padding (sides / top for its label)
+ROW_GAP = 80            # gap between children arranged left->right
+COL_GAP = 90            # gap between children arranged top->bottom
+DEPTH_WARN = 4          # warn when labelled nesting on a root->leaf path exceeds this
+DEFAULT_BOX_COLOR = "#888888"
 
 
 def esc(s):
@@ -141,18 +121,14 @@ def arrow_of(e):
     return e.get("arrow") or "association"
 
 
-def _node_cells(node, nid, pos, opt, rs):
-    """Render ONE node into a list of mxCells (shared by both paths).
-
-    Class/entity/object -> a swimlane compartment box (name / attrs / methods);
-    any other shape -> its preset (or a raw "style"); `final` gets its inner dot.
-    Returns a list of XML cell strings."""
+def _node_cells(node, nid, pos, opt, rs, eff):
+    """Render ONE node into a list of mxCells. `eff` maps node name -> the
+    resolved (fill, stroke) after cluster cascade (node's own values win)."""
     n = node["name"]
     ni = nid[n]
     w, h = node_size(node, opt)
     x, y = pos[ni]
-    fill = node.get("fill", DEFAULT_FILL)
-    stroke = node.get("stroke", DEFAULT_STROKE)
+    fill, stroke = eff[n]
     out = []
     if is_compartment(node):
         attrs, meths = node.get("attributes", []), node.get("methods", [])
@@ -190,7 +166,7 @@ def _node_cells(node, nid, pos, opt, rs):
         out.append('<mxCell id="%s" value="%s" style="%s" vertex="1" parent="1">'
                    '<mxGeometry x="%d" y="%d" width="%d" height="%d" as="geometry"/></mxCell>'
                    % (ni, val, style, round(x), round(y), w, h))
-        if sh == "final":   # inner filled dot makes the bullseye
+        if sh == "final":
             iw, ih = round(w * 0.46), round(h * 0.46)
             ix, iy = round(x + (w - iw) / 2), round(y + (h - ih) / 2)
             out.append('<mxCell id="%s__dot" value="" style="ellipse;fillColor=#333333;'
@@ -201,7 +177,6 @@ def _node_cells(node, nid, pos, opt, rs):
 
 
 def _edge_cell(i, e, nid, routes):
-    """Render ONE edge into an mxCell with imported waypoints (shared)."""
     a = arrow_of(e)
     si, ti = nid[e["source"]], nid[e["target"]]
     key, rev = ((ti, si), True) if a in ("generalization", "realization") else ((si, ti), False)
@@ -217,30 +192,64 @@ def _edge_cell(i, e, nid, routes):
                si, ti, geo))
 
 
+def make_nid(nodes):
+    return {n["name"]: "n_" + re.sub(r"[^0-9A-Za-z_]", "_", n["name"]) for n in nodes}
+
+
+def rs_style():
+    return ("text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;"
+            "spacingLeft=8;overflow=hidden;rotatable=0;html=1;fontSize=12;fontColor=#1A1A1A;")
+
+
+def direction_to_rankdir(direction):
+    return "TB" if direction == "column" else "LR"
+
+
+def resolve_styles(nodes, layout):
+    """name -> resolved (fill, stroke). A node's own fill/stroke win; else the
+    NEAREST enclosing cluster's fill / color (cascaded independently); else the
+    package default. Nodes not under any cluster fall back to own / default."""
+    own = {n["name"]: (n.get("fill"), n.get("stroke")) for n in nodes}
+    eff = {}
+
+    def walk(cluster, inh_fill, inh_stroke):
+        cf = cluster.get("fill", inh_fill)
+        cs = cluster.get("color", inh_stroke)
+        if is_leaf(cluster):
+            for name in cluster["nodes"]:
+                of, os_ = own.get(name, (None, None))
+                eff[name] = (of or cf or DEFAULT_FILL, os_ or cs or DEFAULT_STROKE)
+        else:
+            for ch in cluster["clusters"]:
+                walk(ch, cf, cs)
+
+    if layout:
+        walk(layout, None, None)
+    for name, (of, os_) in own.items():
+        eff.setdefault(name, (of or DEFAULT_FILL, os_ or DEFAULT_STROKE))
+    return eff
+
+
 # ======================================================================
-#  FLAT PATH  (stock global skill, kept VERBATIM for byte-identity)
-#  Used whenever the model carries no cluster / clusters / layout keys.
+#  FLAT PATH  (no `layout`: dot lays out every node; flow = options.direction)
 # ======================================================================
 def dot_layout(nodes, edges, nid, opt):
-    """Graphviz dot -> (pos, routes) in draw.io px. px = inch*72, y flipped
-    (dot origin bottom-left), then translated so the min corner is (40, 40).
-    Nodes and edge points share the exact same transform so they line up."""
+    """Graphviz dot -> (pos, routes) in draw.io px. y flipped, min corner at (40,40)."""
+    rankdir = direction_to_rankdir(opt.get("direction", "column"))
     g = ["digraph G {",
          "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho;"
-         % (opt.get("rankdir", "TB"), opt.get("node_separation", 0.7), opt.get("rank_separation", 1.1)),
+         % (rankdir, opt.get("node_separation", 0.7), opt.get("rank_separation", 1.1)),
          "node [shape=box, fixedsize=true];"]
     for n in nodes:
         w, h = node_size(n, opt)
         g.append('%s [width=%.3f, height=%.3f];' % (nid[n["name"]], w / 72.0, h / 72.0))
     for e in edges:
         s, t = nid[e["source"]], nid[e["target"]]
-        # gen/real are fed reversed so the PARENT ranks above the child; the
-        # polyline is direction-agnostic and reversed back when drawn.
         a, b = (t, s) if arrow_of(e) in ("generalization", "realization") else (s, t)
         g.append("%s -> %s;" % (a, b))
     g.append("}")
     out = subprocess.run(["dot", "-Tplain"], input="\n".join(g),
-                         capture_output=True, text=True, check=True).stdout
+                         capture_output=True, text=True, check=True, encoding="utf-8").stdout
     H = None
     pos, routes = {}, {}
     for ln in out.splitlines():
@@ -257,6 +266,8 @@ def dot_layout(nodes, edges, nid, opt):
             c = p[4:4 + 2 * k]
             routes[(t, hd)] = [(float(c[2 * i]) * 72, (H - float(c[2 * i + 1])) * 72)
                                for i in range(k)]
+    if not pos:
+        return {}, {}
     mnx = min(x for x, _ in pos.values())
     mny = min(y for _, y in pos.values())
     pos = {n: (x - mnx + 40, y - mny + 40) for n, (x, y) in pos.items()}
@@ -264,46 +275,41 @@ def dot_layout(nodes, edges, nid, opt):
     return pos, routes
 
 
-def render_flat(model):
-    """The stock global-skill renderer. Produces output byte-identical to the
-    original drawio-uml skill for any model with no cluster/banded keys."""
-    nodes = model.get("nodes") or []
-    edges = model.get("edges", [])
+def render_flat(model, nodes, edges):
     opt = model.get("options", {})
-    nid = {n["name"]: "n_" + re.sub(r"[^0-9A-Za-z_]", "_", n["name"]) for n in nodes}
+    nid = make_nid(nodes)
     pos, routes = dot_layout(nodes, edges, nid, opt)
-    rs = ("text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;"
-          "spacingLeft=8;overflow=hidden;rotatable=0;html=1;fontSize=12;fontColor=#1A1A1A;")
+    eff = resolve_styles(nodes, None)
+    rs = rs_style()
     cells = []
     for node in nodes:
-        cells += _node_cells(node, nid, pos, opt, rs)
+        cells += _node_cells(node, nid, pos, opt, rs, eff)
     for i, e in enumerate(edges):
         cells.append(_edge_cell(i, e, nid, routes))
     xml = ('<mxGraphModel adaptiveColors="auto"><root><mxCell id="0"/>'
            '<mxCell id="1" parent="0"/>%s</root></mxGraphModel>' % "".join(cells))
-    minidom.parseString(xml)   # fail fast on malformed XML
+    minidom.parseString(xml)
     return xml
 
 
 # ======================================================================
-#  CLUSTERED PATH  (opt-in: clusters / legend / banded layout / routing)
+#  CLUSTERED PATH  (recursive `layout` tree: compose + nested boxes + routing)
 # ======================================================================
 def cid(key):
     return "cluster_" + re.sub(r"[^0-9A-Za-z_]", "_", key)
 
 
-def _parse_plain(out, off_x, off_y, skip_pairs, re_origin):
-    """Parse `dot -Tplain` / `neato -n2 -Tplain` output -> (pos, size, routes).
+def is_leaf(cluster):
+    return "nodes" in cluster
 
-    Coordinates are converted to draw.io px (px = pt, y flipped by graph height
-    H). When re_origin is True the result is shifted so its min node corner sits
-    at (off_x, off_y) (used by per-cluster runs that get composed onto a grid).
-    When re_origin is False the transformed coords keep dot's own origin and just
-    add (off_x, off_y) (used by the pinned routing pass, whose pins are already
-    absolute). Edges whose (tail, head) is in skip_pairs are dropped.
-    """
+
+def resolve_direction(cluster, opt):
+    return cluster.get("direction") or opt.get("direction") or "column"
+
+
+def _parse_plain(out, off_x, off_y, re_origin):
     H = None
-    raw_pos, raw_size, raw_routes = {}, {}, {}
+    raw_pos, raw_size = {}, {}
     for ln in out.splitlines():
         p = ln.split()
         if not p:
@@ -314,204 +320,108 @@ def _parse_plain(out, off_x, off_y, skip_pairs, re_origin):
             cx, cy, w, h = (float(v) for v in p[2:6])
             raw_pos[p[1]] = ((cx - w / 2) * 72, (H - cy - h / 2) * 72)
             raw_size[p[1]] = (w * 72, h * 72)
-        elif p[0] == "edge":
-            t, hd, k = p[1], p[2], int(p[3])
-            if (t, hd) in skip_pairs:
-                continue
-            c = p[4:4 + 2 * k]
-            raw_routes[(t, hd)] = [(float(c[2 * i]) * 72, (H - float(c[2 * i + 1])) * 72)
-                                   for i in range(k)]
-    if re_origin:
+    if re_origin and raw_pos:
         mnx = min(x for x, _ in raw_pos.values())
         mny = min(y for _, y in raw_pos.values())
     else:
         mnx = mny = 0.0
     pos = {n: (x - mnx + off_x, y - mny + off_y) for n, (x, y) in raw_pos.items()}
-    routes = {e: [(x - mnx + off_x, y - mny + off_y) for x, y in pts]
-              for e, pts in raw_routes.items()}
-    return pos, raw_size, routes
+    return pos, raw_size
 
 
-def _run_dot(g_lines, off_x=0.0, off_y=0.0, skip_pairs=frozenset()):
-    """Run `dot -Tplain` on the given source lines; return (pos, routes, (w,h)).
-
-    pos/routes are in draw.io px (y flipped) with the sub-graph's min corner moved
-    to (off_x, off_y) so a caller can place it anywhere. (w,h) is the drawn extent.
-    """
+def _run_dot(g_lines):
     out = subprocess.run(["dot", "-Tplain"], input="\n".join(g_lines),
-                         capture_output=True, text=True, check=True,
-                         encoding="utf-8").stdout
-    pos, raw_size, routes = _parse_plain(out, off_x, off_y, frozenset(skip_pairs),
-                                         re_origin=True)
-    bw = max(pos[n][0] - off_x + raw_size[n][0] for n in pos)
-    bh = max(pos[n][1] - off_y + raw_size[n][1] for n in pos)
-    return pos, routes, (bw, bh)
+                         capture_output=True, text=True, check=True, encoding="utf-8").stdout
+    pos, raw_size = _parse_plain(out, 0.0, 0.0, re_origin=True)
+    bw = max((pos[n][0] + raw_size[n][0] for n in pos), default=0.0)
+    bh = max((pos[n][1] + raw_size[n][1] for n in pos), default=0.0)
+    return pos, (bw, bh)
 
 
-def _emit_cluster(g, ckey, members, nid, opt, specs):
-    """Append one `subgraph cluster_*` block (members + their sizes)."""
-    g.append('subgraph %s {' % cid(ckey))
-    g.append('label="%s"; labeljust=l; fontsize=14; margin=18; '
-             'style=rounded; color="%s";'
-             % (specs.get(ckey, {}).get("label", ckey),
-                specs.get(ckey, {}).get("stroke", "#888888")))
+def _leaf_layout(cluster, members, edges, nid, opt):
+    """Lay out one leaf cluster's members in their own dot run; positions are
+    origin-normalised (min corner at (0,0)). With internal structural edges dot's
+    rank layout governs; without any, members are chained with INVISIBLE edges so
+    they line up along `direction` in listed order."""
+    direction = resolve_direction(cluster, opt)
+    nodesep, ranksep = opt.get("node_separation", 0.8), opt.get("rank_separation", 1.25)
+    g = ["digraph G {",
+         "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho;"
+         % (direction_to_rankdir(direction), nodesep, ranksep),
+         "node [shape=box, fixedsize=true];"]
     for n in members:
         w, h = node_size(n, opt)
         g.append('%s [width=%.3f, height=%.3f];' % (nid[n["name"]], w / 72.0, h / 72.0))
-    g.append('}')
-
-
-def _layout_one_cluster(ckey, members, edges, nid, opt, specs, rankdir):
-    """Lay out a SINGLE cluster in its own dot run; return (pos, routes, (w,h)).
-
-    `rankdir` controls the cluster's internal shape: TB for a tall column that
-    reads top-down (UML class hierarchy), LR for a wide horizontal strip (used for
-    a full-width band cluster). Only edges internal to this cluster are included so
-    dot routes them; cross-cluster edges are routed later by the pinned pass.
-    """
-    nodesep, ranksep = opt.get("node_separation", 0.8), opt.get("rank_separation", 1.25)
-    g = ["digraph G {",
-         "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho; compound=true;"
-         % (rankdir, nodesep, ranksep),
-         "node [shape=box, fixedsize=true];"]
-    _emit_cluster(g, ckey, members, nid, opt, specs)
     names = {n["name"] for n in members}
+    has_internal = False
     for e in edges:
         if e["source"] in names and e["target"] in names:
             s, t = nid[e["source"]], nid[e["target"]]
             a, b = (t, s) if arrow_of(e) in ("generalization", "realization") else (s, t)
             g.append("%s -> %s;" % (a, b))
+            has_internal = True
+    if not has_internal and len(members) > 1:
+        for p, q in zip(members, members[1:]):
+            g.append("%s -> %s [style=invis];" % (nid[p["name"]], nid[q["name"]]))
     g.append("}")
     return _run_dot(g)
 
 
-def _dot_layout_banded(nodes, edges, nid, opt, rows):
-    """Compass/grid layout honoring options.layout.rows (opt-in).
+def compose(cluster, edges, nid, opt, nodemap):
+    """Recursively lay out a cluster. Returns (pos, (w, h), boxes) in a local
+    frame whose top-left (including this cluster's own box, if labelled) is (0,0).
+    `boxes` = [(cluster, x0, y0, x1, y1), ...] OUTERMOST-FIRST (document/z order)."""
+    if is_leaf(cluster):
+        members = [nodemap[name] for name in cluster["nodes"]]
+        pos, (mw, mh) = _leaf_layout(cluster, members, edges, nid, opt)
+        if "label" in cluster:
+            pos = {k: (x + PAD, y + TOP_PAD) for k, (x, y) in pos.items()}
+            ew, eh = mw + 2 * PAD, mh + TOP_PAD + PAD
+            return pos, (ew, eh), [(cluster, 0.0, 0.0, ew, eh)]
+        return pos, (mw, mh), []
 
-    Plain dot is a 1-D layered engine: a single run cannot force
-    input-left / consider-center / output-right AND a full-width vocabulary band
-    below -- the heavily-connected `consider` cluster always migrates toward its
-    edge mass, and a single run interleaves clusters of unequal height (verified
-    empirically across rankdir / rank=same / ordering / constraint=false tricks).
-    So each CLUSTER is laid out in its own dot run and the results are composed
-    onto a grid described by options.layout.rows:
+    direction = resolve_direction(cluster, opt)
+    children = [compose(ch, edges, nid, opt, nodemap) for ch in cluster["clusters"]]
+    gap = ROW_GAP if direction == "row" else COL_GAP
+    pos, boxes = {}, []
+    if direction == "row":
+        cross = max((h for (_, (w, h), _) in children), default=0.0)
+        cur = 0.0
+        for cpos, (cw, ch), cboxes in children:
+            dx, dy = cur, (cross - ch) / 2.0
+            for k, (x, y) in cpos.items():
+                pos[k] = (x + dx, y + dy)
+            boxes += [(c, x0 + dx, y0 + dy, x1 + dx, y1 + dy) for (c, x0, y0, x1, y1) in cboxes]
+            cur += cw + gap
+        content_w, content_h = (cur - gap if children else 0.0), cross
+    else:
+        cross = max((w for (_, (w, h), _) in children), default=0.0)
+        cur = 0.0
+        for cpos, (cw, ch), cboxes in children:
+            dx, dy = (cross - cw) / 2.0, cur
+            for k, (x, y) in cpos.items():
+                pos[k] = (x + dx, y + dy)
+            boxes += [(c, x0 + dx, y0 + dy, x1 + dx, y1 + dy) for (c, x0, y0, x1, y1) in cboxes]
+            cur += ch + gap
+        content_w, content_h = cross, (cur - gap if children else 0.0)
 
-      * Per cluster: an isolated dot run lays out its members and ROUTES its
-        internal edges orthogonally (so lines never cut its own boxes).
-      * Grid placement: row 0 is the TOP band; within a row clusters are placed
-        left -> right in listed order, CLUSTER_GAP apart, aligned at the band top.
-        Rows stack top -> bottom, BAND_GAP apart, each row centred on the widest
-        row.  => input | consider | output over a full-width vocabulary band.
-
-    Returns (pos, routes). The per-cluster internal routes are produced here but
-    then REPLACED wholesale by the final pinned routing pass (_route_pinned),
-    which routes ALL edges (internal + cross-cluster) around the placed boxes.
-    """
-    by_cluster = OrderedDict()
-    for n in nodes:
-        by_cluster.setdefault(n.get("cluster"), []).append(n)
-    specs = opt.get("clusters", {})
-
-    # 1. lay out every cluster independently. A cluster that is the SOLE member of
-    #    its row spans the full width, so lay it LR (wide strip); clusters that sit
-    #    beside others in a row are laid TB (tall column reading top-down).
-    solo = {row[0] for row in rows if len(row) == 1}
-    laid = {}   # ckey -> (pos, routes, (w,h))
-    for ckey, members in by_cluster.items():
-        if ckey is not None and members:
-            rankdir = "LR" if ckey in solo else "TB"
-            laid[ckey] = _layout_one_cluster(ckey, members, edges, nid, opt, specs,
-                                             rankdir)
-
-    # 2. measure each row's extent (clusters side by side, CLUSTER_GAP apart)
-    row_w, row_h = [], []
-    for row in rows:
-        cks = [c for c in row if c in laid]
-        w = sum(laid[c][2][0] for c in cks) + CLUSTER_GAP * max(0, len(cks) - 1)
-        h = max((laid[c][2][1] for c in cks), default=0.0)
-        row_w.append(w)
-        row_h.append(h)
-    total_w = max(row_w, default=0.0)
-
-    # 3. place clusters: rows stacked top->bottom, each row centred & laid L->R
-    pos, y_cursor = {}, 0.0
-    for ri, row in enumerate(rows):
-        cks = [c for c in row if c in laid]
-        x_cursor = MARGIN + (total_w - row_w[ri]) / 2.0
-        for ckey in cks:
-            cpos, croutes, (cw, ch) = laid[ckey]
-            dx, dy = x_cursor, MARGIN + y_cursor     # align clusters at band top
-            for n, (x, y) in cpos.items():
-                pos[n] = (x + dx, y + dy)
-            x_cursor += cw + CLUSTER_GAP
-        y_cursor += row_h[ri] + BAND_GAP
-
-    # 4. route EVERY edge around the placed boxes (cross-cluster ones included)
-    routes = _route_pinned(nodes, edges, nid, opt, pos)
-    return pos, routes
-
-
-def dot_layout_clustered(nodes, edges, nid, opt):
-    """dot -Tplain -> (pos, routes) in draw.io px, grouping members by cluster.
-
-    With options.layout.rows present -> banded compass layout. Otherwise a single
-    dot run with `subgraph cluster_*` blocks (dot keeps each cluster contiguous),
-    then a pinned routing pass so cross-cluster edges also avoid boxes."""
-    if opt.get("layout", {}).get("rows"):
-        return _dot_layout_banded(nodes, edges, nid, opt, opt["layout"]["rows"])
-    by_cluster = OrderedDict()
-    for n in nodes:
-        by_cluster.setdefault(n.get("cluster"), []).append(n)
-    specs = opt.get("clusters", {})
-    g = ["digraph G {",
-         "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho; compound=true;"
-         % (opt.get("rankdir", "TB"), opt.get("node_separation", 0.8), opt.get("rank_separation", 1.25)),
-         "node [shape=box, fixedsize=true];"]
-
-    def emit_node(n):
-        w, h = node_size(n, opt)
-        g.append('%s [width=%.3f, height=%.3f];' % (nid[n["name"]], w / 72.0, h / 72.0))
-
-    for ckey, members in by_cluster.items():
-        if ckey is None:
-            for n in members:
-                emit_node(n)
-        else:
-            g.append('subgraph %s {' % cid(ckey))
-            g.append('label="%s"; labeljust=l; fontsize=14; margin=18; '
-                     'style=rounded; color="%s";'
-                     % (specs.get(ckey, {}).get("label", ckey),
-                        specs.get(ckey, {}).get("stroke", "#888888")))
-            for n in members:
-                emit_node(n)
-            g.append('}')
-    for e in edges:
-        s, t = nid[e["source"]], nid[e["target"]]
-        a, b = (t, s) if arrow_of(e) in ("generalization", "realization") else (s, t)
-        g.append("%s -> %s;" % (a, b))
-    g.append("}")
-    pos, _, _ = _run_dot(g, off_x=MARGIN, off_y=MARGIN)
-    routes = _route_pinned(nodes, edges, nid, opt, pos)
-    return pos, routes
+    if "label" in cluster:
+        pos = {k: (x + PAD, y + TOP_PAD) for k, (x, y) in pos.items()}
+        boxes = [(c, x0 + PAD, y0 + TOP_PAD, x1 + PAD, y1 + TOP_PAD)
+                 for (c, x0, y0, x1, y1) in boxes]
+        ew, eh = content_w + 2 * PAD, content_h + TOP_PAD + PAD
+        return pos, (ew, eh), [(cluster, 0.0, 0.0, ew, eh)] + boxes
+    return pos, (content_w, content_h), boxes
 
 
 def _parse_plain_raw(out):
-    """Parse `-Tplain` into RAW Graphviz points (x right, y up, origin bottom-left)
-    WITHOUT any draw.io flip/translate. Returns (centres, polylines) where centres
-    maps node-id -> (cx_pt, cy_pt) and polylines maps (tail,head) -> [(x_pt,y_pt)].
-
-    The pinned routing pass uses this so it can solve the unit round-trip
-    EMPIRICALLY: the echoed pinned node centres are known in our own draw.io px
-    too, so one affine (scale + offset, y-flip) maps every routed point back into
-    draw.io space exactly -- no reliance on guessed graph height or input scale."""
     centres, polylines = {}, {}
     for ln in out.splitlines():
         p = ln.split()
         if not p:
             continue
         if p[0] == "node":
-            cx, cy = float(p[2]) * 72.0, float(p[3]) * 72.0
-            centres[p[1]] = (cx, cy)
+            centres[p[1]] = (float(p[2]) * 72.0, float(p[3]) * 72.0)
         elif p[0] == "edge":
             t, hd, k = p[1], p[2], int(p[3])
             c = p[4:4 + 2 * k]
@@ -521,54 +431,23 @@ def _parse_plain_raw(out):
 
 
 def _route_pinned(nodes, edges, nid, opt, pos):
-    """FINAL box-avoiding routing pass over the WHOLE graph (capability 4).
-
-    Every node position is already fixed in draw.io px (`pos`). We hand Graphviz
-    those exact positions PINNED (`pos="x,y!"`, fixedsize) and ask it to route the
-    edges only (`-n2`), with `splines=ortho`, so it routes EVERY edge -- internal
-    AND cross-cluster -- around the placed boxes. The routed polylines are mapped
-    back into draw.io px and returned as the route table for all edges.
-
-    Unit round-trip (the trap the handoff warns about): Graphviz `neato -n`/`-n2`
-    reads `pos` in POINTS (origin bottom-left, y up); `-Tplain` re-emits in inches.
-    Rather than juggle the engine's graph height / input scale by hand, we PIN the
-    nodes and then read back their ECHOED centres: since we also know each node's
-    centre in draw.io px (from `pos`), we recover the exact affine transform
-    (x' = x_pt + ox ;  y' = -y_pt + oy) from those known correspondences and apply
-    it to every routed waypoint. This is immune to scale/height guesswork.
-
-    Engine: `neato -n2 -Tplain` (honours pins, routes edges). Falls back to
-    `fdp -n2` then a pinned `neato -n` run. Returns the directed route table the
-    renderer expects, or {} (draw.io auto-route) if no engine succeeded.
-    """
+    """FINAL box-avoiding routing over the WHOLE graph: pin every node at its
+    placed centre and let neato/fdp (-n2) route the edges with splines=ortho."""
     if not pos:
         return {}
     size = {nid[n["name"]]: node_size(n, opt) for n in nodes}
-    # pin y in Graphviz space (y up). px == pt, so just negate draw.io y (y down);
-    # the absolute offset is irrelevant -- we recover it from the echo afterward.
-    pin = {}   # node-id -> (cx_pt, cy_pt) we asked for, in Graphviz coords
+    lines = ["graph G {", "  splines=ortho;", "  node [shape=box, fixedsize=true];"]
     for n in nodes:
         i = nid[n["name"]]
         w, h = size[i]
         cx = pos[i][0] + w / 2.0
         cy = -(pos[i][1] + h / 2.0)
-        pin[i] = (cx, cy)
-
-    lines = ["graph G {",
-             "  splines=ortho;",
-             "  node [shape=box, fixedsize=true];"]
-    for n in nodes:
-        i = nid[n["name"]]
-        w, h = size[i]
-        cx, cy = pin[i]
         lines.append('  %s [width=%.4f, height=%.4f, pos="%.3f,%.3f!"];'
                      % (i, w / 72.0, h / 72.0, cx, cy))
-    # undirected edges (we only need routes; arrowheads are applied by draw.io).
-    # dedupe so a pair is routed once; the lookup table is keyed both directions.
     seen = set()
     for e in edges:
         if e["source"] == e["target"]:
-            continue                        # splines=ortho hates self-loops
+            continue
         s, t = nid[e["source"]], nid[e["target"]]
         if (s, t) in seen or (t, s) in seen:
             continue
@@ -576,42 +455,31 @@ def _route_pinned(nodes, edges, nid, opt, pos):
         lines.append("  %s -- %s;" % (s, t))
     lines.append("}")
     src = "\n".join(lines)
-
     out = None
-    for engine in (["neato", "-n2", "-Tplain"],
-                   ["fdp", "-n2", "-Tplain"],
-                   ["neato", "-n", "-Tplain"]):
+    for engine in (["neato", "-n2", "-Tplain"], ["fdp", "-n2", "-Tplain"], ["neato", "-n", "-Tplain"]):
         try:
-            r = subprocess.run(engine, input=src, capture_output=True, text=True,
-                               encoding="utf-8")
+            r = subprocess.run(engine, input=src, capture_output=True, text=True, encoding="utf-8")
         except FileNotFoundError:
             continue
         if r.returncode == 0 and r.stdout.strip():
             out = r.stdout
             break
     if out is None:
-        print("draw: warning: neato/fdp unavailable; box-avoiding routing "
-              "skipped, falling back to draw.io auto-routing (FR-D-07a)",
-              file=sys.stderr)
+        print("draw: warning: neato/fdp unavailable; box-avoiding routing skipped, "
+              "falling back to draw.io auto-routing (FR-D-07a)", file=sys.stderr)
         return {}
-
     centres, polylines = _parse_plain_raw(out)
-    # recover the affine (x' = x_pt + ox ; y' = -y_pt + oy) from echoed centres.
-    # average over all nodes for numerical robustness (they should all agree).
     oxs, oys = [], []
     for i, (px, py) in pos.items():
         if i not in centres:
             continue
         w, h = size[i]
-        want_cx = px + w / 2.0
-        want_cy = py + h / 2.0          # draw.io centre (y down)
         cx_pt, cy_pt = centres[i]
-        oxs.append(want_cx - cx_pt)     # x' = x_pt + ox
-        oys.append(want_cy + cy_pt)     # y' = -y_pt + oy  (note +cy_pt: flip)
+        oxs.append((px + w / 2.0) - cx_pt)
+        oys.append((py + h / 2.0) + cy_pt)
     if not oxs:
         return {}
-    ox = sum(oxs) / len(oxs)
-    oy = sum(oys) / len(oys)
+    ox, oy = sum(oxs) / len(oxs), sum(oys) / len(oys)
 
     def to_px(pt):
         return (pt[0] + ox, -pt[1] + oy)
@@ -621,7 +489,6 @@ def _route_pinned(nodes, edges, nid, opt, pos):
         conv = [to_px(p) for p in pts]
         table[(a, b)] = conv
         table[(b, a)] = conv[::-1]
-
     routes = {}
     for e in edges:
         if e["source"] == e["target"]:
@@ -633,48 +500,44 @@ def _route_pinned(nodes, edges, nid, opt, pos):
     return routes
 
 
-def cluster_box_cells(nodes, nid, pos, opt):
-    """Dashed, labelled box around each cluster's member bounding box.
-
-    -Tplain does not emit cluster bboxes, so compute each from member positions
-    (+ side PAD, top TOP_PAD for the label). Emitted BEFORE node cells so draw.io
-    z-order (= document order) puts them behind the boxes."""
-    specs = opt.get("clusters", {})
-    by_cluster = OrderedDict()
-    for n in nodes:
-        if n.get("cluster") is not None:
-            by_cluster.setdefault(n["cluster"], []).append(n)
-    cells, maxx, maxy = [], 0, 0
-    for ckey, members in by_cluster.items():
-        xs0, ys0, xs1, ys1 = [], [], [], []
-        for n in members:
-            w, h = node_size(n, opt)
-            x, y = pos[nid[n["name"]]]
-            xs0.append(x); ys0.append(y); xs1.append(x + w); ys1.append(y + h)
-        bx, by = min(xs0) - PAD, min(ys0) - TOP_PAD
-        bw, bh = (max(xs1) - min(xs0)) + 2 * PAD, (max(ys1) - min(ys0)) + TOP_PAD + PAD
-        col = specs.get(ckey, {}).get("stroke", "#888888")
-        lbl = specs.get(ckey, {}).get("label", ckey)
-        cells.append(
-            '<mxCell id="%s" value="%s" style="rounded=1;arcSize=3;fillColor=none;'
+def box_cell(cluster, idx, x, y, w, h):
+    name = cluster.get("name")
+    bid = cid(name) if name else "cluster_box_%d" % idx
+    col = cluster.get("color") or DEFAULT_BOX_COLOR
+    return ('<mxCell id="%s" value="%s" style="rounded=1;arcSize=3;fillColor=none;'
             'strokeColor=%s;dashed=1;dashPattern=8 4;strokeWidth=2;verticalAlign=top;'
             'align=left;spacingLeft=10;spacingTop=6;fontStyle=1;fontColor=%s;fontSize=13;'
             'html=1;" vertex="1" parent="1"><mxGeometry x="%d" y="%d" width="%d" height="%d" '
             'as="geometry"/></mxCell>'
-            % (cid(ckey), esc(lbl), col, col, round(bx), round(by), round(bw), round(bh)))
-        maxx, maxy = max(maxx, bx + bw), max(maxy, by + bh)
-    return cells, maxx, maxy
+            % (bid, esc(cluster.get("label", "")), col, col,
+               round(x), round(y), round(w), round(h)))
 
 
-def legend_cell(opt, x, y, w):
-    specs = opt.get("clusters", {})
-    parts = ["<b>Legend</b> &nbsp; "]
-    for spec in specs.values():
-        parts.append("<font color='%s'>&#9632;</font> %s &nbsp; "
-                     % (spec.get("stroke", "#888"), spec.get("label", "").split(" — ")[0]))
+def outermost_labelled(cluster, found=None):
+    """(label, color) for every labelled cluster that has no labelled ancestor."""
+    if found is None:
+        found = []
+    if cluster is None:
+        return found
+    if "label" in cluster:
+        found.append((cluster["label"], cluster.get("color") or DEFAULT_BOX_COLOR))
+        return found                       # stop: descendants are not outermost
+    if not is_leaf(cluster):
+        for ch in cluster["clusters"]:
+            outermost_labelled(ch, found)
+    return found
+
+
+def legend_cell(outermost, x, y, w):
+    parts, seen = ["<b>Legend</b> &nbsp; "], set()
+    for label, color in outermost:
+        if color in seen:
+            continue
+        seen.add(color)
+        parts.append("<font color='%s'>&#9632;</font> %s &nbsp; " % (color, label.split(" — ")[0]))
     parts.append("&nbsp;|&nbsp; &#9670; composition &nbsp; &#9671; aggregation "
                  "&nbsp; &#8594; association &nbsp; &#8674; dependency")
-    val = esc("".join(parts))  # escaped like every value; draw.io un-escapes & renders the HTML
+    val = esc("".join(parts))
     return ('<mxCell id="legend" value="%s" style="rounded=1;arcSize=4;whiteSpace=wrap;'
             'html=1;fillColor=#FBFBFB;strokeColor=#BBBBBB;align=left;verticalAlign=middle;'
             'spacingLeft=10;spacingRight=10;fontSize=12;fontColor=#333333;" vertex="1" '
@@ -682,33 +545,74 @@ def legend_cell(opt, x, y, w):
             % (val, round(x), round(y), round(w)))
 
 
-def render_clustered(model):
-    """Renderer for the opt-in cluster / legend / banded / routed path.
+def validate_tree(nodes, layout):
+    """FR-D-03a / FR-D-14: every node placed exactly once; cluster names unique
+    and '/'-free; warn when labelled nesting exceeds DEPTH_WARN."""
+    placed, names, max_depth = [], [], [0]
 
-    Cell order (draw.io z-order = document order): cluster boxes -> node cells ->
-    edges -> legend. Full shape menu supported; clustered nodes are usually class
-    compartments, but any other shape still renders via the shared _node_cells."""
-    nodes = model.get("nodes") or []
-    edges = model.get("edges", [])
+    def walk(c, depth):
+        nm = c.get("name")
+        if "nodes" in c and "clusters" in c:
+            sys.exit("draw: cluster has both 'nodes' and 'clusters': %r"
+                     % (nm or c.get("label") or "<anonymous>"))
+        if nm is not None:
+            if "/" in nm:
+                sys.exit("draw: cluster name must not contain '/': %r" % nm)
+            names.append(nm)
+        d = depth + (1 if "label" in c else 0)
+        max_depth[0] = max(max_depth[0], d)
+        if is_leaf(c):
+            placed.extend(c["nodes"])
+        else:
+            for ch in c["clusters"]:
+                walk(ch, d)
+
+    walk(layout, 0)
+    dups = sorted({n for n in names if names.count(n) > 1})
+    if dups:
+        sys.exit("draw: duplicate cluster name(s): %s" % ", ".join(dups))
+    allnames = [n["name"] for n in nodes]
+    known = set(allnames)
+    cnt = Counter(placed)
+    missing = [n for n in allnames if n not in cnt]
+    dupn = sorted({n for n, c in cnt.items() if c > 1})
+    unknown = sorted({n for n in placed if n not in known})
+    if missing or dupn or unknown:
+        sys.exit("draw: layout must place every node exactly once "
+                 "(missing=%s, duplicated=%s, unknown=%s)" % (missing, dupn, unknown))
+    if max_depth[0] > DEPTH_WARN:
+        print("draw: warning: labelled cluster nesting is %d deep (>%d); deep nesting "
+              "is hard to read (LM-1)" % (max_depth[0], DEPTH_WARN), file=sys.stderr)
+
+
+def render_clustered(model, nodes, edges, layout):
     opt = model.get("options", {})
-    nid = {n["name"]: "n_" + re.sub(r"[^0-9A-Za-z_]", "_", n["name"]) for n in nodes}
-    pos, routes = dot_layout_clustered(nodes, edges, nid, opt)
+    nid = make_nid(nodes)
+    nodemap = {n["name"]: n for n in nodes}
+    validate_tree(nodes, layout)
+    pos, _, boxes = compose(layout, edges, nid, opt, nodemap)
+    pos = {k: (x + MARGIN, y + MARGIN) for k, (x, y) in pos.items()}
+    boxes = [(c, x0 + MARGIN, y0 + MARGIN, x1 + MARGIN, y1 + MARGIN)
+             for (c, x0, y0, x1, y1) in boxes]
+    routes = _route_pinned(nodes, edges, nid, opt, pos)
+    eff = resolve_styles(nodes, layout)
+    rs = rs_style()
 
-    rs = ("text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;"
-          "spacingLeft=8;overflow=hidden;rotatable=0;html=1;fontSize=12;fontColor=#1A1A1A;")
     cells = []
-    # 1. cluster boxes first (behind everything)
-    cbox, cmaxx, cmaxy = cluster_box_cells(nodes, nid, pos, opt)
-    cells += cbox
-    # 2. node cells (class compartments + any other shapes)
+    for idx, (c, x0, y0, x1, y1) in enumerate(boxes):       # boxes are outer-first -> behind
+        cells.append(box_cell(c, idx, x0, y0, x1 - x0, y1 - y0))
     for node in nodes:
-        cells += _node_cells(node, nid, pos, opt, rs)
-    # 3. edges (routes come from the pinned whole-graph pass -> box-avoiding)
+        cells += _node_cells(node, nid, pos, opt, rs, eff)
     for i, e in enumerate(edges):
         cells.append(_edge_cell(i, e, nid, routes))
-    # 4. legend, below the diagram (rendered whenever clusters exist)
-    if opt.get("clusters"):
-        cells.append(legend_cell(opt, MARGIN, cmaxy + 36, max(900, cmaxx - MARGIN)))
+
+    outer = outermost_labelled(layout)
+    if outer:
+        maxx = max([x1 for (_, _, _, x1, _) in boxes]
+                   + [pos[nid[n["name"]]][0] + node_size(n, opt)[0] for n in nodes], default=MARGIN)
+        maxy = max([y1 for (_, _, _, _, y1) in boxes]
+                   + [pos[nid[n["name"]]][1] + node_size(n, opt)[1] for n in nodes], default=MARGIN)
+        cells.append(legend_cell(outer, MARGIN, maxy + 36, max(900, maxx - MARGIN)))
 
     xml = ('<mxGraphModel adaptiveColors="auto"><root><mxCell id="0"/>'
            '<mxCell id="1" parent="0"/>%s</root></mxGraphModel>' % "".join(cells))
@@ -716,36 +620,121 @@ def render_clustered(model):
     return xml
 
 
-# ----------------------------------------------------------------- dispatch
-def uses_clusters(model):
-    opt = model.get("options", {})
-    if opt.get("clusters") or opt.get("layout"):
-        return True
+# ----------------------------------------------------------------- views
+def node_names_under(cluster):
+    if cluster is None:
+        return set()
+    if is_leaf(cluster):
+        return set(cluster["nodes"])
+    out = set()
+    for ch in cluster["clusters"]:
+        out |= node_names_under(ch)
+    return out
+
+
+def find_cluster(cluster, name):
+    if cluster is None:
+        return None
+    if cluster.get("name") == name:
+        return cluster
+    if not is_leaf(cluster):
+        for ch in cluster["clusters"]:
+            hit = find_cluster(ch, name)
+            if hit:
+                return hit
+    return None
+
+
+def prune(cluster, selected):
+    """Prune the layout tree to `selected` node names: drop empty leaves and
+    childless internal clusters. Returns a pruned copy or None if empty."""
+    if is_leaf(cluster):
+        kept = [n for n in cluster["nodes"] if n in selected]
+        if not kept:
+            return None
+        c = dict(cluster)
+        c["nodes"] = kept
+        return c
+    kids = [k for k in (prune(ch, selected) for ch in cluster["clusters"]) if k]
+    if not kids:
+        return None
+    c = dict(cluster)
+    c["clusters"] = kids
+    return c
+
+
+def apply_view(model, key):
+    views = model.get("views") or {}
+    if key not in views:                                    # FR-D-16a
+        sys.exit("draw: unknown --view %r (known: %s)" % (key, ", ".join(sorted(views)) or "none"))
+    view = views[key]
     nodes = model.get("nodes") or []
-    return any(n.get("cluster") is not None for n in nodes)
+    allnames = {n["name"] for n in nodes}
+    layout = model.get("layout")
+    selected = set(view.get("nodes", []))
+    for cname in view.get("clusters", []):
+        cl = find_cluster(layout, cname) if layout else None
+        if cl is None:
+            sys.exit("draw: view %r references unknown cluster %r" % (key, cname))
+        selected |= node_names_under(cl)
+    unknown = selected - allnames
+    if unknown:
+        sys.exit("draw: view %r references unknown node(s): %s" % (key, ", ".join(sorted(unknown))))
+    if not selected:
+        sys.exit("draw: view %r selects no node" % key)
+    fnodes = [n for n in nodes if n["name"] in selected]
+    fedges = [e for e in (model.get("edges") or [])
+              if e.get("source") in selected and e.get("target") in selected]
+    flayout = prune(layout, selected) if layout else None
+    return fnodes, fedges, flayout
 
 
-def render(model):
-    """Dispatch: cluster-less models take the verbatim stock path (byte-identical
-    to the global skill); models with clusters/banded layout take the new path."""
-    if uses_clusters(model):
-        return render_clustered(model)
-    return render_flat(model)
+# ----------------------------------------------------------------- dispatch
+def render_model(model, view_key=None):
+    """Resolve (optionally a --view) and render. Returns (xml, nodes, edges) where
+    nodes/edges are the ones actually drawn. Fails fast (§3.4 referential integrity)
+    when an edge references an undefined node."""
+    nodes = model.get("nodes") or []
+    edges = model.get("edges") or []
+    known = {n["name"] for n in nodes}
+    bad = sorted({x for e in edges for x in (e.get("source"), e.get("target")) if x not in known})
+    if bad:
+        sys.exit("draw: edge references unknown node(s): %s" % ", ".join(bad))
+    layout = model.get("layout")
+    if view_key is not None:
+        nodes, edges, layout = apply_view(model, view_key)
+    xml = render_clustered(model, nodes, edges, layout) if layout else render_flat(model, nodes, edges)
+    return xml, nodes, edges
+
+
+def render(model, view_key=None):
+    """Model -> .drawio XML string. (render_model also returns the drawn counts.)"""
+    return render_model(model, view_key)[0]
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("usage: python draw.py MODEL.json OUT.drawio", file=sys.stderr)
+    args = sys.argv[1:]
+    view_key = None
+    if "--view" in args:
+        i = args.index("--view")
+        if i + 1 >= len(args):
+            print("usage: python draw.py MODEL.json OUT.drawio [--view KEY]", file=sys.stderr)
+            sys.exit(2)
+        view_key = args[i + 1]
+        del args[i:i + 2]
+    if len(args) != 2:
+        print("usage: python draw.py MODEL.json OUT.drawio [--view KEY]", file=sys.stderr)
         sys.exit(2)
-    with open(sys.argv[1], encoding="utf-8") as fh:
-        model = json.load(fh)
-    with open(sys.argv[2], "w", encoding="utf-8") as fh:
-        fh.write(render(model))
-    nodes = model.get("nodes") or []
-    nc = len(model.get("options", {}).get("clusters", {}))
-    extra = " (%d clusters)" % nc if nc else ""
-    print("wrote %s (%d nodes, %d edges)%s"
-          % (sys.argv[2], len(nodes), len(model.get("edges", [])), extra))
+    try:
+        with open(args[0], encoding="utf-8") as fh:
+            model = json.load(fh)
+    except (OSError, ValueError) as exc:
+        sys.exit("draw: cannot read model: %s" % exc)
+    xml, rn, re_ = render_model(model, view_key)
+    with open(args[1], "w", encoding="utf-8") as fh:
+        fh.write(xml)
+    suffix = " (--view %s)" % view_key if view_key else ""
+    print("wrote %s (%d nodes, %d edges)%s" % (args[1], len(rn), len(re_), suffix))
 
 
 if __name__ == "__main__":

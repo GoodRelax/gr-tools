@@ -496,7 +496,7 @@ Feature: table — モデルから .md を生成
     Then  エラーを報告して非ゼロ終了する
 ```
 
-**Result:** 実装フェーズ(0.3.0)  **Remark:** 0.3.0 は新シナリオ(SC-017〜020 / SC-108〜109)とツリー/views を含む。既存 `tests/test_draw.py`/`test_table.py` は 0.3.0 形式へ書き換え、回帰基準 `.drawio` を 0.3.0 出力で取り直す(後方互換は不要=オーナー決定;ADR-003 の基準リセット)。SC-011 は欠番。SC-012(整形式でない XML)は `esc()` により通常到達不能のため skip。
+**Result:** PASS(0.3.0)  **Remark:** `tests/test_draw.py`(22 ケース・SC-012 skip)・`tests/test_table.py`(18 ケース)で SC-001〜020 / SC-101〜109 を検証し全 PASS。コードは敵対的レビュー反映済み(未定義エッジ端点の fail-fast 追加・`nodes`+`clusters` 同時指定ガード等)。回帰基準は 0.3.0 出力(後方互換は不要=オーナー決定;ADR-003 の基準リセット)。SC-011 は欠番。SC-012(整形式でない XML)は `esc()` により通常到達不能のため skip。
 
 ### 4.2 CLI Definition(コマンド定義)
 

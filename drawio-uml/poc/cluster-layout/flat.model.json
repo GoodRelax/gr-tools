@@ -1,0 +1,34 @@
+{
+ "options": {
+  "direction": "row"
+ },
+ "nodes": [
+  {
+   "name": "A",
+   "shape": "class",
+   "attributes": [
+    "x:int"
+   ]
+  },
+  {
+   "name": "B",
+   "shape": "class"
+  },
+  {
+   "name": "C",
+   "shape": "state"
+  }
+ ],
+ "edges": [
+  {
+   "source": "A",
+   "target": "B",
+   "arrow": "composition"
+  },
+  {
+   "source": "B",
+   "target": "C",
+   "arrow": "dependency"
+  }
+ ]
+}
