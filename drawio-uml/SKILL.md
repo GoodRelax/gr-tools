@@ -22,15 +22,15 @@ Anything that is **boxes and arrows** — i.e. a node-link graph dot can lay out
 
 | Diagram | Node shapes | Edge arrows |
 |---------|-------------|-------------|
-| **Class** | `class` (compartments) | `gen` `real` `comp` `aggr` `assoc` `dep` |
-| **Object** | `object` (underlined name) | `assoc` `line` |
-| **ER** | `entity` (compartments) | `assoc` (multiplicity in label) |
+| **Class** | `class` (compartments) | `generalization` `realization` `composition` `aggregation` `directed_association` `dependency` |
+| **Object** | `object` (underlined name) | `directed_association` `association` |
+| **ER** | `entity` (compartments) | `directed_association` (multiplicity in label) |
 | **State machine** | `initial` `state` `final` | `transition` (event/guard in label) |
 | **Activity** | `initial` `action` `decision` `final` | `transition` (guard in label) |
-| **Use case** | `actor` `usecase` | `line` (actor–uc), `dep` + `«include»`/`«extend»` label |
-| **Component** | `component` `node` | `dep` `assoc` |
-| **Package** | `package` | `dep` |
-| **Deployment** | `node` `component` | `assoc` `dep` |
+| **Use case** | `actor` `usecase` | `association` (actor–uc), `dependency` + `«include»`/`«extend»` label |
+| **Component** | `component` `box` | `dependency` `directed_association` |
+| **Package** | `package` | `dependency` |
+| **Deployment** | `box` `component` | `directed_association` `dependency` |
 
 **Not supported: sequence and timing diagrams.** They are ordered by *time* along lifelines, which is not a graph-layout problem — dot does not help, and forcing it produces nonsense. Tell the user this honestly and suggest Mermaid `sequenceDiagram` or PlantUML instead.
 
@@ -63,7 +63,7 @@ Read the target — source code or a spec — and extract the nodes and relation
 
 ```json
 {
-  "options": {"rankdir": "TB", "col_w": 260, "nodesep": 0.7, "ranksep": 1.1},
+  "options": {"rankdir": "TB", "column_width": 260, "node_separation": 0.7, "rank_separation": 1.1},
   "nodes": [
     {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
     {"name": "Running", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
@@ -82,23 +82,23 @@ Read the target — source code or a spec — and extract the nodes and relation
 
 | shape | renders as | shape | renders as |
 |-------|-----------|-------|-----------|
-| `class` `entity` `object` | compartment box (name / attrs / methods) | `usecase` | ellipse |
+| `class` `entity` `object` | compartment box (name / attributes / methods) | `usecase` | ellipse |
 | `component` | rectangle + «component» | `actor` | stick figure |
 | `package` | folder | `state` `action` | rounded rectangle |
-| `node` | plain rectangle | `decision` | diamond |
+| `box` | plain rectangle | `decision` | diamond |
 | `initial` | filled dot | `final` | bullseye |
 | `note` | dog-eared note | | |
 
-Compartment shapes take `attrs` and `methods` (lists of strings like `"+ name: str"`). Visibility: `+` public, `-` private, `#` protected, `~` package. Mark abstract/interface via `"stereotype"` + the name auto-italicises. Any node may override its preset with a raw draw.io `"style"` string, or set `"w"`/`"h"`.
+Compartment shapes take `attributes` and `methods` (lists of strings like `"+ name: str"`). Visibility: `+` public, `-` private, `#` protected, `~` package. Mark abstract/interface via `"stereotype"` + the name auto-italicises. Any node may override its preset with a raw draw.io `"style"` string, or set `"width"`/`"height"`.
 
 **Edge arrows** (`arrow` field; source → target is the reading direction):
 
 | arrow | UML meaning | arrow | UML meaning |
 |-------|-------------|-------|-------------|
-| `gen` | generalization (extends) | `assoc` | association (open arrow) |
-| `real` | realization (implements) | `dep` | dependency (dashed); use label `«include»`/`«extend»` |
-| `comp` | composition (filled diamond) | `transition` | state/activity flow |
-| `aggr` | aggregation (hollow diamond) | `line` | plain line, no arrowhead (actor–usecase) |
+| `generalization` | generalization (extends) | `directed_association` | association, open arrow |
+| `realization` | realization (implements) | `dependency` | dependency (dashed); use label `«include»`/`«extend»` |
+| `composition` | composition (filled diamond) | `transition` | state/activity flow |
+| `aggregation` | aggregation (hollow diamond) | `association` | plain line, no arrowhead (actor–usecase) |
 
 Put multiplicity / role / guard text in the optional edge `"label"`. Colour by layer so related nodes read together (palette in the reference).
 
@@ -109,23 +109,23 @@ To group nodes, add a `"cluster"` key per node and describe each cluster under `
 ```json
 {
   "options": {
-    "rankdir": "TB", "col_w": 300,
+    "rankdir": "TB", "column_width": 300,
     "clusters": {
-      "input":      {"label": "Input port — perception", "color": "#2F8FA8", "tint": "#E3F2F5"},
-      "consider":   {"label": "Consider — the Conception", "color": "#9673A6", "tint": "#EDE7F6"},
-      "output":     {"label": "Output port — action", "color": "#D79B00", "tint": "#FFF0DD"},
-      "vocabulary": {"label": "Vocabulary — Lexicon", "color": "#82B366", "tint": "#E7F4E7"}
+      "input":      {"label": "Input port — perception", "stroke": "#2F8FA8", "fill": "#E3F2F5"},
+      "consider":   {"label": "Consider — the Conception", "stroke": "#9673A6", "fill": "#EDE7F6"},
+      "output":     {"label": "Output port — action", "stroke": "#D79B00", "fill": "#FFF0DD"},
+      "vocabulary": {"label": "Vocabulary — Lexicon", "stroke": "#82B366", "fill": "#E7F4E7"}
     },
     "layout": {"rows": [["input", "consider", "output"], ["vocabulary"]]}
   },
   "nodes": [
     {"name": "Probe", "shape": "class", "cluster": "input",
-     "fill": "#E3F2F5", "stroke": "#2F8FA8", "attrs": ["moves : GameMove[*]"]},
+     "fill": "#E3F2F5", "stroke": "#2F8FA8", "attributes": ["moves : GameMove[*]"]},
     {"name": "GameMove", "shape": "class", "cluster": "output",
-     "fill": "#FFF0DD", "stroke": "#D79B00", "attrs": ["kind", "params"]}
+     "fill": "#FFF0DD", "stroke": "#D79B00", "attributes": ["kind", "params"]}
   ],
   "edges": [
-    {"source": "Probe", "target": "GameMove", "arrow": "aggr", "label": "trial moves"}
+    {"source": "Probe", "target": "GameMove", "arrow": "aggregation", "label": "trial moves"}
   ]
 }
 ```
@@ -135,7 +135,7 @@ New schema keys:
 | key | scope | meaning |
 |-----|-------|---------|
 | `"cluster": "<key>"` | per node | put this node in that cluster. No `cluster` ⇒ node stays top-level (un-boxed). |
-| `options.clusters` | `{ "<key>": {"label", "color", "tint"} }` | `label` = cluster-box title + legend text; `color` = dashed border + legend swatch; `tint` = a suggested fill. **Per-node `fill`/`stroke` win** — set them to the cluster's tint/color for a uniform look. |
+| `options.clusters` | `{ "<key>": {"label", "stroke", "fill"} }` | `label` = cluster-box title + legend text; `stroke` = dashed border + legend swatch; `fill` = a suggested node fill. **Per-node `fill`/`stroke` win** — set them to the cluster's `fill`/`stroke` for a uniform look. |
 | `options.layout.rows` | `[[clusterKey, …], …]` | **banded/compass layout.** Row 0 is the TOP band; within a row clusters sit left→right in listed order; rows stack top→bottom. A cluster alone in its row spans full width (laid out as a wide LR strip); clusters sharing a row are tall TB columns. |
 
 The **legend** is drawn whenever `options.clusters` is present. **Box-avoiding routing** runs automatically on any clustered model — you don't enable it, and you should expect **no edge to cross any box**, including cross-cluster edges. See the reference §9–§12 for the full mechanism.
@@ -143,7 +143,7 @@ The **legend** is drawn whenever `options.clusters` is present. **Box-avoiding r
 ### 2. Generate the .drawio
 
 ```bash
-python <SKILL_DIR>/scripts/drawio_uml.py model.json out.drawio
+python <SKILL_DIR>/scripts/draw.py model.json out.drawio
 ```
 
 `<SKILL_DIR>` is this skill's directory. The script emits native shapes, pulls positions + orthogonal routes from `dot` (and, for clustered models, the pinned `neato -n2` routing pass), self-validates the XML, and prints a confirmation. A malformed model fails fast.
@@ -164,10 +164,10 @@ Read the exported PNG and check: shapes render as intended, arrowheads are the c
 
 ## Tuning layout (if anything overlaps)
 
-- **More room**: raise `options.ranksep` / `options.nodesep`.
+- **More room**: raise `options.rank_separation` / `options.node_separation`.
 - **Orientation**: `options.rankdir` = `"TB"` (top-down, default) or `"LR"` — `"LR"` suits use-case and wide hierarchies.
 - **Banded gaps**: clusters in a row are `CLUSTER_GAP` apart; bands are `BAND_GAP` apart (constants near the top of the script).
-- **Fewer crossings by design**: keep the primary structure (inheritance, control flow) as the backbone; dash or drop secondary `dep`/`assoc` edges.
+- **Fewer crossings by design**: keep the primary structure (inheritance, control flow) as the backbone; dash or drop secondary `dependency`/`directed_association` edges.
 - **Interactive last resort**: open in draw.io, `Arrange → Layout → Vertical Tree` / `Hierarchical`, or drag.
 
 ## Pitfalls

@@ -36,7 +36,7 @@ documented in `SKILL.md` and `references/drawio-uml-reference.md` (§9–§13).
 | File | Purpose |
 |------|---------|
 | `SKILL.md` | The Claude Code skill manifest (frontmatter + workflow + new schema keys). |
-| `scripts/drawio_uml.py` | Generator: JSON model → `.drawio` (native shapes + dot layout + pinned routing). |
+| `scripts/draw.py` | Generator: JSON model → `.drawio` (native shapes + dot layout + pinned routing). |
 | `references/drawio-uml-reference.md` | Concepts, install matrix, full shape/arrow catalog, per-type examples, clusters/legend/banded/edge-routing sections, troubleshooting. |
 | `README.md` | This file. |
 
@@ -124,7 +124,7 @@ After installing, ask Claude e.g. *"draw a class diagram of `src/` in draw.io"*,
 2. Generate the `.drawio`:
 
 ```bash
-python scripts/drawio_uml.py model.json out.drawio
+python scripts/draw.py model.json out.drawio
 ```
 
 3. Export to PNG (or SVG) with the draw.io CLI:
