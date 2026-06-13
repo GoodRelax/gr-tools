@@ -1,6 +1,6 @@
 ---
 name: drawio-uml
-description: Generate clean UML and node-link diagrams as native draw.io (.drawio) files with automatic, non-overlapping layout — Graphviz dot computes both node positions AND orthogonal edge routes, so lines never cut through boxes. Use whenever the user wants to draw, generate, or clean up a diagram in draw.io or drawio — class, state-machine, use-case, component, package, activity, deployment, ER, or object diagrams — especially when layout quality matters (overlapping lines, edges crossing boxes, messy auto-layout, or a Mermaid diagram that looks bad). Also use when reverse-engineering structure from source code into a diagram, or when the user says an existing diagram is ugly, low-quality, or hard to read. Produces real UML shapes (class compartments, state rounded-rects, use-case ellipses, actors, decision diamonds, package folders) with proper UML arrows, exported to PNG/SVG via the draw.io CLI. Optionally groups nodes into labelled, coloured clusters with a legend, arranges clusters into named horizontal bands (compass layout), and routes EVERY edge — including cross-cluster ones — around the boxes via a position-pinned Graphviz pass. Does NOT do sequence or timing diagrams. Requires Graphviz (dot, plus neato/fdp for the pinned routing pass), draw.io desktop, and Python 3.10+.
+description: Generate clean UML and node-link diagrams as native draw.io (.drawio) files with automatic, non-overlapping layout — Graphviz dot computes both node positions AND orthogonal edge routes, so lines never cut through boxes. Use whenever the user wants to draw, generate, or clean up a diagram in draw.io or drawio — class, state-machine, use-case, component, package, activity, deployment, ER, or object diagrams — especially when layout quality matters (overlapping lines, edges crossing boxes, messy auto-layout, or a Mermaid diagram that looks bad). Also use when reverse-engineering structure from source code into a diagram, or when the user says an existing diagram is ugly, low-quality, or hard to read. Produces real UML shapes (class compartments, state rounded-rects, use-case ellipses, actors, decision diamonds, package folders) with proper UML arrows, exported to PNG/SVG via the draw.io CLI. Optionally groups nodes into labelled, coloured clusters with a legend, arranges clusters into named horizontal bands (compass layout), and routes EVERY edge — including cross-cluster ones — around the boxes via a position-pinned Graphviz pass. Does NOT do sequence or timing diagrams. Requires Graphviz (dot, plus neato/fdp for the pinned routing pass), draw.io desktop, and Python 3.10+. The same model also yields Markdown node/edge tables (responsibilities, element lists) via the companion table.py.
 ---
 
 # drawio-uml: clean UML / node-link diagrams in draw.io
@@ -102,6 +102,8 @@ Compartment shapes take `attributes` and `methods` (lists of strings like `"+ na
 
 Put multiplicity / role / guard text in the optional edge `"label"`. Colour by layer so related nodes read together (palette in the reference).
 
+**Documentation fields** (`description`, `remark`) — any node or edge may carry a `"description"` (its one-line responsibility) and a `"remark"` (a side note: origin, ADR, constraint). `draw` **ignores** them, so the diagram is unchanged; **`table` emits them**. Use these instead of cluttering the boxes. The full model schema is formalised in `schema/model.schema.json` (JSON Schema draft-07, strict — it catches typos in keys).
+
 ### 1b. (Optional) clusters, a legend, and banded layout
 
 To group nodes, add a `"cluster"` key per node and describe each cluster under `options.clusters`. To arrange whole clusters into bands, add `options.layout.rows`. **All three keys are opt-in — omit them for the stock flat diagram.**
@@ -140,13 +142,16 @@ New schema keys:
 
 The **legend** is drawn whenever `options.clusters` is present. **Box-avoiding routing** runs automatically on any clustered model — you don't enable it, and you should expect **no edge to cross any box**, including cross-cluster edges. See the reference §9–§12 for the full mechanism.
 
-### 2. Generate the .drawio
+### 2. Generate the diagram (and tables)
 
 ```bash
-python <SKILL_DIR>/scripts/draw.py model.json out.drawio
+python <SKILL_DIR>/scripts/draw.py  model.json out.drawio                 # the .drawio diagram
+python <SKILL_DIR>/scripts/table.py model.json out.md [--cluster KEY]     # node/edge tables (.md)
 ```
 
-`<SKILL_DIR>` is this skill's directory. The script emits native shapes, pulls positions + orthogonal routes from `dot` (and, for clustered models, the pinned `neato -n2` routing pass), self-validates the XML, and prints a confirmation. A malformed model fails fast.
+`<SKILL_DIR>` is this skill's directory. `draw.py` emits native shapes, pulls positions + orthogonal routes from `dot` (and, for clustered models, the pinned `neato -n2` routing pass), self-validates the XML, and prints a confirmation. `table.py` writes Markdown node/edge tables and consumes `description`/`remark`; `--cluster KEY` (or `-c`) narrows the **tables** to a cluster subtree, while the diagram always shows the whole model. A malformed model fails fast.
+
+**One-shot human workflow (Windows):** drag one or more `model.json` files onto `drawio-uml.bat` (in the skill root) — it runs both generators and exports `.svg`/`.png`, writing all outputs next to each input.
 
 ### 3. Export to PNG/SVG (recommended)
 

@@ -17,3 +17,10 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# drawio-uml generated outputs (regenerate from model.json; not source).
+# Note: tests/*.drawio are committed regression baselines -- only samples/ is ignored.
+drawio-uml/samples/*.drawio
+drawio-uml/samples/*.svg
+drawio-uml/samples/*.png
+drawio-uml/samples/*.md
+
