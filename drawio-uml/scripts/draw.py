@@ -25,7 +25,7 @@ Requires Python 3.10+ and Graphviz `dot` on PATH (plus `neato`/`fdp` for the
 pinned routing pass used by the cluster paths).
 
 Usage:
-    python drawio_uml.py MODEL.json OUT.drawio
+    python draw.py MODEL.json OUT.drawio
 
 Model schema (see references/drawio-uml-reference.md for the full menu):
 {
@@ -733,7 +733,7 @@ def render(model):
 
 def main():
     if len(sys.argv) != 3:
-        print("usage: python drawio_uml.py MODEL.json OUT.drawio", file=sys.stderr)
+        print("usage: python draw.py MODEL.json OUT.drawio", file=sys.stderr)
         sys.exit(2)
     with open(sys.argv[1], encoding="utf-8") as fh:
         model = json.load(fh)

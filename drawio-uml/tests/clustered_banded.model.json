@@ -1,0 +1,18 @@
+{
+  "options": {
+    "clusters": {
+      "core": {"label": "Core", "color": "#FF8C00"},
+      "ext":  {"label": "External", "color": "#87CEEB"}
+    },
+    "layout": {"rows": [["core"], ["ext"]]}
+  },
+  "nodes": [
+    {"name": "Model",    "shape": "class",     "cluster": "core"},
+    {"name": "Draw",     "shape": "component", "cluster": "core"},
+    {"name": "Graphviz", "shape": "component", "cluster": "ext"}
+  ],
+  "edges": [
+    {"source": "Draw", "target": "Model",    "arrow": "dep"},
+    {"source": "Draw", "target": "Graphviz", "arrow": "assoc"}
+  ]
+}

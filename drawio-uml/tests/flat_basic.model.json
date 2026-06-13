@@ -1,0 +1,11 @@
+{
+  "nodes": [
+    {"name": "A", "shape": "class", "attrs": ["- x: int"], "methods": ["+ f()"]},
+    {"name": "B", "shape": "class"},
+    {"name": "C", "shape": "state"}
+  ],
+  "edges": [
+    {"source": "A", "target": "B", "arrow": "gen", "label": "extends"},
+    {"source": "B", "target": "C", "arrow": "assoc"}
+  ]
+}
