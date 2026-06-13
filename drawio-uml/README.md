@@ -1,13 +1,14 @@
-# drawio-uml (improved)
+# drawio-uml
 
 Clean UML / node-link diagrams in **draw.io**, laid out automatically by **Graphviz** — no
 overlapping lines, no edges cutting through boxes. Works as a **Claude Code skill**
 (auto-triggers on diagram requests) or as a **standalone generator** you run by hand.
 
-This is the **improved** drawio-uml: a strict superset of the stock skill. A model that uses
-none of the new keys renders **byte-identically** to stock; the new features are all opt-in.
+You write one `model.json` (the single source of truth); the generator draws the diagram and,
+from the same file, Markdown node/edge tables. Grouping and arrangement are an optional recursive
+`layout` tree, and `views` carve focused sub-diagrams out of a large model.
 
-## What it is, and what it improves over the stock skill
+## What it is
 
 You write a small `model.json` (boxes + arrows). The generator emits a native `.drawio` file,
 asking Graphviz to compute **both** node positions **and** orthogonal edge routes, which it
@@ -18,18 +19,19 @@ It draws: class, object, ER, state-machine, activity, use-case, component, packa
 **Not** sequence / timing diagrams (those are time-ordered, not a graph-layout problem — use
 Mermaid or PlantUML).
 
-Improvements over the stock skill (all **opt-in**, all **additive**):
+Features (grouping is optional — omit `layout` for a plain flat diagram):
 
 | Feature | What you get |
 |---------|--------------|
-| **Cluster grouping** | Give nodes a `"cluster"` key → each group gets a labelled, coloured dashed box. |
-| **Legend** | When clusters exist, a legend row of cluster swatches + UML arrow glyphs (◆ ◇ → ⇢) is drawn under the diagram. |
-| **Banded / compass layout** | `options.layout.rows` arranges whole clusters into horizontal bands — e.g. `input \| consider \| output` across the top, a full-width `vocabulary` band below. Each cluster is laid out in its own Graphviz run, then composed onto the grid. |
-| **Edges that never cross boxes** | A final **position-pinned Graphviz pass** (`neato -n2`, `splines=ortho`) routes *every* edge — including cross-cluster ones — around the placed boxes. Verified: 0 edge-through-box crossings on the 26-edge / 4-cluster reference model. |
+| **Cluster tree** | `layout` is a recursive tree of clusters; each arranges its children/members along `direction` (`row`/`column`) and draws a labelled, coloured dashed box when it has a `label`. Nestable — e.g. `world \| goal \| plan` inside `consider`, `input \| consider \| output` across the top, a full-width `vocabulary` band below. |
+| **Colour cascade** | A cluster's `color`/`fill` cascades to its descendant nodes (nearest ancestor wins; a node's own wins) — no repeating colours per node. |
+| **Legend** | A row of swatches for the outermost labelled clusters (deduped by colour) + UML arrow glyphs (◆ ◇ → ⇢), under the diagram. |
+| **Views** | `views` defines named node subsets; `--view KEY` renders the induced subgraph (the master layout pruned to those nodes) — one SSOT, many small diagrams. |
+| **Edges that never cross boxes** | A final **position-pinned Graphviz pass** (`neato -n2`, `splines=ortho`) routes *every* edge — including cross-cluster ones — around the placed boxes. Verified: 0 edge-through-box crossings on the 26-edge reference model. |
 
-A model with no `cluster` / `options.clusters` / `options.layout` keys takes the stock flat path
-and is byte-for-byte identical to the original skill's output. The schema and full mechanism are
-documented in `SKILL.md` and `references/drawio-uml-reference.md` (§9–§13).
+A model with no `layout` takes the flat path (dot lays out everything; flow = `options.direction`).
+The schema and full mechanism are documented in `SKILL.md` and
+`references/drawio-uml-reference.md` (§9–§13).
 
 ## What's in this folder
 
@@ -40,7 +42,7 @@ documented in `SKILL.md` and `references/drawio-uml-reference.md` (§9–§13).
 | `scripts/table.py` | Generator: JSON model → `.md` node/edge tables (consumes `description`/`remark`). |
 | `drawio-uml.bat` | Windows launcher: drag-and-drop model JSON → `.drawio` + `.md` + `.svg` + `.png`. |
 | `schema/model.schema.json` | JSON Schema (draft-07) for the model — editor autocomplete / validation. |
-| `references/drawio-uml-reference.md` | Concepts, install matrix, full shape/arrow catalog, per-type examples, clusters/legend/banded/edge-routing sections, troubleshooting. |
+| `references/drawio-uml-reference.md` | Concepts, install matrix, full shape/arrow catalog, per-type examples, cluster-tree/cascade/legend/views/edge-routing sections, troubleshooting. |
 | `README.md` | This file. |
 
 ## Prerequisites
@@ -66,15 +68,15 @@ boxes); install full Graphviz to get the guarantee. Node.js is not needed.
 ## Installation as a Claude Code skill
 
 To make the skill **active**, it must live at `~/.claude/skills/drawio-uml/`. Copy (or symlink)
-this folder there. This **overrides / upgrades the stock `drawio-uml` skill** — Claude loads the
-skill from `~/.claude/skills/`, so whatever is there wins.
+this folder there. Claude loads the skill from `~/.claude/skills/`, so the copy there is the
+one that runs.
 
 ### Option A — copy (Windows, PowerShell)
 
 ```powershell
 $src = "$env:USERPROFILE\OneDrive\Documents\GitHub\gr-tools\drawio-uml"
 $dst = "$env:USERPROFILE\.claude\skills\drawio-uml"
-Remove-Item -Recurse -Force $dst -ErrorAction SilentlyContinue   # drop the stock skill
+Remove-Item -Recurse -Force $dst -ErrorAction SilentlyContinue   # drop any existing copy
 robocopy $src $dst /MIR /XD .git | Out-Null                      # mirror the folder
 ```
 
@@ -105,7 +107,7 @@ ln -s "$SRC" "$DST"        # symlink (or: cp -R "$SRC" "$DST" to copy)
 ```
 
 After installing, ask Claude e.g. *"draw a class diagram of `src/` in draw.io"*,
-*"make a clustered domain model with an input/consider/output banded layout"*, or
+*"make a clustered domain model with input/consider/output across the top"*, or
 *"clean up this messy Mermaid diagram"*.
 
 ## Quick usage
@@ -147,7 +149,7 @@ DRAWIO="/c/Program Files/draw.io/draw.io.exe"   # macOS: /Applications/draw.io.a
 "$DRAWIO" -x -f svg -e -b 12 -o out.svg out.drawio
 ```
 
-For a clustered + banded example (the kind this build was made for), see
+For a clustered example with nested clusters and views, see
 `references/drawio-uml-reference.md` §13.
 
 ## Box-avoiding edge routing — status

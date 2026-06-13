@@ -1,7 +1,7 @@
 # drawio-uml — reference
 
 Depth behind SKILL.md: concepts, install, the full preset catalog, per-diagram-type
-worked examples, the coordinate transform, the cluster / legend / banded-layout /
+worked examples, the coordinate transform, the cluster tree / cascade / legend / views /
 box-avoiding-routing extensions, and troubleshooting.
 
 ## Contents
@@ -13,11 +13,11 @@ box-avoiding-routing extensions, and troubleshooting.
 6. Per-diagram-type recipes (worked model.json)
 7. The dot → draw.io coordinate transform
 8. Troubleshooting
-9. Clusters (grouping nodes into labelled boxes)
-10. Legend
-11. Banded / compass layout (`options.layout.rows`)
+9. Clusters (the recursive `layout` tree)
+10. Legend (outermost labelled clusters)
+11. Composition, colour cascade, and views
 12. Box-avoiding edge routing (the pinned final pass)
-13. Worked example: clustered + banded class diagram
+13. Worked example: clustered class diagram
 
 ## 1. The three tools and how they relate
 
@@ -133,10 +133,10 @@ Colour by role so related nodes read together (fill / stroke):
   {"source": "Save", "target": "done", "arrow": "transition"}]}
 ```
 
-**Use case** — `actor` + `usecase`; `association` for participation, `dependency` + `«include»`/`«extend»`. Use `"options": {"rankdir": "LR"}`:
+**Use case** — `actor` + `usecase`; `association` for participation, `dependency` + `«include»`/`«extend»`. Use `"options": {"direction": "row"}`:
 
 ```json
-{"options": {"rankdir": "LR"},
+{"options": {"direction": "row"},
  "nodes": [
   {"name": "Customer", "shape": "actor", "fill": "#DAE8FC", "stroke": "#6C8EBF"},
   {"name": "Checkout", "shape": "usecase", "fill": "#D5E8D4", "stroke": "#82B366"},
@@ -205,116 +205,121 @@ Applying the same transform to node corners and edge polyline points is what kee
 
 ---
 
-# Extensions: clusters, legend, banded layout, box-avoiding routing
+# Extensions: cluster tree, cascade, legend, views, box-avoiding routing
 
-Everything below is **opt-in and additive**. A model with no `cluster` / `options.clusters` / `options.layout` keys takes the stock flat path (§1–§8) and renders byte-identically to the stock skill. The moment any of those keys appears, the generator switches to the clustered path described here.
+Everything below applies when the model has a `layout` (a recursive cluster tree). A model with **no** `layout` takes the flat path (§1–§8): dot lays out every node and the flow follows `options.direction`. The `layout` tree replaces the 0.2.x `node.cluster` / `options.clusters` / `options.layout.rows` keys, which are removed in 0.3.0.
 
-## 9. Clusters (grouping nodes into labelled boxes)
+## 9. Clusters (the recursive `layout` tree)
 
-Give a node a `"cluster": "<key>"` and describe each cluster under `options.clusters`:
+`layout` is a tree of **clusters**. Each cluster:
+
+- arranges its contents along `direction` — `row` (left→right) or `column` (top→bottom); resolves cluster → `options.direction` → `column`;
+- draws a dashed labelled box **iff it has a `label`** (no label ⇒ an invisible arrangement-only container, used for unlabelled bands/rows);
+- may set `name` (a unique, `/`-free id for `--view`/`--cluster` references and the table cluster path) and `color`/`fill` (which cascade — §11);
+- holds EXACTLY ONE of `clusters` (child clusters ⇒ internal node) or `nodes` (member node names ⇒ leaf). List order = arrangement order.
 
 ```json
-"options": {
-  "clusters": {
-    "core":  {"label": "Core domain",   "stroke": "#5B5FC7", "fill": "#EEF0FF"},
-    "infra": {"label": "Infrastructure", "stroke": "#82B366", "fill": "#E7F4E7"}
-  }
+"layout": {
+  "direction": "row",
+  "clusters": [
+    {"name": "core",  "label": "Core domain",   "color": "#5B5FC7", "fill": "#EEF0FF", "nodes": ["A", "B"]},
+    {"name": "infra", "label": "Infrastructure", "color": "#82B366", "fill": "#E7F4E7", "nodes": ["C", "D"]}
+  ]
 }
 ```
 
-- `label` — the cluster-box title (top-left) and the cluster's legend text (the part before `—` is used in the legend swatch).
-- `stroke` — the dashed cluster-box border colour and the legend swatch colour.
-- `fill` — a *suggested* node fill. The generator treats **per-node `fill`/`stroke` as authoritative** and the cluster's `fill`/`stroke` as the cluster-box/legend source, so for a uniform look set each node's `fill` to the cluster `fill` and `stroke` to the cluster `stroke`.
+**Leaf layout.** Each leaf is laid out in its **own** `dot -Tplain` run (`rankdir` from its `direction`) using only the structural edges among its members. A leaf whose members have **no** internal edges is stacked along `direction` with **invisible edges** (`style=invis`) in listed order — that is how an `input` cluster's `TurnRecord`/`Probe` stack vertically.
 
-A node with no `cluster` stays top-level (un-boxed). Cluster boxes are computed from the bounding box of their members (`-Tplain` does not emit cluster bboxes), padded by `PAD≈24` on the sides and `TOP_PAD≈34` on top for the label, and emitted **before** the node cells so draw.io's z-order (= document order) puts them behind the boxes.
-
-**Without** `options.layout`, all clusters are laid out in a single `dot` run using `subgraph cluster_*` blocks (dot keeps each cluster contiguous and non-overlapping), then the pinned routing pass (§12) routes every edge around the boxes.
+**Boxes.** A labelled cluster's box is the bounding box of its members, padded `PAD≈24` on the sides and `TOP_PAD≈34` on top for the label. Boxes are emitted **outermost-first** (document order = z-order) so an outer box sits *behind* its inner boxes. Up to ~3 labelled nesting levels read well; deeper triggers a stderr warning.
 
 ## 10. Legend
 
-When `options.clusters` is present, a legend row is drawn below the diagram: one coloured `■` swatch + label per cluster, then the UML arrow-kind glyphs — `◆ composition`, `◇ aggregation`, `→ association`, `⇢ dependency`. The legend HTML is built with entities (`&#9632;`, `&nbsp;`, `<font color=…>`) and then **escaped like every other cell value** (`&`→`&amp;` etc.); draw.io un-escapes the attribute and renders the HTML. (Emitting raw `&`/`<`/`>` in an XML attribute would break well-formedness — always escape.)
+When the `layout` contains a labelled cluster, a legend row is drawn below the diagram: one coloured `■` swatch + label per **outermost labelled cluster** (a labelled cluster with no labelled ancestor), **deduplicated by colour** (a labelled cluster with no `color` falls back to `#888888`), then the UML arrow-kind glyphs — `◆ composition`, `◇ aggregation`, `→ association`, `⇢ dependency`. Inner sub-clusters add no swatch. Under a `--view`, the outermost set is recomputed on the pruned tree. The legend HTML is built with entities (`&#9632;`, `&nbsp;`, `<font color=…>`) and then **escaped like every other cell value**; draw.io un-escapes the attribute and renders the HTML.
 
-## 11. Banded / compass layout (`options.layout.rows`)
+## 11. Composition, colour cascade, and views
 
-```json
-"options": {
-  "layout": {"rows": [["input", "consider", "output"], ["vocabulary"]]}
-}
-```
+**Composition (the A2 engine).** Python composes the tree: each leaf is laid out independently (§9), then each internal cluster places its children along its `direction` — `row` left→right, `column` top→bottom, centred on the cross axis, `ROW_GAP`/`COL_GAP` apart. Sibling order is therefore the **listed order**, guaranteed by Python.
 
-`rows` is a list of bands. **Row 0 is the TOP band**; within a row, clusters are placed **left → right** in listed order; rows stack **top → bottom**. So the example yields `input | consider | output` across the top and a full-width `vocabulary` band beneath.
+*Why Python composes instead of one big `dot` run.* Plain `dot` is a 1-D layered engine: a single run cannot be forced to put sibling sub-clusters in a chosen left→right order — the heavily-connected one migrates toward its edge mass. The one mechanism that pins sibling order, `rank=same` + flat invisible edges, **conflicts with cluster containment and segfaults `dot` 13.x** (verified). So `dot` only ever lays out a single leaf (its strength), and Python owns the ordering (ADR-009; PoC in `poc/cluster-layout/`).
 
-**Why each cluster gets its OWN dot run.** Plain `dot` is a 1-D layered engine. A single `dot` run **cannot** force input-left / consider-center / output-right AND a full-width band below: the heavily-connected cluster always migrates toward its edge mass, and one run interleaves clusters of unequal height. (Verified empirically across `rankdir` / `rank=same` / `ordering` / `constraint=false`.) So:
+**Colour cascade.** A cluster's `color` (→ descendant node `stroke`) and `fill` (→ descendant node `fill`) cascade to all descendant nodes. Resolution is **nearest-ancestor**, and `color`/`fill` resolve **independently** (a node can inherit fill from one ancestor and stroke from another). A node's own `fill`/`stroke` overrides the cascade. This removes the per-node colour repetition of the 0.2.x format.
 
-- Each cluster is laid out in an **isolated** `dot -Tplain` run that places its members and routes its **internal** edges orthogonally.
-- A cluster that is the **sole** member of its row spans the full width → laid out `LR` (wide strip). Clusters that **share** a row → laid out `TB` (tall column, reads top-down).
-- The per-cluster results are composed onto the rows grid: each row centred on the widest row, `CLUSTER_GAP≈90` between clusters in a row, `BAND_GAP≈150` between rows.
-
-This two-stage structure (per-cluster layout → grid composition) is then topped by the routing pass (§12), which re-routes **all** edges over the composed positions.
+**Views.** `views` maps named node subsets: `{ "<key>": {label?, nodes?, clusters?} }`. The node set = `nodes` (explicit names) ∪ the nodes under every named cluster in `clusters`. `draw.py --view KEY` and `table.py --view KEY` render the **induced subgraph** (only edges with both ends in the set); `draw` prunes the `layout` to the surviving nodes (empty boxes dropped, partial boxes shrink, legend recomputed). `--view` and table's `--cluster` are mutually exclusive; unknown view / node / cluster names fail fast.
 
 ## 12. Box-avoiding edge routing (the pinned final pass)
 
-**The problem it solves.** When clusters are laid out independently (§11), a cross-cluster edge (e.g. `Probe → GameMove`, or a `consider → vocabulary` dependency) is in *no* single dot run, so it has no precomputed route. Left to draw.io's auto-router, such an edge visibly cuts across boxes.
+**The problem it solves.** Because each leaf is laid out independently (§9), a cross-cluster edge (e.g. `Probe → GameMove`) is in *no* single dot run, so it has no precomputed route. Left to draw.io's auto-router, such an edge visibly cuts across boxes.
 
 **The fix — a final, position-pinned Graphviz pass over the whole graph.** After placement has produced the final position of every node (in draw.io px), the generator runs ONE more Graphviz pass that:
 
 1. Emits **every** node with its position **pinned** (`pos="x,y!"`, the trailing `!` = "do not move") and its `width`/`height` fixed (`fixedsize=true`) so the router knows the box extents to avoid.
 2. Sets `splines=ortho` and emits **all** edges (internal + cross-cluster), undirected and de-duplicated (we only need the geometry; draw.io applies the arrowheads).
 3. Uses an engine that **honours pinned positions and only routes edges**: `neato -n2 -Tplain` (falls back to `fdp -n2`, then `neato -n`). `-n2` means "input already has node positions; do not run layout, just route."
-4. Parses the routed polylines and **overwrites the route table for every edge** with these whole-graph, box-avoiding routes (replacing the per-cluster internal routes too, so everything is routed consistently).
+4. Parses the routed polylines and **builds the route table for every edge** from these whole-graph, box-avoiding routes.
 5. Imports the polylines as draw.io waypoints exactly like the flat path (`<Array as="points">` of inner `<mxPoint>`s; endpoints `pts[1:-1]` stripped; reversed for `generalization`/`realization`).
 
 **The unit round-trip (the subtle part).** `neato -n`/`-n2` reads `pos` in **points** (origin bottom-left, y up); `-Tplain` re-emits in inches. Rather than guess the engine's graph height or input scale, the generator **pins the nodes and then reads their echoed centres back**: because it also knows each node's centre in draw.io px, it recovers the exact affine map (`x' = x_pt + ox`, `y' = -y_pt + oy`) from those known correspondences and applies it to every routed waypoint. This is immune to scale/height guesswork — the routed lines line up with the boxes exactly. (Sanity-check by rendering the PNG anyway.)
 
-**Constraints.** `splines=ortho` still breaks on self-loops, so the pass **skips** any edge whose source == target — model recursion as an attribute, never a self-edge. The pass operates on the **flat** pinned graph (no subgraphs — positions are already fixed), so the engine never tries to box-pad clusters.
+**Constraints.** `splines=ortho` still breaks on self-loops, so the pass **skips** any edge whose source == target — model recursion as an attribute, never a self-edge. The pass operates on the **flat** pinned graph (no subgraphs — positions are already fixed), so it is independent of nesting depth.
 
-**Result on the reference model** (17–18 nodes, 26 edges, 4 clusters incl. ~8 cross-cluster edges): all 26 edges receive waypoints and a geometric check confirms **no edge segment passes through a non-endpoint box interior**.
+**Result on the reference model** (18 nodes, 26 edges incl. ~8 cross-cluster edges): all 26 edges receive waypoints and a geometric check confirms **no edge segment passes through a non-endpoint box interior**.
 
-## 13. Worked example: clustered + banded class diagram
+## 13. Worked example: clustered class diagram
 
-A compact version of the shape this skill was built for — three clusters across the top, a full-width band below, cross-cluster edges, a legend, box-avoiding routes:
+`input | consider | output` across the top with `consider` split into `world | goal`, a full-width `vocabulary` band below, cross-cluster edges, a legend, box-avoiding routes, and two views. Colours cascade from the clusters, so the nodes carry none:
 
 ```json
 {
-  "options": {
-    "rankdir": "TB", "node_separation": 0.85, "rank_separation": 1.3, "column_width": 300,
-    "layout": {"rows": [["input", "consider", "output"], ["vocabulary"]]},
-    "clusters": {
-      "input":      {"label": "Input port — perception",     "stroke": "#2F8FA8", "fill": "#E3F2F5"},
-      "consider":   {"label": "Consider — the Conception",   "stroke": "#9673A6", "fill": "#EDE7F6"},
-      "output":     {"label": "Output port — action",        "stroke": "#D79B00", "fill": "#FFF0DD"},
-      "vocabulary": {"label": "Vocabulary — Lexicon",        "stroke": "#82B366", "fill": "#E7F4E7"}
-    }
-  },
+  "options": {"direction": "column", "node_separation": 0.85, "rank_separation": 1.3, "column_width": 300},
   "nodes": [
-    {"name": "Conception", "shape": "class", "cluster": "consider", "fill": "#EDE7F6", "stroke": "#9673A6",
-     "attributes": ["goal : GoalPredicate", "plan : GamePlan"]},
-    {"name": "GoalPredicate", "shape": "class", "cluster": "consider", "fill": "#EDE7F6", "stroke": "#9673A6",
-     "attributes": ["kind : Atom|AND|OR|SEQUENCE"], "methods": ["test(state) : bool"]},
-    {"name": "Probe", "shape": "class", "cluster": "input", "fill": "#E3F2F5", "stroke": "#2F8FA8",
-     "attributes": ["moves : GameMove[*]"]},
-    {"name": "GameMove", "shape": "class", "cluster": "output", "fill": "#FFF0DD", "stroke": "#D79B00",
-     "attributes": ["kind", "params (coords?)"]},
-    {"name": "GameObject", "shape": "class", "cluster": "vocabulary", "fill": "#E7F4E7", "stroke": "#82B366",
-     "attributes": ["id", "profile : Profile"]},
-    {"name": "Relation", "shape": "class", "cluster": "vocabulary", "fill": "#E7F4E7", "stroke": "#82B366",
-     "attributes": ["arity : n", "detector"]}
+    {"name": "Probe", "shape": "class", "attributes": ["moves : GameMove[*]"]},
+    {"name": "TurnRecord", "shape": "class", "attributes": ["frames : Frame[*]"]},
+    {"name": "Conception", "shape": "class", "attributes": ["goal : GoalPredicate", "plan : GamePlan"]},
+    {"name": "WorldModel", "shape": "class", "attributes": ["rules : InteractionRule[*]"]},
+    {"name": "GoalPredicate", "shape": "class", "attributes": ["kind"], "methods": ["test(state) : bool"]},
+    {"name": "GameMove", "shape": "class", "attributes": ["kind", "params (coords?)"]},
+    {"name": "Relation", "shape": "class", "attributes": ["arity : n", "detector"]}
   ],
   "edges": [
+    {"source": "Conception", "target": "WorldModel", "arrow": "composition", "label": "world"},
     {"source": "Conception", "target": "GoalPredicate", "arrow": "composition", "label": "goal"},
     {"source": "Probe", "target": "GameMove", "arrow": "aggregation", "label": "trial moves  1..*"},
-    {"source": "GoalPredicate", "target": "GameObject", "arrow": "dependency", "label": "conditions over objects"},
-    {"source": "GoalPredicate", "target": "Relation", "arrow": "dependency", "label": "tests relations"},
-    {"source": "Relation", "target": "GameObject", "arrow": "directed_association", "label": "over (n) objects"}
-  ]
+    {"source": "GoalPredicate", "target": "Relation", "arrow": "dependency", "label": "tests relations"}
+  ],
+  "layout": {
+    "direction": "column",
+    "clusters": [
+      {"direction": "row", "clusters": [
+        {"name": "input", "label": "Input port — perception", "color": "#2F8FA8", "fill": "#E3F2F5",
+         "nodes": ["TurnRecord", "Probe"]},
+        {"name": "consider", "label": "Consider — the Conception", "color": "#9673A6", "fill": "#EDE7F6",
+         "clusters": [
+           {"nodes": ["Conception"]},
+           {"direction": "row", "clusters": [
+             {"name": "world", "label": "world", "nodes": ["WorldModel"]},
+             {"name": "goal",  "label": "goal",  "nodes": ["GoalPredicate"]}
+           ]}
+         ]},
+        {"name": "output", "label": "Output port — action", "color": "#D79B00", "fill": "#FFF0DD",
+         "nodes": ["GameMove"]}
+      ]},
+      {"name": "vocabulary", "label": "Vocabulary — Lexicon", "color": "#82B366", "fill": "#E7F4E7",
+       "direction": "row", "nodes": ["Relation"]}
+    ]
+  },
+  "views": {
+    "answer": {"label": "The Conception", "nodes": ["Conception", "WorldModel", "GoalPredicate"]},
+    "vocab":  {"label": "Vocabulary", "clusters": ["vocabulary"]}
+  }
 }
 ```
 
 Generate and export:
 
 ```bash
-python scripts/draw.py model.json out.drawio
+python scripts/draw.py model.json out.drawio                    # the whole model
+python scripts/draw.py model.json answer.drawio --view answer   # just the Conception internals
 "$DRAWIO" -x -f png -e -b 12 -o out.png out.drawio   # then READ out.png to verify
 ```
 
-Expect: three labelled dashed cluster boxes across the top (`input`, `consider`, `output`), a full-width `vocabulary` band below, a legend row at the bottom, and every edge — including the `Probe → GameMove` and `GoalPredicate → vocabulary` cross-cluster edges — routed around the boxes rather than through them.
+Expect: `input | consider | output` across the top (input's two members stacked vertically), `consider` boxing `Conception` above a `world | goal` sub-row, a full-width `vocabulary` band below, a legend of the four outermost clusters, and every edge — including the `Probe → GameMove` cross-cluster edge — routed around the boxes rather than through them.

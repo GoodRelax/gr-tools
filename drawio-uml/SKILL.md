@@ -1,6 +1,6 @@
 ---
 name: drawio-uml
-description: Generate clean UML and node-link diagrams as native draw.io (.drawio) files with automatic, non-overlapping layout — Graphviz dot computes both node positions AND orthogonal edge routes, so lines never cut through boxes. Use whenever the user wants to draw, generate, or clean up a diagram in draw.io or drawio — class, state-machine, use-case, component, package, activity, deployment, ER, or object diagrams — especially when layout quality matters (overlapping lines, edges crossing boxes, messy auto-layout, or a Mermaid diagram that looks bad). Also use when reverse-engineering structure from source code into a diagram, or when the user says an existing diagram is ugly, low-quality, or hard to read. Produces real UML shapes (class compartments, state rounded-rects, use-case ellipses, actors, decision diamonds, package folders) with proper UML arrows, exported to PNG/SVG via the draw.io CLI. Optionally groups nodes into labelled, coloured clusters with a legend, arranges clusters into named horizontal bands (compass layout), and routes EVERY edge — including cross-cluster ones — around the boxes via a position-pinned Graphviz pass. Does NOT do sequence or timing diagrams. Requires Graphviz (dot, plus neato/fdp for the pinned routing pass), draw.io desktop, and Python 3.10+. The same model also yields Markdown node/edge tables (responsibilities, element lists) via the companion table.py.
+description: Generate clean UML and node-link diagrams as native draw.io (.drawio) files with automatic, non-overlapping layout — Graphviz dot computes both node positions AND orthogonal edge routes, so lines never cut through boxes. Use whenever the user wants to draw, generate, or clean up a diagram in draw.io or drawio — class, state-machine, use-case, component, package, activity, deployment, ER, or object diagrams — especially when layout quality matters (overlapping lines, edges crossing boxes, messy auto-layout, or a Mermaid diagram that looks bad). Also use when reverse-engineering structure from source code into a diagram, or when the user says an existing diagram is ugly, low-quality, or hard to read. Produces real UML shapes (class compartments, state rounded-rects, use-case ellipses, actors, decision diamonds, package folders) with proper UML arrows, exported to PNG/SVG via the draw.io CLI. Optionally arranges nodes into a recursive layout tree of labelled, coloured clusters (row/column, nestable) with a legend, generates focused sub-views with --view, and routes EVERY edge — including cross-cluster ones — around the boxes via a position-pinned Graphviz pass. Does NOT do sequence or timing diagrams. Requires Graphviz (dot, plus neato/fdp for the pinned routing pass), draw.io desktop, and Python 3.10+. The same model also yields Markdown node/edge tables (responsibilities, element lists) via the companion table.py.
 ---
 
 # drawio-uml: clean UML / node-link diagrams in draw.io
@@ -34,16 +34,21 @@ Anything that is **boxes and arrows** — i.e. a node-link graph dot can lay out
 
 **Not supported: sequence and timing diagrams.** They are ordered by *time* along lifelines, which is not a graph-layout problem — dot does not help, and forcing it produces nonsense. Tell the user this honestly and suggest Mermaid `sequenceDiagram` or PlantUML instead.
 
-## What this adds over the stock skill
+## Layout: flat, or a cluster tree
 
-This generator is a **strict superset** of the stock `drawio-uml` skill. A model that uses none of the keys below renders **byte-identically** to stock. On top of that it adds, all **opt-in** and **additive**:
+Two layout paths, chosen by whether the model has a `layout`:
 
-- **Cluster grouping** — give nodes a `"cluster"` key and they get wrapped in a labelled, coloured dashed box.
-- **Legend** — when clusters are defined, a legend row of cluster swatches + UML arrow-kind glyphs is drawn under the diagram.
-- **Banded / compass layout** — `options.layout.rows` arranges whole clusters into horizontal bands (e.g. `input | consider | output` across the top, a full-width `vocabulary` band below).
-- **Box-avoiding edge routing for ALL edges** — after placement, a final **position-pinned Graphviz pass** (`neato -n2` / `fdp -n2`, `splines=ortho`) routes *every* edge — internal **and** cross-cluster — around the placed boxes. No edge cuts through a class box, even when clusters are laid out independently.
+- **Flat** (no `layout`) — dot lays out every node; flow follows `options.direction` (`column` = top-down, the default; `row` = left-to-right). Best for a single diagram of up to ~12 boxes.
+- **Clustered** (a `layout` tree) — `layout` is a RECURSIVE tree of clusters. Each cluster arranges its children/members along its `direction` (`row`/`column`) and draws a dashed labelled box **iff it has a `label`** (a label-less cluster is an invisible arrangement-only container). A cluster holds EITHER child `clusters` or member `nodes` (referenced by name). This is how you get `input | consider | output` across the top with a full-width `vocabulary` band below — and nested sub-groups inside a cluster.
 
-If a model sets `cluster` / `options.clusters` / `options.layout`, the generator takes the clustered path; otherwise it takes the stock flat path. The two never interfere.
+On top of the clustered path:
+
+- **Colour cascade** — a cluster's `color`/`fill` cascades to its descendant nodes (nearest ancestor wins; a node's own `fill`/`stroke` overrides), so you don't repeat colours on every node.
+- **Legend** — a row of swatches for the **outermost** labelled clusters (deduped by colour) plus the UML arrow-kind glyphs (◆ ◇ → ⇢), under the diagram.
+- **Box-avoiding routing for ALL edges** — a final **position-pinned Graphviz pass** (`neato -n2` / `fdp -n2`, `splines=ortho`) routes *every* edge — internal **and** cross-cluster — around the placed boxes.
+- **Views** (`--view KEY`) — a named subset of nodes rendered as the induced subgraph (the master layout pruned to those nodes). One model (SSOT) → many small, focused diagrams.
+
+Each leaf cluster is laid out in its own dot run (members ordered by their internal edges, or stacked along `direction` via invisible edges when they have none); Python composes the children by `direction`, so sibling order is exactly the listed order. Validation is fail-fast: every node must be placed exactly once, cluster names are unique and `/`-free.
 
 ## Prerequisites (check once per machine)
 
@@ -63,7 +68,7 @@ Read the target — source code or a spec — and extract the nodes and relation
 
 ```json
 {
-  "options": {"rankdir": "TB", "column_width": 260, "node_separation": 0.7, "rank_separation": 1.1},
+  "options": {"direction": "column", "column_width": 260, "node_separation": 0.7, "rank_separation": 1.1},
   "nodes": [
     {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
     {"name": "Running", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
@@ -104,52 +109,75 @@ Put multiplicity / role / guard text in the optional edge `"label"`. Colour by l
 
 **Documentation fields** (`description`, `remark`) — any node or edge may carry a `"description"` (its one-line responsibility) and a `"remark"` (a side note: origin, ADR, constraint). `draw` **ignores** them, so the diagram is unchanged; **`table` emits them**. Use these instead of cluttering the boxes. The full model schema is formalised in `schema/model.schema.json` (JSON Schema draft-07, strict — it catches typos in keys).
 
-### 1b. (Optional) clusters, a legend, and banded layout
+### 1b. (Optional) cluster tree, cascade, legend, and views
 
-To group nodes, add a `"cluster"` key per node and describe each cluster under `options.clusters`. To arrange whole clusters into bands, add `options.layout.rows`. **All three keys are opt-in — omit them for the stock flat diagram.**
+Add a `layout` (a recursive cluster tree) to group and arrange nodes; omit it for a flat diagram. A cluster sets `direction` (`row`/`column`), draws a box when it has a `label`, may set `color`/`fill` (which **cascade** to its descendant nodes), may set a `name` (for `--view`/`--cluster` references and the table cluster path), and holds EITHER child `clusters` or member `nodes` (referenced by name). Add `views` for focused sub-diagrams.
 
 ```json
 {
-  "options": {
-    "rankdir": "TB", "column_width": 300,
-    "clusters": {
-      "input":      {"label": "Input port — perception", "stroke": "#2F8FA8", "fill": "#E3F2F5"},
-      "consider":   {"label": "Consider — the Conception", "stroke": "#9673A6", "fill": "#EDE7F6"},
-      "output":     {"label": "Output port — action", "stroke": "#D79B00", "fill": "#FFF0DD"},
-      "vocabulary": {"label": "Vocabulary — Lexicon", "stroke": "#82B366", "fill": "#E7F4E7"}
-    },
-    "layout": {"rows": [["input", "consider", "output"], ["vocabulary"]]}
-  },
+  "options": {"direction": "column", "column_width": 300},
   "nodes": [
-    {"name": "Probe", "shape": "class", "cluster": "input",
-     "fill": "#E3F2F5", "stroke": "#2F8FA8", "attributes": ["moves : GameMove[*]"]},
-    {"name": "GameMove", "shape": "class", "cluster": "output",
-     "fill": "#FFF0DD", "stroke": "#D79B00", "attributes": ["kind", "params"]}
+    {"name": "Probe", "shape": "class", "attributes": ["moves : GameMove[*]"]},
+    {"name": "TurnRecord", "shape": "class", "attributes": ["frames : Frame[*]"]},
+    {"name": "Conception", "shape": "class", "attributes": ["goal", "plan"]},
+    {"name": "WorldModel", "shape": "class", "attributes": ["rules"]},
+    {"name": "GoalPredicate", "shape": "class", "methods": ["test() : bool"]},
+    {"name": "GameMove", "shape": "class", "attributes": ["kind"]}
   ],
   "edges": [
+    {"source": "Conception", "target": "WorldModel", "arrow": "composition", "label": "world"},
+    {"source": "Conception", "target": "GoalPredicate", "arrow": "composition", "label": "goal"},
     {"source": "Probe", "target": "GameMove", "arrow": "aggregation", "label": "trial moves"}
-  ]
+  ],
+  "layout": {
+    "direction": "column",
+    "clusters": [
+      {"direction": "row", "clusters": [
+        {"name": "input", "label": "Input port", "color": "#2F8FA8", "fill": "#E3F2F5",
+         "nodes": ["TurnRecord", "Probe"]},
+        {"name": "consider", "label": "Consider", "color": "#9673A6", "fill": "#EDE7F6",
+         "clusters": [
+           {"nodes": ["Conception"]},
+           {"direction": "row", "clusters": [
+             {"name": "world", "label": "world", "nodes": ["WorldModel"]},
+             {"name": "goal",  "label": "goal",  "nodes": ["GoalPredicate"]}
+           ]}
+         ]},
+        {"name": "output", "label": "Output port", "color": "#D79B00", "fill": "#FFF0DD",
+         "nodes": ["GameMove"]}
+      ]}
+    ]
+  },
+  "views": {
+    "answer": {"label": "The Conception", "nodes": ["Conception", "WorldModel", "GoalPredicate"]},
+    "io":     {"label": "I/O ports", "clusters": ["input", "output"]}
+  }
 }
 ```
 
-New schema keys:
+This yields `input | consider | output` across the top, with `consider` holding `Conception` above a `world | goal` sub-row; `input`'s two edge-less members stack vertically (invisible-edge alignment). `draw.py model.json answer.drawio --view answer` then draws just the Conception internals.
+
+Layout / view keys:
 
 | key | scope | meaning |
 |-----|-------|---------|
-| `"cluster": "<key>"` | per node | put this node in that cluster. No `cluster` ⇒ node stays top-level (un-boxed). |
-| `options.clusters` | `{ "<key>": {"label", "stroke", "fill"} }` | `label` = cluster-box title + legend text; `stroke` = dashed border + legend swatch; `fill` = a suggested node fill. **Per-node `fill`/`stroke` win** — set them to the cluster's `fill`/`stroke` for a uniform look. |
-| `options.layout.rows` | `[[clusterKey, …], …]` | **banded/compass layout.** Row 0 is the TOP band; within a row clusters sit left→right in listed order; rows stack top→bottom. A cluster alone in its row spans full width (laid out as a wide LR strip); clusters sharing a row are tall TB columns. |
+| `direction` | cluster / options | `row` = children left→right, `column` = top→bottom. Resolves cluster → `options.direction` → `column`. |
+| `label` | cluster | present ⇒ a dashed labelled box is drawn; absent ⇒ invisible arrangement-only container. |
+| `name` | cluster | id for `--view`/`--cluster` and the table cluster path. Unique across clusters, no `/`. |
+| `color` / `fill` | cluster | box border colour / a node-fill suggestion; both **cascade** to descendant nodes (nearest ancestor wins; a node's own `fill`/`stroke` wins over both). |
+| `clusters` ⊻ `nodes` | cluster | child clusters (internal node) **or** member node names (leaf) — exactly one. Order = arrangement order. |
+| `views.<key>` | top level | `{label?, nodes?, clusters?}` — a named node subset (`nodes` ∪ nodes under named `clusters`); `--view <key>` draws/tabulates its induced subgraph. |
 
-The **legend** is drawn whenever `options.clusters` is present. **Box-avoiding routing** runs automatically on any clustered model — you don't enable it, and you should expect **no edge to cross any box**, including cross-cluster edges. See the reference §9–§12 for the full mechanism.
+The **legend** lists the outermost labelled clusters (deduped by colour) whenever a labelled cluster exists. **Box-avoiding routing** runs automatically on any clustered model — expect **no edge to cross any box**, including cross-cluster edges. Up to ~3 labelled nesting levels read well; deeper warns. See the reference §9–§12 for the full mechanism.
 
 ### 2. Generate the diagram (and tables)
 
 ```bash
-python <SKILL_DIR>/scripts/draw.py  model.json out.drawio                 # the .drawio diagram
-python <SKILL_DIR>/scripts/table.py model.json out.md [--cluster KEY]     # node/edge tables (.md)
+python <SKILL_DIR>/scripts/draw.py  model.json out.drawio [--view KEY]                 # the .drawio diagram
+python <SKILL_DIR>/scripts/table.py model.json out.md   [--cluster KEY | --view KEY]   # node/edge tables (.md)
 ```
 
-`<SKILL_DIR>` is this skill's directory. `draw.py` emits native shapes, pulls positions + orthogonal routes from `dot` (and, for clustered models, the pinned `neato -n2` routing pass), self-validates the XML, and prints a confirmation. `table.py` writes Markdown node/edge tables and consumes `description`/`remark`; `--cluster KEY` (or `-c`) narrows the **tables** to a cluster subtree, while the diagram always shows the whole model. A malformed model fails fast.
+`<SKILL_DIR>` is this skill's directory. `draw.py` emits native shapes, pulls positions + orthogonal routes from `dot` (and, for clustered models, the pinned `neato -n2` routing pass), self-validates the XML, and prints a confirmation. `table.py` writes Markdown node/edge tables and consumes `description`/`remark`. `--view KEY` (both tools) renders only that view's induced subgraph; `--cluster KEY` (table only) narrows the tables to a cluster subtree (matched on the cluster `name` path); `--view` and `--cluster` are mutually exclusive. A malformed model — an edge to an undefined node, a duplicate or `/`-bearing cluster name, or a node not placed exactly once — fails fast.
 
 **One-shot human workflow (Windows):** drag one or more `model.json` files onto `drawio-uml.bat` (in the skill root) — it runs both generators and exports `.svg`/`.png`, writing all outputs next to each input.
 
@@ -170,9 +198,9 @@ Read the exported PNG and check: shapes render as intended, arrowheads are the c
 ## Tuning layout (if anything overlaps)
 
 - **More room**: raise `options.rank_separation` / `options.node_separation`.
-- **Orientation**: `options.rankdir` = `"TB"` (top-down, default) or `"LR"` — `"LR"` suits use-case and wide hierarchies.
-- **Banded gaps**: clusters in a row are `CLUSTER_GAP` apart; bands are `BAND_GAP` apart (constants near the top of the script).
-- **Fewer crossings by design**: keep the primary structure (inheritance, control flow) as the backbone; dash or drop secondary `dependency`/`directed_association` edges.
+- **Orientation**: `options.direction` = `"column"` (top-down, default) or `"row"` (left-to-right) — `row` suits use-case and wide hierarchies. A per-cluster `direction` overrides it locally.
+- **Cluster gaps**: children in a row are `ROW_GAP` apart, in a column `COL_GAP` apart (constants near the top of the script).
+- **Fewer crossings by design**: keep the primary structure (inheritance, control flow) as the backbone; dash or drop secondary `dependency`/`directed_association` edges. Or split concerns into `views`.
 - **Interactive last resort**: open in draw.io, `Arrange → Layout → Vertical Tree` / `Hierarchical`, or drag.
 
 ## Pitfalls
@@ -185,4 +213,4 @@ Read the exported PNG and check: shapes render as intended, arrowheads are the c
 
 ## Reference
 
-`references/drawio-uml-reference.md` — concepts (what Graphviz/dot/draw.io are), the cross-platform install matrix, the full shape + arrow preset catalog with raw style strings, per-diagram-type worked `model.json` examples, the dot→draw.io coordinate-transform math, the **clusters / legend / banded-layout / box-avoiding-routing** sections with a worked clustered+banded example, and a troubleshooting table.
+`references/drawio-uml-reference.md` — concepts (what Graphviz/dot/draw.io are), the cross-platform install matrix, the full shape + arrow preset catalog with raw style strings, per-diagram-type worked `model.json` examples, the dot→draw.io coordinate-transform math, the **cluster tree / cascade / legend / views / box-avoiding-routing** sections with a worked clustered example, and a troubleshooting table.

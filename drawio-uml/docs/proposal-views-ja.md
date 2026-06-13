@@ -1,5 +1,7 @@
 # drawio-uml 機能提案書 — Views(関心事ごとの小ビュー分割)
 
+> **【SUPERSEDED — 2026-06-13】** 本提案は **spec 0.3.0(`docs/spec-ja.md`)の ADR-010・FR-D-16/16a・FR-T-10/10a に統合・実装済み**。本書記載の旧形式は 0.3.0 と異なる:views は `options.views` ではなく **top-level `views`**、cluster 参照は `/` 前方一致ではなく **`cluster.name`**、`--view`/`--cluster` は **排他**、本書独自の「ADR-009 = Views」番号は spec では **ADR-010**(ADR-009 は layout ツリー)。**正は spec 0.3.0**。本書は起案の経緯記録として残置する。
+
 | 項目 | 値 |
 | --- | --- |
 | 文書種別 | 機能提案書(Proposal → 承認後に spec-ja.md へ反映) |

@@ -18,9 +18,10 @@ __pycache__/
 *.pyc
 
 # drawio-uml generated outputs (regenerate from model.json; not source).
-# Note: tests/*.drawio are committed regression baselines -- only samples/ is ignored.
+# .svg / .png are render outputs -- never source; ignore everywhere under drawio-uml.
+# (tests/*.drawio are committed regression baselines, so .drawio is ignored only in samples/.)
+drawio-uml/**/*.svg
+drawio-uml/**/*.png
 drawio-uml/samples/*.drawio
-drawio-uml/samples/*.svg
-drawio-uml/samples/*.png
 drawio-uml/samples/*.md
 
