@@ -432,7 +432,7 @@ Feature: table — モデルから .md を生成
     Then  edge 表の当該 arrow セルは空になる(`association` に解決しない)
 ```
 
-**Result:** SKIP  **Remark:** `table` は新規実装対象。`draw` シナリオは実装(`draw.py`)に対し次フェーズで検証する。SC-011 は欠番(0.2.2 でエイリアス受入シナリオを削除)。SC-012 は整形式でない XML の生成経路が `esc()` により通常到達不能のため、検証は fault injection を前提とする。
+**Result:** table = PASS / draw = SKIP  **Remark:** `table` シナリオ(SC-101〜107)は `scripts/table.py` 実装＋`tests/test_table.py`(14 ケース)で検証済み(全 PASS)。`draw` シナリオ(SC-001〜016)は次フェーズで検証する。SC-011 は欠番(0.2.2 でエイリアス受入シナリオを削除)。SC-012 は整形式でない XML の生成経路が `esc()` により通常到達不能のため、検証は fault injection を前提とする。
 
 ### 4.2 CLI Definition(コマンド定義)
 

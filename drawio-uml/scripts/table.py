@@ -133,8 +133,8 @@ def render(model, cluster_key):
     scope_names = {n["name"] for n in scope_nodes}
     scope_edges = select_edges(edges, scope_names, cluster_key is not None)
     return "\n".join([
-        "## Nodes", "", node_table(scope_nodes), "",
-        "## Edges", "", edge_table(scope_edges), "",
+        "#### Nodes", "", node_table(scope_nodes), "",
+        "#### Edges", "", edge_table(scope_edges), "",
     ])
 
 

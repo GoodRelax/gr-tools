@@ -61,7 +61,7 @@ class Acceptance(unittest.TestCase):
 
     def test_sc102_cluster_column_dropped(self):          # FR-T-05
         m = {"nodes": [{"name": "A", "cluster": "only"}, {"name": "B", "cluster": "only"}], "edges": []}
-        node_sec = table.render(m, None).split("## Edges")[0]
+        node_sec = table.render(m, None).split("#### Edges")[0]
         self.assertIn("| name | description | remark |", node_sec)
         self.assertNotIn("cluster", node_sec)
 
@@ -71,7 +71,7 @@ class Acceptance(unittest.TestCase):
              "edges": [{"source": "A", "target": "C", "arrow": "dependency"},
                        {"source": "C", "target": "Zz"}]}
         out = table.render(m, "a/b")
-        node_sec, edge_sec = out.split("## Edges")
+        node_sec, edge_sec = out.split("#### Edges")
         self.assertIn("| A |", node_sec)
         self.assertIn("| D |", node_sec)
         self.assertNotIn("| C |", node_sec)               # a/bc not in a/b subtree
@@ -84,7 +84,7 @@ class Acceptance(unittest.TestCase):
 
     def test_sc107_unset_arrow_empty(self):               # FR-T-03
         m = {"nodes": [{"name": "A"}, {"name": "B"}], "edges": [{"source": "A", "target": "B"}]}
-        edge_sec = table.render(m, None).split("## Edges")[1]
+        edge_sec = table.render(m, None).split("#### Edges")[1]
         self.assertIn("|  | A | B |  |  |  |", edge_sec)   # empty arrow cell
 
 
