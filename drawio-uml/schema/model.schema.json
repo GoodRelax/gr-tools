@@ -1,21 +1,32 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "drawio-uml model",
-  "description": "Single JSON input for the drawio-uml suite, consumed by both generators: draw (model -> .drawio) and table (model -> .md). Machine-readable form of the model schema; the prose spec (docs/spec-ja.md, chapter 3.4) is the SSOT.",
+  "title": "drawio-uml model (0.3.0)",
+  "description": "Single JSON input for the drawio-uml suite, consumed by draw (model -> .drawio) and table (model -> .md). 0.3.0 redesign (backward-incompatible with 0.2.x): `layout` is a recursive cluster tree (row/column) that holds arrangement + boxes + node membership in ONE place; `nodes` are flat definitions referenced elsewhere by name; `views` are named node subsets. The 0.2.x keys node.cluster, options.clusters and options.layout.rows are removed. This file performs STRUCTURAL validation only; referential integrity (node-name uniqueness, every node placed exactly once in the layout, view/edge/cluster references resolve, cluster-name uniqueness) is enforced by draw/table at run time, NOT by this schema.",
   "type": "object",
   "additionalProperties": false,
+  "required": ["nodes"],
   "properties": {
-    "options": { "$ref": "#/definitions/options" },
     "nodes": {
       "type": "array",
+      "minItems": 1,
       "items": { "$ref": "#/definitions/node" },
-      "description": "Diagram boxes."
+      "description": "Node DEFINITIONS (objects). Everywhere else (layout leaves, views) a node is referenced by its name (a string)."
     },
     "edges": {
       "type": "array",
       "items": { "$ref": "#/definitions/edge" },
       "description": "Relations between nodes."
-    }
+    },
+    "layout": {
+      "$ref": "#/definitions/cluster",
+      "description": "Root of the recursive cluster tree (arrangement + boxes + membership). Omit for a flat diagram: dot then lays out every node and the flow follows options.direction. When present, it MUST place every node exactly once (run-time fail-fast). The root is normally an internal cluster (`clusters`); a leaf root (`nodes`) is allowed and means one flat group. A `label` on the root draws a box around the entire diagram."
+    },
+    "views": {
+      "type": "object",
+      "description": "Named node subsets, keyed by view name. `draw`/`table` --view KEY render the induced subgraph of that view: the master layout pruned to the selected nodes (empty clusters dropped, surviving boxes shrink, edges induced).",
+      "additionalProperties": { "$ref": "#/definitions/view" }
+    },
+    "options": { "$ref": "#/definitions/options" }
   },
   "definitions": {
     "node": {
@@ -23,20 +34,19 @@
       "additionalProperties": false,
       "required": ["name"],
       "properties": {
-        "name": { "type": "string", "description": "Unique node identifier; referenced by edge source/target." },
-        "shape": { "type": "string", "description": "One of: class, entity, object, component, package, box, usecase, actor, state, action, decision, initial, final, note. Unknown values render as box (FR-D-05)." },
+        "name": { "type": "string", "description": "Unique node identifier; referenced by edges, layout leaves and views." },
+        "shape": { "type": "string", "description": "One of: class, entity, object, component, package, box, usecase, actor, state, action, decision, initial, final, note. Unknown values render as box." },
         "stereotype": { "type": "string", "description": "UML <<...>> tag above the name. interface/abstract italicise the name; object underlines it." },
         "italic": { "type": "boolean", "description": "Force the name into italics." },
-        "cluster": { "type": "string", "description": "Group path, /-separated (e.g. a/b/c). draw treats it as one opaque label; table interprets the hierarchy." },
         "attributes": { "type": "array", "items": { "type": "string" }, "description": "Attribute compartment rows (class/entity/object)." },
         "methods": { "type": "array", "items": { "type": "string" }, "description": "Operation compartment rows (class/entity/object)." },
-        "fill": { "type": "string", "description": "Box fill colour (e.g. #D5E8D4). Authoritative over cluster fill." },
-        "stroke": { "type": "string", "description": "Box border colour (e.g. #82B366)." },
-        "style": { "type": "string", "description": "Raw draw.io style string. Suppresses shape preset and compartments (FR-D-10)." },
+        "fill": { "type": "string", "description": "Box fill colour (e.g. #D5E8D4). Overrides the fill cascaded from the enclosing cluster." },
+        "stroke": { "type": "string", "description": "Box border colour (e.g. #82B366). Overrides the stroke cascaded from the enclosing cluster's `color`." },
+        "style": { "type": "string", "description": "Raw draw.io style string. Suppresses the shape preset and compartments." },
         "width": { "type": "number", "description": "Override width in px." },
         "height": { "type": "number", "description": "Override height in px." },
-        "description": { "type": "string", "description": "Responsibility (single main line). Ignored by draw; consumed by table (FR-D-08)." },
-        "remark": { "type": "string", "description": "Side note not shown in attributes (origin, ADR, constraint). Ignored by draw; consumed by table." }
+        "description": { "type": "string", "description": "Responsibility (single main line). Ignored by draw; consumed by table." },
+        "remark": { "type": "string", "description": "Side note (origin, ADR, constraint). Ignored by draw; consumed by table." }
       }
     },
     "edge": {
@@ -45,47 +55,72 @@
       "required": ["source", "target"],
       "properties": {
         "source": { "type": "string", "description": "Source node name." },
-        "target": { "type": "string", "description": "Target node name. If equal to source, draw skips routing (FR-D-15)." },
-        "arrow": { "type": "string", "description": "One of: generalization, realization, composition, aggregation, directed_association, dependency, transition, association. draw renders unknown/unset values as association (FR-D-06); table outputs the literal value, empty cell when unset (FR-T-03)." },
+        "target": { "type": "string", "description": "Target node name. If equal to source, draw skips routing." },
+        "arrow": { "type": "string", "description": "One of: generalization, realization, composition, aggregation, directed_association, dependency, transition, association. draw renders unknown/unset values as association; table outputs the literal value." },
         "label": { "type": "string", "description": "Relation label shown on the edge." },
         "description": { "type": "string", "description": "Ignored by draw; consumed by table." },
         "remark": { "type": "string", "description": "Ignored by draw; consumed by table." }
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One element of the layout tree. Arranges its contents along `direction`. Draws a dashed labelled box IFF it has a `label`; without a label it is an invisible arrangement-only container (used for unlabelled bands/rows). Holds EXACTLY ONE of `clusters` (child clusters -> internal node) or `nodes` (member node names -> leaf). A cluster may carry a `label` AND `clusters` (e.g. `consider`: a labelled box that itself contains sub-clusters).",
+      "oneOf": [
+        { "required": ["clusters"] },
+        { "required": ["nodes"] }
+      ],
+      "properties": {
+        "direction": {
+          "type": "string",
+          "enum": ["row", "column"],
+          "description": "Lay contents out left-to-right (row) or top-to-bottom (column). Resolution order: this cluster's `direction`, else `options.direction`, else column. (Deliberately NO JSON-Schema `default` here, so a validator/IDE does not inject `column` and bypass `options.direction`.) For a leaf this also sets the dot rank flow (column=TB, row=LR), and drives invisible-edge stacking ONLY when the leaf's members have no edges among them (see `nodes`)."
+        },
+        "label": { "type": "string", "description": "Box title. Presence => a dashed labelled box is drawn around this cluster. Absence => no box (arrangement only)." },
+        "name": { "type": "string", "description": "Short identifier for referencing this cluster from views (view.clusters) and table --cluster. Optional; needed only if referenced. Run-time rules: names are unique across all clusters (duplicate => fail-fast); an UNNAMED cluster cannot be targeted by a view or --cluster. PATH: a node's cluster path (used by table's cluster column and --cluster) = the chain of NAMED ancestor clusters from root to the node's leaf, skipping nameless levels, joined with '/'. A `name` MUST NOT contain '/' (run-time fail-fast). --cluster matches on '/'-segment boundaries (KEY matches KEY and KEY/*). A node whose deepest named ancestor is an INTERNAL cluster takes that cluster's path (e.g. the header node directly under `consider` has path `consider`, while a node under `consider`->`world` has path `consider/world`)." },
+        "color": { "type": "string", "description": "Box border colour (e.g. #9673A6). Named `color` (not `stroke`) because it does double duty: the box border AND the cascaded default `stroke` of descendant nodes. Cascade resolves to the NEAREST enclosing cluster that sets `color`; a node's own `stroke` overrides. The box itself is unfilled. LEGEND: clusters that are OUTERMOST labelled (a `label`-bearing cluster with no `label`-bearing ancestor) each contribute one legend swatch, deduplicated by `color`; an outermost labelled cluster with no `color` falls back to #888888." },
+        "fill": { "type": "string", "description": "Cascaded default `fill` of descendant nodes. Resolves to the NEAREST enclosing cluster that sets `fill`, INDEPENDENTLY of `color` (a node may inherit fill and stroke from different ancestors); a node's own `fill` overrides. Does not fill the box itself." },
+        "clusters": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/cluster" },
+          "description": "Child clusters (objects) -> makes this an internal node. Order = arrangement order along `direction`. Nesting depth is unbounded by this schema. The readability guideline counts LABELLED levels on a root->leaf path (nameless arrangement wrappers -- the root, bands, rows -- do NOT count): recommended <=3 labelled levels (band / cluster / sub-cluster), run-time warning beyond 4. (The ARC example's deepest path is consider->world = 2 labelled levels.)"
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Member node NAMES (strings, referencing top-level nodes) -> makes this a leaf. Order is the stacking order along `direction` ONLY when the leaf has no edges among its members; with internal edges, dot's rank layout (per `direction`) governs placement and the listed order is only a hint."
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A named node subset. The view's node set = `nodes` (explicit names) UNION the nodes under every cluster named in `clusters`. Edges are induced (only those with BOTH ends in the set). At least one of nodes/clusters is required; supplying both unions them. Rendering prunes the master layout to the surviving nodes: empty boxes are dropped, partially-selected boxes shrink, nested boxes are kept where members survive.",
+      "anyOf": [
+        { "required": ["nodes"] },
+        { "required": ["clusters"] }
+      ],
+      "properties": {
+        "label": { "type": "string", "description": "Display title (figure title / table heading). Defaults to the view's key (the map key) at run time." },
+        "nodes": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "Node NAMES to include." },
+        "clusters": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "Cluster NAMES (each MUST equal some cluster.name; unresolved => run-time error). May name an INTERNAL cluster (e.g. \"consider\"): its entire subtree (all descendant nodes) is included." }
       }
     },
     "options": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "rankdir": { "type": "string", "enum": ["TB", "LR"], "description": "Layout direction. Default TB." },
-        "column_width": { "type": "number", "description": "Compartment column width hint (px)." },
-        "node_separation": { "type": "number", "description": "Maps to dot nodesep (inches)." },
-        "rank_separation": { "type": "number", "description": "Maps to dot ranksep (inches)." },
-        "clusters": {
-          "type": "object",
-          "description": "Cluster definitions, keyed by cluster name. Presence triggers the clustered path and the legend (FR-D-12).",
-          "additionalProperties": { "$ref": "#/definitions/cluster" }
+        "direction": {
+          "type": "string",
+          "enum": ["row", "column"],
+          "default": "column",
+          "description": "Global default arrangement direction: used by the flat path (no layout) and as the default for any cluster that omits its own `direction`. column = top-to-bottom (dot TB)."
         },
-        "layout": {
-          "type": "object",
-          "additionalProperties": false,
-          "description": "Banded layout. Presence triggers the clustered path (FR-D-03).",
-          "properties": {
-            "rows": {
-              "type": "array",
-              "description": "Bands of cluster keys. Row 0 is the top band; within a row, left to right (FR-D-04). Must enumerate every cluster key (FR-D-14).",
-              "items": { "type": "array", "items": { "type": "string" } }
-            }
-          }
-        }
-      }
-    },
-    "cluster": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "label": { "type": "string", "description": "Cluster-box title and legend text." },
-        "stroke": { "type": "string", "description": "Dashed cluster-box border and legend swatch colour. Defaults to #888888 when a node references an undefined cluster key (FR-D-13)." },
-        "fill": { "type": "string", "description": "Suggested node fill; per-node fill/stroke remain authoritative." }
+        "column_width": { "type": "number", "description": "Compartment column width hint (px) for class/entity/object boxes." },
+        "node_separation": { "type": "number", "description": "Maps to dot nodesep (inches)." },
+        "rank_separation": { "type": "number", "description": "Maps to dot ranksep (inches)." }
       }
     }
   }
