@@ -4,7 +4,7 @@
 | --- | --- |
 | 文書種別 | ANMS v0.33 準拠 単一仕様書 |
 | 対象 | `drawio-uml` ツールスイート(`draw` / `table`) |
-| 版 | 0.2.1 |
+| 版 | 0.2.2 |
 | 最終更新 | 2026-06-13 |
 | 配置 | `gr-tools/drawio-uml/spec-ja.md`(SSOT) |
 
@@ -96,8 +96,8 @@ AI(LLM)は構造図(クラス図・コンポーネント図・状態機械図等
 | suite(スイート) | `drawio-uml` 全体。生成器 `draw` と `table` を含む。 |
 | draw | モデル → `.drawio` 図を生成する描画部(本体ファイル `draw.py`)。 |
 | table | モデル → `.md` 表を生成する作表部(本体ファイル `table.py`)。 |
-| description | node/edge の責務(主たる1行説明)。図には出ない。`table` が消費する。 |
-| remark | node/edge の傍注(属性に現れない補足:由来・ADR・制約)。図には出ない。 |
+| description | node/edge の**責務を簡潔に表す主説明**(1行)。図には出ない。`table` が消費する。 |
+| remark | description を**補足する従説明**(属性に現れない由来・ADR・制約)。図には出ない。`table` が消費する。 |
 | common prefix(共通接頭) | 対象 node 群の cluster パスに共通する先頭セグメント列。`table` が表示時に除去する。 |
 
 ### 1.9 Notation(表記規約)
@@ -120,14 +120,13 @@ RFC 2119 / 8174 に準拠する。**SHALL/MUST**=必須、**SHOULD**=推奨、**
 - **FR-D-02**(Unwanted): If モデルがクラスタ系キーをいずれも持たない、then `draw` は flat path で描画する SHALL。flat path の出力は決定的であり、同一版での再生成と**バイト一致**する(NFR-01;回帰基準は ADR-003 参照)。
 - **FR-D-03**(Event): When モデルがクラスタ系キーのいずれかを持つ、`draw` は clustered path(クラスタ箱・箱回避ルーティングを伴う)で描画する SHALL。
 - **FR-D-04**(Event): When `options.layout.rows` が指定される、`draw` はクラスタを帯状(行)に配置する SHALL。row 0 を最上段とし、行内は列挙順に左→右、行は上→下に積む。
-- **FR-D-05**(Ubiquitous): `draw` は次の形状をサポートする SHALL — class / entity / object / component / package / node / usecase / actor / state / action / decision / initial / final / note。未知の `shape` は `node` として描画する。
-- **FR-D-06**(Ubiquitous): `draw` は次のエッジ種別をサポートする SHALL — gen / real / comp / aggr / assoc / dep / transition / line。未知・未指定の `arrow` は `assoc` として描画する。
+- **FR-D-05**(Ubiquitous): `draw` は次の形状をサポートする SHALL — class / entity / object / component / package / box / usecase / actor / state / action / decision / initial / final / note。未知の `shape` は `box` として描画する。
+- **FR-D-06**(Ubiquitous): `draw` は次のエッジ種別をサポートする SHALL — generalization / realization / composition / aggregation / directed_association / dependency / transition / association。未知・未指定の `arrow` は `association` として描画する。
 - **FR-D-07**(State): While `neato` または `fdp` が PATH に存在する、clustered path において `draw` は全エッジ(内部・クラスタ間を問わず)を box-avoiding な経路で描く SHALL。
 - **FR-D-07a**(Unwanted): If `neato` と `fdp` がいずれも PATH に無い、then `draw` は draw.io 自動ルーティングに degrade する SHALL。この場合 box-avoiding(GL-1)を保証しない(LM-4)。degrade の判別のため `draw` は stderr に警告を出す SHOULD(本版は未実装;実装フェーズで対応)。
 - **FR-D-08**(State): While `description` / `remark` がモデルに存在する、`draw` はそれらを無視し図を不変に保つ SHALL(SSOT 共有のため)。
 - **FR-D-09**(Unwanted): If 生成 XML が整形式(well-formed)でない、then `draw` は `minidom.parseString` が送出する例外を握り潰さず、書き出し前に非ゼロ終了する SHALL(fail fast)。
 - **FR-D-10**(Optional): Where `node.style` が指定される、`draw` は形状プリセットおよび compartment 区画化(class/entity/object)を抑止し、当該 raw スタイルのみで描く SHALL。
-- **FR-D-11**(Ubiquitous): `draw` は後方互換エイリアス `classes`→`nodes`、edge の `kind`→`arrow` を受理する SHALL。エイリアス解決後の挙動は正規キーと同一とする(FR-D-02 のバイト一致対象を含む)。
 - **FR-D-12**(Event): When `options.clusters` が定義される、`draw` は凡例(クラスタ swatch + エッジ種別グリフ)を図の下に描く SHALL。`options.clusters` が無い場合は凡例を描かない。
 - **FR-D-13**(Unwanted): If `node.cluster` が `options.clusters` に未定義のキーを指す、then `draw` は既定色 `#888888`・ラベル=キー文字列でクラスタ箱を描く SHALL。
 - **FR-D-14**(Constraint): `options.layout.rows` はモデル中の全クラスタキーを列挙する SHALL。`rows` に列挙されないクラスタの node は位置が未定義となるため不可とする。`rows` が `options.clusters`/`node.cluster` に存在しないキーを含む場合、`draw` は当該キーを無視する SHALL。
@@ -213,26 +212,27 @@ gr-tools/drawio-uml/                 ← SSOT(ここだけ編集する)
 model
 ├── options
 │   ├── rankdir : "TB" | "LR"            既定 TB
-│   ├── col_w / nodesep / ranksep        レイアウト寸法
-│   ├── clusters : { <key>: {label, color, tint} }   クラスタ定義(オプトイン)
+│   ├── column_width / node_separation / rank_separation   レイアウト寸法
+│   ├── clusters : { <key>: {label, stroke, fill} }   クラスタ定義(オプトイン)
 │   └── layout   : { rows: [[<key>...]...] }          帯状配置(オプトイン;全クラスタを列挙)
 ├── nodes[ node ]
 └── edges[ edge ]
 
 node
 ├── name            (必須・一意)
-├── shape           class|entity|object|component|package|node|usecase|actor|
-│                   state|action|decision|initial|final|note(既定/未知は node)
+├── shape           class|entity|object|component|package|box|usecase|actor|
+│                   state|action|decision|initial|final|note(既定/未知は box)
 ├── stereotype / italic
 ├── cluster         "/" 区切りのパス文字列(例 "a/b/c")
-├── attrs[] / methods[]    compartment の属性・操作行
-├── fill / stroke / style / w / h
+├── attributes[] / methods[]   compartment の属性・操作行
+├── fill / stroke / style / width / height
 ├── description     責務(主・1行)        ← table が消費 / draw は無視(FR-D-08)
 └── remark          傍注(属性に出ない補足) ← table が消費 / draw は無視(FR-D-08)
 
 edge
 ├── source / target (必須)
-├── arrow           gen|real|comp|aggr|assoc|dep|transition|line(別名 kind;未知は assoc)
+├── arrow           generalization|realization|composition|aggregation|
+│                   directed_association|dependency|transition|association(未指定は association)
 ├── label           図に出る関係名
 ├── description     ← table が消費 / draw は無視
 └── remark          ← table が消費 / draw は無視
@@ -352,10 +352,6 @@ Feature: draw — モデルから .drawio を生成
     When  draw.py で .drawio を生成する
     Then  当該 node は区画化されず raw style で描かれる
 
-  Scenario: SC-011 後方互換エイリアス (traces: FR-D-11)
-    Given "classes" キーと edge "kind" を用いたモデル
-    When  draw.py で .drawio を生成する
-    Then  "nodes"/"arrow" を用いた同義モデルと同一出力になる
 
   Scenario: SC-012 不正 XML は異常終了 (traces: FR-D-09)
     Given 整形式でない XML を生成させる入力
@@ -442,19 +438,19 @@ Feature: table — モデルから .md を生成
 
 | FR | 検証シナリオ | FR | 検証シナリオ |
 | --- | --- | --- | --- |
-| FR-D-01 | SC-001 | FR-D-12 | SC-004 |
-| FR-D-02 | SC-002 | FR-D-13 | SC-007 |
-| FR-D-03 | SC-003 | FR-D-14 | SC-005 / SC-014 |
-| FR-D-04 | SC-005 | FR-D-15 | SC-009 |
-| FR-D-05 | SC-001(代表形状) | FR-T-01 | SC-101 |
-| FR-D-06 | SC-003(代表種別) | FR-T-02 | SC-101 |
-| FR-D-07 | SC-003 | FR-T-04 | SC-101 |
-| FR-D-07a | SC-006 | FR-T-05 | SC-102 |
-| FR-D-08 | SC-008 | FR-T-06 / 07 | SC-103 |
-| FR-D-09 | SC-012 | FR-T-06a | SC-105 |
-| FR-D-10 | SC-010 | FR-T-08 | SC-104 |
-| FR-D-11 | SC-011 | FR-T-09 | SC-106 |
-| FR-C-01 | SC-001 / SC-101(同一入力) | FR-C-03 | SC-013 |
+| FR-D-01 | SC-001 | FR-D-14 | SC-005 / SC-014 |
+| FR-D-02 | SC-002 | FR-D-15 | SC-009 |
+| FR-D-03 | SC-003 | FR-T-01 | SC-101 |
+| FR-D-04 | SC-005 | FR-T-02 | SC-101 |
+| FR-D-05 | SC-001(代表形状) | FR-T-04 | SC-101 |
+| FR-D-06 | SC-003(代表種別) | FR-T-05 | SC-102 |
+| FR-D-07 | SC-003 | FR-T-06 / 07 | SC-103 |
+| FR-D-07a | SC-006 | FR-T-06a | SC-105 |
+| FR-D-08 | SC-008 | FR-T-08 | SC-104 |
+| FR-D-09 | SC-012 | FR-T-09 | SC-106 |
+| FR-D-10 | SC-010 | FR-C-01 | SC-001 / SC-101(同一入力) |
+| FR-D-12 | SC-004 | FR-C-03 | SC-013 |
+| FR-D-13 | SC-007 | | |
 
 個別テストケースの詳細は実装フェーズで AI が生成する。
 
@@ -493,3 +489,4 @@ Feature: table — モデルから .md を生成
 | 0.1.0 | 2026-06-13 | 初版。描画部(既存)の仕様化 + 作表部(新規)の仕様定義。 |
 | 0.2.0 | 2026-06-13 | 敵対的レビュー(R1–R6)15件を反映。FR-D-07a/12/13/14/15・FR-T-06a 追加、ADR-008 追加、GL/IS の操作的定義化、原点座標・degrade・トレース表を明記、再現性記述を NFR-01 に一元化。 |
 | 0.2.1 | 2026-06-13 | 再レビューの新規 Low 3件を反映。FR-D-07a に degrade 警告 SHOULD(未実装)、FR-D-09 を例外非捕捉の表現に、SC-014(rows 余分キー無視)追加、SC-012 到達性を Remark 明記。 |
+| 0.2.2 | 2026-06-13 | 後方互換エイリアス(classes/kind)を全廃(FR-D-11・SC-011 削除;FR-D-11 は欠番)。命名整理:w/h→width/height・attrs→attributes・col_w/nodesep/ranksep→column_width/node_separation/rank_separation・cluster の color/tint→stroke/fill。arrow を UML 正式名(generalization/realization/composition/aggregation/directed_association/dependency/transition/association;未指定は association)、shape の node→box。description=責務(主)/remark=補足(従)を用語集で明確化。 |

@@ -1,8 +1,8 @@
 {
   "options": {
     "clusters": {
-      "core": {"label": "Core", "color": "#FF8C00"},
-      "ext":  {"label": "External", "color": "#87CEEB"}
+      "core": {"label": "Core", "stroke": "#FF8C00"},
+      "ext":  {"label": "External", "stroke": "#87CEEB"}
     },
     "layout": {"rows": [["core"], ["ext"]]}
   },
@@ -12,7 +12,7 @@
     {"name": "Graphviz", "shape": "component", "cluster": "ext"}
   ],
   "edges": [
-    {"source": "Draw", "target": "Model",    "arrow": "dep"},
-    {"source": "Draw", "target": "Graphviz", "arrow": "assoc"}
+    {"source": "Draw", "target": "Model",    "arrow": "dependency"},
+    {"source": "Draw", "target": "Graphviz", "arrow": "directed_association"}
   ]
 }

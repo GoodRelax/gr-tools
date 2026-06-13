@@ -23,7 +23,7 @@ box-avoiding-routing extensions, and troubleshooting.
 
 - **Graphviz** — takes a graph (nodes + edges) and lays it out automatically. **`dot`** is its layered (Sugiyama-style) engine: it ranks nodes into levels and minimises crossings; with `splines=ortho` it also produces orthogonal edge routes that avoid node boxes. Input is the **DOT language** (`digraph G { A -> B }`). Class/state/activity/component diagrams all want `dot`. **`neato`/`fdp`** are Graphviz's force-directed engines; with `-n2` they DON'T lay anything out — they take node positions you supply and only route the edges. This skill uses `neato -n2` for the final box-avoiding routing pass (§12).
 - **draw.io / diagrams.net** — a free editor (desktop / browser / VS Code). Files are `.drawio` (`mxGraphModel` XML). It has native shapes for every UML element and a desktop **CLI** that exports to PNG/SVG/PDF, embedding the source XML so exports stay editable.
-- **The generator** (`scripts/drawio_uml.py`) is the glue: JSON model → `.drawio` XML, calling `dot` for positions and edge routes (and `neato -n2` for whole-graph routing on clustered models).
+- **The generator** (`scripts/draw.py`) is the glue: JSON model → `.drawio` XML, calling `dot` for positions and edge routes (and `neato -n2` for whole-graph routing on clustered models).
 
 dot and draw.io never talk directly: dot computes geometry, draw.io renders, the generator translates.
 
@@ -43,10 +43,10 @@ Set per node via `"shape"`. `{fill}`/`{stroke}` come from the node's `fill`/`str
 
 | shape | draw.io style | default w×h | notes |
 |-------|---------------|-------------|-------|
-| `class` `entity` `object` | `swimlane;childLayout=stackLayout;…` | 260×auto | compartments from `attrs`/`methods`; `object` underlines the name |
+| `class` `entity` `object` | `swimlane;childLayout=stackLayout;…` | 260×auto | compartments from `attributes`/`methods`; `object` underlines the name |
 | `component` | `rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;` | 180×70 | add `"stereotype":"component"` for the «component» tag |
 | `package` | `shape=folder;tabWidth=64;tabHeight=18;tabPosition=left;` | 200×100 | tabbed folder |
-| `node` | `rounded=0;whiteSpace=wrap;html=1;` | 170×60 | plain box — deployment node / generic |
+| `box` | `rounded=0;whiteSpace=wrap;html=1;` | 170×60 | plain box — deployment node / generic |
 | `usecase` | `ellipse;whiteSpace=wrap;html=1;` | 160×70 | |
 | `actor` | `shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;` | 40×70 | stick figure, label below |
 | `state` | `rounded=1;arcSize=30;whiteSpace=wrap;html=1;` | 150×56 | |
@@ -64,16 +64,16 @@ Set per edge via `"arrow"`. All inherit `edgeStyle=orthogonalEdgeStyle;rounded=0
 
 | arrow | style fragment | meaning |
 |-------|----------------|---------|
-| `gen` | `endArrow=block;endFill=0;endSize=14;` | generalization (extends) |
-| `real` | `endArrow=block;endFill=0;endSize=14;dashed=1;` | realization (implements) |
-| `comp` | `startArrow=diamondThin;startFill=1;startSize=14;endArrow=open;endFill=0;` | composition |
-| `aggr` | `startArrow=diamondThin;startFill=0;startSize=14;endArrow=open;endFill=0;` | aggregation |
-| `assoc` | `endArrow=open;` | directed association |
-| `dep` | `endArrow=open;dashed=1;` | dependency; use label `«include»`/`«extend»` for use-case |
+| `generalization` | `endArrow=block;endFill=0;endSize=14;` | generalization (extends) |
+| `realization` | `endArrow=block;endFill=0;endSize=14;dashed=1;` | realization (implements) |
+| `composition` | `startArrow=diamondThin;startFill=1;startSize=14;endArrow=open;endFill=0;` | composition |
+| `aggregation` | `startArrow=diamondThin;startFill=0;startSize=14;endArrow=open;endFill=0;` | aggregation |
+| `directed_association` | `endArrow=open;` | directed association (navigability arrow) |
+| `dependency` | `endArrow=open;dashed=1;` | dependency; use label `«include»`/`«extend»` for use-case |
 | `transition` | `endArrow=block;endFill=1;endSize=10;` | state / activity flow |
-| `line` | `endArrow=none;` | plain association (actor–usecase) |
+| `association` | `endArrow=none;` | plain association (no arrowhead) |
 
-For `gen`/`real` the generator feeds dot the edge reversed so the parent ranks above the child; the drawn arrow still points child → parent.
+For `generalization`/`realization` the generator feeds dot the edge reversed so the parent ranks above the child; the drawn arrow still points child → parent.
 
 ## 5. Colour palette
 
@@ -96,10 +96,10 @@ Colour by role so related nodes read together (fill / stroke):
 ```json
 {"nodes": [
   {"name": "Shape", "shape": "class", "stereotype": "abstract", "fill": "#E1D5E7", "stroke": "#9673A6",
-   "attrs": ["# x: int", "# y: int"], "methods": ["+ area(): float"]},
+   "attributes": ["# x: int", "# y: int"], "methods": ["+ area(): float"]},
   {"name": "Circle", "shape": "class", "fill": "#D5E8D4", "stroke": "#82B366",
-   "attrs": ["+ r: float"], "methods": ["+ area(): float"]}],
- "edges": [{"source": "Circle", "target": "Shape", "arrow": "gen"}]}
+   "attributes": ["+ r: float"], "methods": ["+ area(): float"]}],
+ "edges": [{"source": "Circle", "target": "Shape", "arrow": "generalization"}]}
 ```
 
 **State machine** — `initial` / `state` / `final` + `transition` (label = event/guard):
@@ -133,7 +133,7 @@ Colour by role so related nodes read together (fill / stroke):
   {"source": "Save", "target": "done", "arrow": "transition"}]}
 ```
 
-**Use case** — `actor` + `usecase`; `line` for participation, `dep` + `«include»`/`«extend»`. Use `"options": {"rankdir": "LR"}`:
+**Use case** — `actor` + `usecase`; `association` for participation, `dependency` + `«include»`/`«extend»`. Use `"options": {"rankdir": "LR"}`:
 
 ```json
 {"options": {"rankdir": "LR"},
@@ -142,20 +142,20 @@ Colour by role so related nodes read together (fill / stroke):
   {"name": "Checkout", "shape": "usecase", "fill": "#D5E8D4", "stroke": "#82B366"},
   {"name": "Pay", "shape": "usecase", "fill": "#D5E8D4", "stroke": "#82B366"}],
  "edges": [
-  {"source": "Customer", "target": "Checkout", "arrow": "line"},
-  {"source": "Checkout", "target": "Pay", "arrow": "dep", "label": "«include»"}]}
+  {"source": "Customer", "target": "Checkout", "arrow": "association"},
+  {"source": "Checkout", "target": "Pay", "arrow": "dependency", "label": "«include»"}]}
 ```
 
-**Component / package / deployment** — `component`, `package`, `node`; `dep`/`assoc`:
+**Component / package / deployment** — `component`, `package`, `box`; `dependency`/`directed_association`:
 
 ```json
 {"nodes": [
   {"name": "Frontend", "shape": "package", "fill": "#F5F5F5", "stroke": "#999999"},
   {"name": "ApiGateway", "shape": "component", "stereotype": "component", "fill": "#DAE8FC", "stroke": "#6C8EBF"},
-  {"name": "Postgres", "shape": "node", "fill": "#E1D5E7", "stroke": "#9673A6"}],
+  {"name": "Postgres", "shape": "box", "fill": "#E1D5E7", "stroke": "#9673A6"}],
  "edges": [
-  {"source": "Frontend", "target": "ApiGateway", "arrow": "dep", "label": "calls"},
-  {"source": "ApiGateway", "target": "Postgres", "arrow": "assoc"}]}
+  {"source": "Frontend", "target": "ApiGateway", "arrow": "dependency", "label": "calls"},
+  {"source": "ApiGateway", "target": "Postgres", "arrow": "directed_association"}]}
 ```
 
 **ER** — `entity` (compartments hold columns); multiplicity in the edge label:
@@ -163,10 +163,10 @@ Colour by role so related nodes read together (fill / stroke):
 ```json
 {"nodes": [
   {"name": "Customer", "shape": "entity", "fill": "#EEF0FF", "stroke": "#5B5FC7",
-   "attrs": ["PK id: int", "name: text"]},
+   "attributes": ["PK id: int", "name: text"]},
   {"name": "Order", "shape": "entity", "fill": "#EEF0FF", "stroke": "#5B5FC7",
-   "attrs": ["PK id: int", "FK customer_id: int"]}],
- "edges": [{"source": "Customer", "target": "Order", "arrow": "assoc", "label": "1 .. *"}]}
+   "attributes": ["PK id: int", "FK customer_id: int"]}],
+ "edges": [{"source": "Customer", "target": "Order", "arrow": "directed_association", "label": "1 .. *"}]}
 ```
 
 **Object** — `object` underlines the instance name (`name : Class`):
@@ -174,7 +174,7 @@ Colour by role so related nodes read together (fill / stroke):
 ```json
 {"nodes": [
   {"name": "alice : Customer", "shape": "object", "fill": "#EEF0FF", "stroke": "#5B5FC7",
-   "attrs": ["id = 7", "name = Alice"]}],
+   "attributes": ["id = 7", "name = Alice"]}],
  "edges": []}
 ```
 
@@ -216,15 +216,15 @@ Give a node a `"cluster": "<key>"` and describe each cluster under `options.clus
 ```json
 "options": {
   "clusters": {
-    "core":  {"label": "Core domain",   "color": "#5B5FC7", "tint": "#EEF0FF"},
-    "infra": {"label": "Infrastructure", "color": "#82B366", "tint": "#E7F4E7"}
+    "core":  {"label": "Core domain",   "stroke": "#5B5FC7", "fill": "#EEF0FF"},
+    "infra": {"label": "Infrastructure", "stroke": "#82B366", "fill": "#E7F4E7"}
   }
 }
 ```
 
 - `label` — the cluster-box title (top-left) and the cluster's legend text (the part before `—` is used in the legend swatch).
-- `color` — the dashed cluster-box border colour and the legend swatch colour.
-- `tint` — a *suggested* node fill. The generator treats **per-node `fill`/`stroke` as authoritative** and `tint`/`color` as the cluster-box/legend source, so for a uniform look set each node's `fill` to the cluster `tint` and `stroke` to the cluster `color`.
+- `stroke` — the dashed cluster-box border colour and the legend swatch colour.
+- `fill` — a *suggested* node fill. The generator treats **per-node `fill`/`stroke` as authoritative** and the cluster's `fill`/`stroke` as the cluster-box/legend source, so for a uniform look set each node's `fill` to the cluster `fill` and `stroke` to the cluster `stroke`.
 
 A node with no `cluster` stays top-level (un-boxed). Cluster boxes are computed from the bounding box of their members (`-Tplain` does not emit cluster bboxes), padded by `PAD≈24` on the sides and `TOP_PAD≈34` on top for the label, and emitted **before** the node cells so draw.io's z-order (= document order) puts them behind the boxes.
 
@@ -262,7 +262,7 @@ This two-stage structure (per-cluster layout → grid composition) is then toppe
 2. Sets `splines=ortho` and emits **all** edges (internal + cross-cluster), undirected and de-duplicated (we only need the geometry; draw.io applies the arrowheads).
 3. Uses an engine that **honours pinned positions and only routes edges**: `neato -n2 -Tplain` (falls back to `fdp -n2`, then `neato -n`). `-n2` means "input already has node positions; do not run layout, just route."
 4. Parses the routed polylines and **overwrites the route table for every edge** with these whole-graph, box-avoiding routes (replacing the per-cluster internal routes too, so everything is routed consistently).
-5. Imports the polylines as draw.io waypoints exactly like the flat path (`<Array as="points">` of inner `<mxPoint>`s; endpoints `pts[1:-1]` stripped; reversed for `gen`/`real`).
+5. Imports the polylines as draw.io waypoints exactly like the flat path (`<Array as="points">` of inner `<mxPoint>`s; endpoints `pts[1:-1]` stripped; reversed for `generalization`/`realization`).
 
 **The unit round-trip (the subtle part).** `neato -n`/`-n2` reads `pos` in **points** (origin bottom-left, y up); `-Tplain` re-emits in inches. Rather than guess the engine's graph height or input scale, the generator **pins the nodes and then reads their echoed centres back**: because it also knows each node's centre in draw.io px, it recovers the exact affine map (`x' = x_pt + ox`, `y' = -y_pt + oy`) from those known correspondences and applies it to every routed waypoint. This is immune to scale/height guesswork — the routed lines line up with the boxes exactly. (Sanity-check by rendering the PNG anyway.)
 
@@ -277,35 +277,35 @@ A compact version of the shape this skill was built for — three clusters acros
 ```json
 {
   "options": {
-    "rankdir": "TB", "nodesep": 0.85, "ranksep": 1.3, "col_w": 300,
+    "rankdir": "TB", "node_separation": 0.85, "rank_separation": 1.3, "column_width": 300,
     "layout": {"rows": [["input", "consider", "output"], ["vocabulary"]]},
     "clusters": {
-      "input":      {"label": "Input port — perception",     "color": "#2F8FA8", "tint": "#E3F2F5"},
-      "consider":   {"label": "Consider — the Conception",   "color": "#9673A6", "tint": "#EDE7F6"},
-      "output":     {"label": "Output port — action",        "color": "#D79B00", "tint": "#FFF0DD"},
-      "vocabulary": {"label": "Vocabulary — Lexicon",        "color": "#82B366", "tint": "#E7F4E7"}
+      "input":      {"label": "Input port — perception",     "stroke": "#2F8FA8", "fill": "#E3F2F5"},
+      "consider":   {"label": "Consider — the Conception",   "stroke": "#9673A6", "fill": "#EDE7F6"},
+      "output":     {"label": "Output port — action",        "stroke": "#D79B00", "fill": "#FFF0DD"},
+      "vocabulary": {"label": "Vocabulary — Lexicon",        "stroke": "#82B366", "fill": "#E7F4E7"}
     }
   },
   "nodes": [
     {"name": "Conception", "shape": "class", "cluster": "consider", "fill": "#EDE7F6", "stroke": "#9673A6",
-     "attrs": ["goal : GoalPredicate", "plan : GamePlan"]},
+     "attributes": ["goal : GoalPredicate", "plan : GamePlan"]},
     {"name": "GoalPredicate", "shape": "class", "cluster": "consider", "fill": "#EDE7F6", "stroke": "#9673A6",
-     "attrs": ["kind : Atom|AND|OR|SEQUENCE"], "methods": ["test(state) : bool"]},
+     "attributes": ["kind : Atom|AND|OR|SEQUENCE"], "methods": ["test(state) : bool"]},
     {"name": "Probe", "shape": "class", "cluster": "input", "fill": "#E3F2F5", "stroke": "#2F8FA8",
-     "attrs": ["moves : GameMove[*]"]},
+     "attributes": ["moves : GameMove[*]"]},
     {"name": "GameMove", "shape": "class", "cluster": "output", "fill": "#FFF0DD", "stroke": "#D79B00",
-     "attrs": ["kind", "params (coords?)"]},
+     "attributes": ["kind", "params (coords?)"]},
     {"name": "GameObject", "shape": "class", "cluster": "vocabulary", "fill": "#E7F4E7", "stroke": "#82B366",
-     "attrs": ["id", "profile : Profile"]},
+     "attributes": ["id", "profile : Profile"]},
     {"name": "Relation", "shape": "class", "cluster": "vocabulary", "fill": "#E7F4E7", "stroke": "#82B366",
-     "attrs": ["arity : n", "detector"]}
+     "attributes": ["arity : n", "detector"]}
   ],
   "edges": [
-    {"source": "Conception", "target": "GoalPredicate", "arrow": "comp", "label": "goal"},
-    {"source": "Probe", "target": "GameMove", "arrow": "aggr", "label": "trial moves  1..*"},
-    {"source": "GoalPredicate", "target": "GameObject", "arrow": "dep", "label": "conditions over objects"},
-    {"source": "GoalPredicate", "target": "Relation", "arrow": "dep", "label": "tests relations"},
-    {"source": "Relation", "target": "GameObject", "arrow": "assoc", "label": "over (n) objects"}
+    {"source": "Conception", "target": "GoalPredicate", "arrow": "composition", "label": "goal"},
+    {"source": "Probe", "target": "GameMove", "arrow": "aggregation", "label": "trial moves  1..*"},
+    {"source": "GoalPredicate", "target": "GameObject", "arrow": "dependency", "label": "conditions over objects"},
+    {"source": "GoalPredicate", "target": "Relation", "arrow": "dependency", "label": "tests relations"},
+    {"source": "Relation", "target": "GameObject", "arrow": "directed_association", "label": "over (n) objects"}
   ]
 }
 ```
@@ -313,7 +313,7 @@ A compact version of the shape this skill was built for — three clusters acros
 Generate and export:
 
 ```bash
-python scripts/drawio_uml.py model.json out.drawio
+python scripts/draw.py model.json out.drawio
 "$DRAWIO" -x -f png -e -b 12 -o out.png out.drawio   # then READ out.png to verify
 ```
 

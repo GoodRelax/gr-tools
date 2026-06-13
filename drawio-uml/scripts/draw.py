@@ -29,27 +29,26 @@ Usage:
 
 Model schema (see references/drawio-uml-reference.md for the full menu):
 {
-  "options": {"rankdir": "TB", "col_w": 260, "nodesep": 0.7, "ranksep": 1.1},
+  "options": {"rankdir": "TB", "column_width": 260, "node_separation": 0.7, "rank_separation": 1.1},
   "nodes": [
     {"name": "Animal", "shape": "class", "stereotype": "abstract",
      "fill": "#DAE8FC", "stroke": "#6C8EBF",
-     "attrs": ["+ name: str"], "methods": ["+ speak(): str"]},
+     "attributes": ["+ name: str"], "methods": ["+ speak(): str"]},
     {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
     {"name": "start", "shape": "initial"}
   ],
   "edges": [
-    {"source": "Dog", "target": "Animal", "arrow": "gen"},
+    {"source": "Dog", "target": "Animal", "arrow": "generalization"},
     {"source": "Idle", "target": "Running", "arrow": "transition", "label": "play()"}
   ]
 }
 
-Opt-in clustering / banding (additive — omit for the stock behaviour):
-  options.clusters = { "<key>": {"label": str, "color": "#RRGGBB", "tint": "#RRGGBB"} }
+Opt-in clustering / banding (additive - omit for the stock behaviour):
+  options.clusters = { "<key>": {"label": str, "stroke": "#RRGGBB", "fill": "#RRGGBB"} }
   options.layout   = { "rows": [["input","consider","output"], ["vocabulary"]] }
   each node may carry  "cluster": "<key>"
 
-Back-compat: "classes" is accepted as an alias for "nodes", and edge "kind" as an
-alias for "arrow"; a node with attrs/methods and no shape defaults to a class box.
+A node with attributes/methods and no shape defaults to a class box.
 Any node may set a raw draw.io "style" string to override the shape preset.
 """
 import json
@@ -61,14 +60,14 @@ from collections import OrderedDict
 
 # ---------------------------------------------------------------- edge arrows
 ARROW = {
-    "gen":        "endArrow=block;endFill=0;endSize=14;",                                   # generalization
-    "real":       "endArrow=block;endFill=0;endSize=14;dashed=1;",                          # realization
-    "comp":       "startArrow=diamondThin;startFill=1;startSize=14;endArrow=open;endFill=0;",  # composition
-    "aggr":       "startArrow=diamondThin;startFill=0;startSize=14;endArrow=open;endFill=0;",  # aggregation
-    "assoc":      "endArrow=open;",                                                          # association (directed)
-    "dep":        "endArrow=open;dashed=1;",                                                 # dependency / include / extend
-    "transition": "endArrow=block;endFill=1;endSize=10;",                                    # state / activity flow
-    "line":       "endArrow=none;",                                                          # plain association (actor-usecase)
+    "generalization":       "endArrow=block;endFill=0;endSize=14;",                                   # generalization
+    "realization":          "endArrow=block;endFill=0;endSize=14;dashed=1;",                          # realization
+    "composition":          "startArrow=diamondThin;startFill=1;startSize=14;endArrow=open;endFill=0;",  # composition
+    "aggregation":          "startArrow=diamondThin;startFill=0;startSize=14;endArrow=open;endFill=0;",  # aggregation
+    "directed_association": "endArrow=open;",                                                          # association with navigability arrow
+    "dependency":           "endArrow=open;dashed=1;",                                                 # dependency / include / extend
+    "transition":           "endArrow=block;endFill=1;endSize=10;",                                    # state / activity flow
+    "association":          "endArrow=none;",                                                          # plain association (no arrowhead)
 }
 EDGE_BASE = ("edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#3A3A3A;"
              "fontSize=11;fontColor=#222222;labelBackgroundColor=#FFFFFF;")
@@ -78,7 +77,7 @@ EDGE_BASE = ("edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#3A3A3A
 SHAPES = {
     "component": ("rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;spacingTop=4;fillColor={fill};strokeColor={stroke};", 180, 70),
     "package":   ("shape=folder;tabWidth=64;tabHeight=18;tabPosition=left;whiteSpace=wrap;html=1;verticalAlign=top;fillColor={fill};strokeColor={stroke};", 200, 100),
-    "node":      ("rounded=0;whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};", 170, 60),
+    "box":       ("rounded=0;whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};", 170, 60),
     "usecase":   ("ellipse;whiteSpace=wrap;html=1;fillColor={fill};strokeColor={stroke};", 160, 70),
     "actor":     ("shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor={fill};strokeColor={stroke};", 40, 70),
     "state":     ("rounded=1;whiteSpace=wrap;html=1;arcSize=30;fillColor={fill};strokeColor={stroke};", 150, 56),
@@ -111,20 +110,20 @@ def is_compartment(node):
     sh = node.get("shape")
     if sh in COMPARTMENT:
         return True
-    return sh is None and bool(node.get("attrs") or node.get("methods"))
+    return sh is None and bool(node.get("attributes") or node.get("methods"))
 
 
 def comp_h(node):
-    a, m = node.get("attrs", []), node.get("methods", [])
+    a, m = node.get("attributes", []), node.get("methods", [])
     h = TITLE_H + ROW_H * len(a) + ROW_H * len(m)
     return h + DIV_H if a and m else h
 
 
 def node_size(node, opt):
     if is_compartment(node):
-        return node.get("w", opt.get("col_w", 260)), comp_h(node)
-    _, dw, dh = SHAPES.get(node.get("shape", "node"), SHAPES["node"])
-    return node.get("w", dw), node.get("h", dh)
+        return node.get("width", opt.get("column_width", 260)), comp_h(node)
+    _, dw, dh = SHAPES.get(node.get("shape", "box"), SHAPES["box"])
+    return node.get("width", dw), node.get("height", dh)
 
 
 def title_raw(node):
@@ -139,7 +138,7 @@ def title_raw(node):
 
 
 def arrow_of(e):
-    return e.get("arrow") or e.get("kind") or "assoc"
+    return e.get("arrow") or "association"
 
 
 def _node_cells(node, nid, pos, opt, rs):
@@ -156,7 +155,7 @@ def _node_cells(node, nid, pos, opt, rs):
     stroke = node.get("stroke", DEFAULT_STROKE)
     out = []
     if is_compartment(node):
-        attrs, meths = node.get("attrs", []), node.get("methods", [])
+        attrs, meths = node.get("attributes", []), node.get("methods", [])
         out.append(
             '<mxCell id="%s" value="%s" style="swimlane;html=1;align=center;'
             'verticalAlign=top;childLayout=stackLayout;startSize=%d;horizontal=1;'
@@ -182,11 +181,11 @@ def _node_cells(node, nid, pos, opt, rs):
                        % (ni, j, esc(mm), rs, ni, off, w, ROW_H))
             off += ROW_H
     else:
-        sh = node.get("shape", "node")
+        sh = node.get("shape", "box")
         if "style" in node:
             style = node["style"]
         else:
-            style = SHAPES.get(sh, SHAPES["node"])[0].format(fill=fill, stroke=stroke)
+            style = SHAPES.get(sh, SHAPES["box"])[0].format(fill=fill, stroke=stroke)
         val = "" if sh in NO_LABEL else esc(title_raw(node))
         out.append('<mxCell id="%s" value="%s" style="%s" vertex="1" parent="1">'
                    '<mxGeometry x="%d" y="%d" width="%d" height="%d" as="geometry"/></mxCell>'
@@ -205,7 +204,7 @@ def _edge_cell(i, e, nid, routes):
     """Render ONE edge into an mxCell with imported waypoints (shared)."""
     a = arrow_of(e)
     si, ti = nid[e["source"]], nid[e["target"]]
-    key, rev = ((ti, si), True) if a in ("gen", "real") else ((si, ti), False)
+    key, rev = ((ti, si), True) if a in ("generalization", "realization") else ((si, ti), False)
     pts = routes.get(key, [])
     if rev:
         pts = pts[::-1]
@@ -214,7 +213,7 @@ def _edge_cell(i, e, nid, routes):
            '</mxGeometry>' % inner) if inner else '<mxGeometry relative="1" as="geometry"/>'
     return ('<mxCell id="edge%d" value="%s" style="%s" edge="1" parent="1" '
             'source="%s" target="%s">%s</mxCell>'
-            % (i, esc(e.get("label", "")), EDGE_BASE + ARROW.get(a, ARROW["assoc"]),
+            % (i, esc(e.get("label", "")), EDGE_BASE + ARROW.get(a, ARROW["association"]),
                si, ti, geo))
 
 
@@ -228,7 +227,7 @@ def dot_layout(nodes, edges, nid, opt):
     Nodes and edge points share the exact same transform so they line up."""
     g = ["digraph G {",
          "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho;"
-         % (opt.get("rankdir", "TB"), opt.get("nodesep", 0.7), opt.get("ranksep", 1.1)),
+         % (opt.get("rankdir", "TB"), opt.get("node_separation", 0.7), opt.get("rank_separation", 1.1)),
          "node [shape=box, fixedsize=true];"]
     for n in nodes:
         w, h = node_size(n, opt)
@@ -237,7 +236,7 @@ def dot_layout(nodes, edges, nid, opt):
         s, t = nid[e["source"]], nid[e["target"]]
         # gen/real are fed reversed so the PARENT ranks above the child; the
         # polyline is direction-agnostic and reversed back when drawn.
-        a, b = (t, s) if arrow_of(e) in ("gen", "real") else (s, t)
+        a, b = (t, s) if arrow_of(e) in ("generalization", "realization") else (s, t)
         g.append("%s -> %s;" % (a, b))
     g.append("}")
     out = subprocess.run(["dot", "-Tplain"], input="\n".join(g),
@@ -268,7 +267,7 @@ def dot_layout(nodes, edges, nid, opt):
 def render_flat(model):
     """The stock global-skill renderer. Produces output byte-identical to the
     original drawio-uml skill for any model with no cluster/banded keys."""
-    nodes = model.get("nodes") or model.get("classes") or []
+    nodes = model.get("nodes") or []
     edges = model.get("edges", [])
     opt = model.get("options", {})
     nid = {n["name"]: "n_" + re.sub(r"[^0-9A-Za-z_]", "_", n["name"]) for n in nodes}
@@ -355,7 +354,7 @@ def _emit_cluster(g, ckey, members, nid, opt, specs):
     g.append('label="%s"; labeljust=l; fontsize=14; margin=18; '
              'style=rounded; color="%s";'
              % (specs.get(ckey, {}).get("label", ckey),
-                specs.get(ckey, {}).get("color", "#888888")))
+                specs.get(ckey, {}).get("stroke", "#888888")))
     for n in members:
         w, h = node_size(n, opt)
         g.append('%s [width=%.3f, height=%.3f];' % (nid[n["name"]], w / 72.0, h / 72.0))
@@ -370,7 +369,7 @@ def _layout_one_cluster(ckey, members, edges, nid, opt, specs, rankdir):
     a full-width band cluster). Only edges internal to this cluster are included so
     dot routes them; cross-cluster edges are routed later by the pinned pass.
     """
-    nodesep, ranksep = opt.get("nodesep", 0.8), opt.get("ranksep", 1.25)
+    nodesep, ranksep = opt.get("node_separation", 0.8), opt.get("rank_separation", 1.25)
     g = ["digraph G {",
          "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho; compound=true;"
          % (rankdir, nodesep, ranksep),
@@ -380,7 +379,7 @@ def _layout_one_cluster(ckey, members, edges, nid, opt, specs, rankdir):
     for e in edges:
         if e["source"] in names and e["target"] in names:
             s, t = nid[e["source"]], nid[e["target"]]
-            a, b = (t, s) if arrow_of(e) in ("gen", "real") else (s, t)
+            a, b = (t, s) if arrow_of(e) in ("generalization", "realization") else (s, t)
             g.append("%s -> %s;" % (a, b))
     g.append("}")
     return _run_dot(g)
@@ -466,7 +465,7 @@ def dot_layout_clustered(nodes, edges, nid, opt):
     specs = opt.get("clusters", {})
     g = ["digraph G {",
          "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho; compound=true;"
-         % (opt.get("rankdir", "TB"), opt.get("nodesep", 0.8), opt.get("ranksep", 1.25)),
+         % (opt.get("rankdir", "TB"), opt.get("node_separation", 0.8), opt.get("rank_separation", 1.25)),
          "node [shape=box, fixedsize=true];"]
 
     def emit_node(n):
@@ -482,13 +481,13 @@ def dot_layout_clustered(nodes, edges, nid, opt):
             g.append('label="%s"; labeljust=l; fontsize=14; margin=18; '
                      'style=rounded; color="%s";'
                      % (specs.get(ckey, {}).get("label", ckey),
-                        specs.get(ckey, {}).get("color", "#888888")))
+                        specs.get(ckey, {}).get("stroke", "#888888")))
             for n in members:
                 emit_node(n)
             g.append('}')
     for e in edges:
         s, t = nid[e["source"]], nid[e["target"]]
-        a, b = (t, s) if arrow_of(e) in ("gen", "real") else (s, t)
+        a, b = (t, s) if arrow_of(e) in ("generalization", "realization") else (s, t)
         g.append("%s -> %s;" % (a, b))
     g.append("}")
     pos, _, _ = _run_dot(g, off_x=MARGIN, off_y=MARGIN)
@@ -625,7 +624,7 @@ def _route_pinned(nodes, edges, nid, opt, pos):
         if e["source"] == e["target"]:
             continue
         si, ti = nid[e["source"]], nid[e["target"]]
-        key = (ti, si) if arrow_of(e) in ("gen", "real") else (si, ti)
+        key = (ti, si) if arrow_of(e) in ("generalization", "realization") else (si, ti)
         if key in table:
             routes[key] = table[key]
     return routes
@@ -651,7 +650,7 @@ def cluster_box_cells(nodes, nid, pos, opt):
             xs0.append(x); ys0.append(y); xs1.append(x + w); ys1.append(y + h)
         bx, by = min(xs0) - PAD, min(ys0) - TOP_PAD
         bw, bh = (max(xs1) - min(xs0)) + 2 * PAD, (max(ys1) - min(ys0)) + TOP_PAD + PAD
-        col = specs.get(ckey, {}).get("color", "#888888")
+        col = specs.get(ckey, {}).get("stroke", "#888888")
         lbl = specs.get(ckey, {}).get("label", ckey)
         cells.append(
             '<mxCell id="%s" value="%s" style="rounded=1;arcSize=3;fillColor=none;'
@@ -669,7 +668,7 @@ def legend_cell(opt, x, y, w):
     parts = ["<b>Legend</b> &nbsp; "]
     for spec in specs.values():
         parts.append("<font color='%s'>&#9632;</font> %s &nbsp; "
-                     % (spec.get("color", "#888"), spec.get("label", "").split(" — ")[0]))
+                     % (spec.get("stroke", "#888"), spec.get("label", "").split(" — ")[0]))
     parts.append("&nbsp;|&nbsp; &#9670; composition &nbsp; &#9671; aggregation "
                  "&nbsp; &#8594; association &nbsp; &#8674; dependency")
     val = esc("".join(parts))  # escaped like every value; draw.io un-escapes & renders the HTML
@@ -686,7 +685,7 @@ def render_clustered(model):
     Cell order (draw.io z-order = document order): cluster boxes -> node cells ->
     edges -> legend. Full shape menu supported; clustered nodes are usually class
     compartments, but any other shape still renders via the shared _node_cells."""
-    nodes = model.get("nodes") or model.get("classes") or []
+    nodes = model.get("nodes") or []
     edges = model.get("edges", [])
     opt = model.get("options", {})
     nid = {n["name"]: "n_" + re.sub(r"[^0-9A-Za-z_]", "_", n["name"]) for n in nodes}
@@ -719,7 +718,7 @@ def uses_clusters(model):
     opt = model.get("options", {})
     if opt.get("clusters") or opt.get("layout"):
         return True
-    nodes = model.get("nodes") or model.get("classes") or []
+    nodes = model.get("nodes") or []
     return any(n.get("cluster") is not None for n in nodes)
 
 
@@ -739,7 +738,7 @@ def main():
         model = json.load(fh)
     with open(sys.argv[2], "w", encoding="utf-8") as fh:
         fh.write(render(model))
-    nodes = model.get("nodes") or model.get("classes") or []
+    nodes = model.get("nodes") or []
     nc = len(model.get("options", {}).get("clusters", {}))
     extra = " (%d clusters)" % nc if nc else ""
     print("wrote %s (%d nodes, %d edges)%s"
