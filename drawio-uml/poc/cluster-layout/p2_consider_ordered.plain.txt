@@ -1,0 +1,23 @@
+graph 1 18.944 10.419
+node Conception 11.806 9.09 4.17 2.08 "«answer»\nConception" solid box black lightgrey
+node WorldModel 7.0833 6.1344 4.17 1.92 "«entity»\nWorldModel" solid box black lightgrey
+node PiStateAbstraction 7.0833 3.4839 4.17 1.31 "«function pi»\nPiStateAbstraction" solid box black lightgrey
+node InteractionRule 2.4167 3.4839 4.17 1.47 "«entity»\nInteractionRule" solid box black lightgrey
+node MarkovState 4.75 1.1383 4.17 1.61 "«value»\nMarkovState" solid box black lightgrey
+node GoalPredicate 16.528 6.1344 4.17 2.22 "«entity»\nGoalPredicate" solid box black lightgrey
+node GoalPatterns 16.528 9.09 4.17 1.31 "«baked prior»\nGoalPatterns" solid box black lightgrey
+node GamePlan 11.806 6.1344 4.17 1.17 "«entity»\nGamePlan" solid box black lightgrey
+node Step 11.806 3.4839 4.17 1.47 "«value»\nStep" solid box black lightgrey
+edge Conception WorldModel 7 10.014 8.0445 9.7974 7.9157 9.5805 7.7845 9.375 7.6569 9.132 7.5062 8.877 7.3432 8.6289 7.1819 solid black
+edge Conception GoalPredicate 7 13.597 8.0445 13.814 7.9157 14.031 7.7845 14.236 7.6569 14.402 7.5539 14.574 7.4451 14.745 7.3351 solid black
+edge Conception GamePlan 4 11.806 8.0439 11.806 7.6598 11.806 7.2323 11.806 6.8805 solid black
+edge WorldModel PiStateAbstraction 4 7.0833 5.17 7.0833 4.8844 7.0833 4.5741 7.0833 4.2993 solid black
+edge WorldModel InteractionRule 4 5.392 5.17 4.8853 4.8852 4.3349 4.5758 3.8468 4.3015 solid black
+edge PiStateAbstraction MarkovState 4 6.4334 2.8244 6.1938 2.5864 5.9179 2.3124 5.6597 2.0558 solid black
+edge InteractionRule MarkovState 4 3.1485 2.743 3.3668 2.5262 3.6087 2.2859 3.837 2.0592 solid black
+edge GoalPredicate MarkovState 7 16.123 5.0206 15.759 4.1957 15.142 3.1119 14.236 2.5267 13.073 1.7757 9.4164 1.4203 6.9976 1.2635 solid black
+edge GoalPatterns GoalPredicate 4 16.528 8.43 16.528 8.1278 16.528 7.7572 16.528 7.4032 solid black
+edge GamePlan GoalPredicate 4 13.895 6.1344 14.024 6.1344 14.153 6.1344 14.282 6.1344 solid black
+edge GamePlan Step 4 11.806 5.545 11.806 5.203 11.806 4.7624 11.806 4.3776 solid black
+edge Step MarkovState 7 10.099 2.7436 9.9029 2.6672 9.7048 2.5933 9.5139 2.5267 8.7007 2.243 7.7955 1.9711 6.9944 1.7451 solid black
+stop

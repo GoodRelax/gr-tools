@@ -1,0 +1,54 @@
+// PoC Phase 2b: force sibling sub-cluster order world|goal|plan via the
+// textbook trick -- put the three group HEADS on the same rank and chain them
+// with flat invisible edges (dot orders same-rank nodes by their flat edges).
+// Render: dot -Tpng p2b_consider_ranksame.dot -o p2b_consider_ranksame.png
+digraph consider {
+  rankdir=TB;
+  nodesep=0.5;
+  ranksep=0.8;
+  compound=true;
+  node [shape=box, fixedsize=true, width=4.17, fontsize=12];
+
+  Conception [label="«answer»\nConception", height=2.08];
+
+  subgraph cluster_world {
+    label="world — model the world";
+    labeljust=l; style=rounded; color="#2F8FA8"; fontsize=14; margin=16;
+    WorldModel         [label="«entity»\nWorldModel",         height=1.92];
+    PiStateAbstraction [label="«function pi»\nPiStateAbstraction", height=1.31];
+    InteractionRule    [label="«entity»\nInteractionRule",    height=1.47];
+    MarkovState        [label="«value»\nMarkovState",         height=1.61];
+  }
+  subgraph cluster_goal {
+    label="goal — decide the goal";
+    labeljust=l; style=rounded; color="#9673A6"; fontsize=14; margin=16;
+    GoalPredicate [label="«entity»\nGoalPredicate",       height=2.22];
+    GoalPatterns  [label="«baked prior»\nGoalPatterns",   height=1.31];
+  }
+  subgraph cluster_plan {
+    label="plan — plan toward the goal";
+    labeljust=l; style=rounded; color="#6A8759"; fontsize=14; margin=16;
+    GamePlan [label="«entity»\nGamePlan", height=1.17];
+    Step     [label="«value»\nStep",      height=1.47];
+  }
+
+  Conception -> WorldModel;
+  Conception -> GoalPredicate;
+  Conception -> GamePlan;
+
+  WorldModel -> InteractionRule;
+  WorldModel -> PiStateAbstraction;
+  GamePlan   -> Step;
+  GoalPatterns -> GoalPredicate;
+  PiStateAbstraction -> MarkovState;
+  InteractionRule    -> MarkovState;
+
+  GamePlan      -> GoalPredicate [constraint=false];
+  Step          -> MarkovState   [constraint=false];
+  GoalPredicate -> MarkovState   [constraint=false];
+
+  // ---- the ordering control: heads same rank + flat invisible chain ----
+  { rank=same; WorldModel; GoalPredicate; GamePlan; }
+  WorldModel    -> GoalPredicate [style=invis];
+  GoalPredicate -> GamePlan      [style=invis];
+}

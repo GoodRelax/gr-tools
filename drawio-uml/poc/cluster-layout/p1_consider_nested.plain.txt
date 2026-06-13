@@ -1,0 +1,23 @@
+graph 1 19.917 10.58
+node Conception 11.806 9.54 4.17 2.08 "«answer»\nConception" solid box black lightgrey
+node WorldModel 7.0833 6.7344 4.17 1.92 "«entity»\nWorldModel" solid box black lightgrey
+node PiStateAbstraction 2.4167 3.8589 4.17 1.31 "«function pi»\nPiStateAbstraction" solid box black lightgrey
+node InteractionRule 7.0833 3.8589 4.17 1.47 "«entity»\nInteractionRule" solid box black lightgrey
+node MarkovState 7.0833 1.1383 4.17 1.61 "«value»\nMarkovState" solid box black lightgrey
+node GoalPredicate 17.5 3.8589 4.17 2.22 "«entity»\nGoalPredicate" solid box black lightgrey
+node GoalPatterns 17.5 6.7344 4.17 1.31 "«baked prior»\nGoalPatterns" solid box black lightgrey
+node GamePlan 11.806 6.7344 4.17 1.17 "«entity»\nGamePlan" solid box black lightgrey
+node Step 11.806 3.8589 4.17 1.47 "«value»\nStep" solid box black lightgrey
+edge Conception WorldModel 7 9.794 8.4961 9.6513 8.4168 9.5104 8.3366 9.375 8.2569 9.125 8.1099 8.8643 7.9475 8.6121 7.7853 solid black
+edge Conception GoalPredicate 10 13.894 8.5781 14.018 8.4798 14.134 8.3728 14.236 8.2569 15.017 7.3743 14.479 6.7315 15.167 5.7744 15.346 5.5246 15.566 5.2891 15.799 5.0745 solid black
+edge Conception GamePlan 4 11.806 8.4957 11.806 8.1591 11.806 7.7924 11.806 7.4822 solid black
+edge WorldModel PiStateAbstraction 4 5.5229 5.7683 4.8985 5.3873 4.1909 4.9555 3.6089 4.6003 solid black
+edge WorldModel InteractionRule 4 7.0833 5.7683 7.0833 5.4419 7.0833 5.0782 7.0833 4.7573 solid black
+edge PiStateAbstraction MarkovState 4 3.5344 3.2 4.1437 2.8485 4.9063 2.4084 5.5683 2.0264 solid black
+edge InteractionRule MarkovState 4 7.0833 3.1198 7.0833 2.8079 7.0833 2.4389 7.0833 2.1052 solid black
+edge GoalPredicate MarkovState 7 15.41 2.9313 15.024 2.7826 14.622 2.6404 14.236 2.5267 12.621 2.0503 10.751 1.6976 9.3284 1.4689 solid black
+edge GoalPatterns GoalPredicate 4 17.5 6.0744 17.5 5.7951 17.5 5.4583 17.5 5.1331 solid black
+edge GamePlan GoalPredicate 4 12.958 6.1443 13.622 5.8123 14.479 5.3838 15.269 4.9885 solid black
+edge GamePlan Step 4 11.806 6.1443 11.806 5.7459 11.806 5.2084 11.806 4.7563 solid black
+edge Step MarkovState 7 10.546 3.118 10.211 2.9253 9.8488 2.7177 9.5139 2.5267 9.2303 2.3649 8.9278 2.1932 8.6359 2.0279 solid black
+stop

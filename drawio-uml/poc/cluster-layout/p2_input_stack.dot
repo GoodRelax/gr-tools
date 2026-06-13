@@ -1,0 +1,18 @@
+// PoC Phase 2: stack Probe + TurnRecord vertically inside the input cluster.
+// They have NO real edge between them, so dot would place them side by side.
+// An invisible edge forces the vertical stack (this is the "invisible edge" trick).
+// Render: dot -Tpng p2_input_stack.dot -o p2_input_stack.png
+digraph input {
+  rankdir=TB;
+  nodesep=0.5;
+  ranksep=0.6;
+  node [shape=box, fixedsize=true, width=3.0, fontsize=12];
+
+  subgraph cluster_input {
+    label="input port — perception";
+    labeljust=l; style=rounded; color="#2F8FA8"; fontsize=14; margin=16;
+    TurnRecord [label="«entity»\nTurnRecord", height=1.17];
+    Probe      [label="«entity»\nProbe",      height=1.17];
+    TurnRecord -> Probe [style=invis];   // invisible: forces the vertical stack
+  }
+}
