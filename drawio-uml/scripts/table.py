@@ -195,28 +195,39 @@ def validate(nodes, edges):
 
 
 def render(model, cluster_key, view_key):
-    """Model -> Markdown (a node-table section then an edge-table section)."""
+    """Model -> a standalone Markdown document: an H1 title, then `## Nodes` and
+    `## Edges` (FR-T-11). The H1 is the view's label under --view, else the model's
+    required `title`."""
     nodes = model.get("nodes") or []
     edges = model.get("edges") or []
     validate(nodes, edges)
+    title = model.get("title")
+    if not title or not str(title).strip():               # FR-T-11a
+        sys.exit("table: model is missing required non-empty 'title'")
     paths = node_paths(model.get("layout"))
     if view_key is not None:
         scope_nodes = select_view(model, view_key)
         mode = "view"
+        view = (model.get("views") or {})[view_key]       # exists (select_view checked)
+        h1 = view.get("label") or view_key                # FR-T-11: --view -> view label
     elif cluster_key is not None:
         scope_nodes = select_cluster(nodes, paths, cluster_key)
         if not scope_nodes:
             print("table: warning: --cluster %r matched no node" % cluster_key,
-                  file=sys.stderr)                      # FR-T-06a
+                  file=sys.stderr)                        # FR-T-06a
         mode = "cluster"
+        h1 = title
     else:
         scope_nodes = list(nodes)
         mode = "all"
+        h1 = title
     scope_names = {n["name"] for n in scope_nodes}
     scope_edges = select_edges(edges, scope_names, mode)
+    h1_line = " ".join(str(h1).splitlines())              # raw, but force a single line
     return "\n".join([
-        "#### Nodes", "", node_table(scope_nodes, paths), "",
-        "#### Edges", "", edge_table(scope_edges), "",
+        "# " + h1_line, "",
+        "## Nodes", "", node_table(scope_nodes, paths), "",
+        "## Edges", "", edge_table(scope_edges), "",
     ])
 
 

@@ -1,4 +1,5 @@
 {
+  "title": "Flat basic",
   "nodes": [
     {"name": "A", "shape": "class", "attributes": ["- x: int"], "methods": ["+ f()"]},
     {"name": "B", "shape": "class"},

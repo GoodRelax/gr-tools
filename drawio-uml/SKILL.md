@@ -1,6 +1,6 @@
 ---
 name: drawio-uml
-description: Generate clean UML and node-link diagrams as native draw.io (.drawio) files with automatic, non-overlapping layout — Graphviz dot computes both node positions AND orthogonal edge routes, so lines never cut through boxes. Use whenever the user wants to draw, generate, or clean up a diagram in draw.io or drawio — class, state-machine, use-case, component, package, activity, deployment, ER, or object diagrams — especially when layout quality matters (overlapping lines, edges crossing boxes, messy auto-layout, or a Mermaid diagram that looks bad). Also use when reverse-engineering structure from source code into a diagram, or when the user says an existing diagram is ugly, low-quality, or hard to read. Produces real UML shapes (class compartments, state rounded-rects, use-case ellipses, actors, decision diamonds, package folders) with proper UML arrows, exported to PNG/SVG via the draw.io CLI. Optionally arranges nodes into a recursive layout tree of labelled, coloured clusters (row/column, nestable) with a legend, generates focused sub-views with --view, and routes EVERY edge — including cross-cluster ones — around the boxes via a position-pinned Graphviz pass. Does NOT do sequence or timing diagrams. Requires Graphviz (dot, plus neato/fdp for the pinned routing pass), draw.io desktop, and Python 3.10+. The same model also yields Markdown node/edge tables (responsibilities, element lists) via the companion table.py.
+description: Generate clean UML and node-link diagrams as native draw.io (.drawio) files with automatic, non-overlapping layout — Graphviz dot computes both node positions AND orthogonal edge routes, so lines never cut through boxes. Use whenever the user wants to draw, generate, or clean up a diagram in draw.io or drawio — class, state-machine, use-case, component, package, activity, deployment, ER, or object diagrams — especially when layout quality matters (overlapping lines, edges crossing boxes, messy auto-layout, or a Mermaid diagram that looks bad). Also use when reverse-engineering structure from source code into a diagram, or when the user says an existing diagram is ugly, low-quality, or hard to read. Produces real UML shapes (class compartments, state rounded-rects, use-case ellipses, actors, decision diamonds, package folders) with proper UML arrows, exported to PNG/SVG via the draw.io CLI. Optionally arranges nodes into a recursive layout tree of labelled, coloured clusters (row/column, nestable) with a legend, generates focused sub-views with --view, and routes EVERY edge — including cross-cluster ones — around the boxes via a position-pinned Graphviz pass. Does NOT do sequence or timing diagrams. Requires Graphviz (dot, plus neato/fdp for the pinned routing pass), draw.io desktop, and Python 3.10+. The same model also yields a standalone Markdown document (H1 title + node/edge tables: responsibilities, element lists) via the companion table.py.
 ---
 
 # drawio-uml: clean UML / node-link diagrams in draw.io
@@ -68,6 +68,7 @@ Read the target — source code or a spec — and extract the nodes and relation
 
 ```json
 {
+  "title": "Player state machine",
   "options": {"direction": "column", "column_width": 260, "node_separation": 0.7, "rank_separation": 1.1},
   "nodes": [
     {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
@@ -107,7 +108,7 @@ Compartment shapes take `attributes` and `methods` (lists of strings like `"+ na
 
 Put multiplicity / role / guard text in the optional edge `"label"`. Colour by layer so related nodes read together (palette in the reference).
 
-**Documentation fields** (`description`, `remark`) — any node or edge may carry a `"description"` (its one-line responsibility) and a `"remark"` (a side note: origin, ADR, constraint). `draw` **ignores** them, so the diagram is unchanged; **`table` emits them**. Use these instead of cluttering the boxes. The full model schema is formalised in `schema/model.schema.json` (JSON Schema draft-07, strict — it catches typos in keys).
+**Documentation fields** (`description`, `remark`) — any node or edge may carry a `"description"` (its one-line responsibility) and a `"remark"` (a side note: origin, ADR, constraint). `draw` **ignores** them, so the diagram is unchanged; **`table` emits them**. Use these instead of cluttering the boxes. A **required** top-level **`title`** names the document: `table` emits it as the H1 so the `.md` is a standalone document (under `--view` the view's `label` is the H1 instead); `draw` ignores `title`. The full model schema is formalised in `schema/model.schema.json` (JSON Schema draft-07, strict — it catches typos in keys, and requires `title`).
 
 ### 1b. (Optional) cluster tree, cascade, legend, and views
 
@@ -115,6 +116,7 @@ Add a `layout` (a recursive cluster tree) to group and arrange nodes; omit it fo
 
 ```json
 {
+  "title": "Agent loop",
   "options": {"direction": "column", "column_width": 300},
   "nodes": [
     {"name": "Probe", "shape": "class", "attributes": ["moves : GameMove[*]"]},
@@ -177,7 +179,7 @@ python <SKILL_DIR>/scripts/draw.py  model.json out.drawio [--view KEY]          
 python <SKILL_DIR>/scripts/table.py model.json out.md   [--cluster KEY | --view KEY]   # node/edge tables (.md)
 ```
 
-`<SKILL_DIR>` is this skill's directory. `draw.py` emits native shapes, pulls positions + orthogonal routes from `dot` (and, for clustered models, the pinned `neato -n2` routing pass), self-validates the XML, and prints a confirmation. `table.py` writes Markdown node/edge tables and consumes `description`/`remark`. `--view KEY` (both tools) renders only that view's induced subgraph; `--cluster KEY` (table only) narrows the tables to a cluster subtree (matched on the cluster `name` path); `--view` and `--cluster` are mutually exclusive. A malformed model — an edge to an undefined node, a duplicate or `/`-bearing cluster name, or a node not placed exactly once — fails fast.
+`<SKILL_DIR>` is this skill's directory. `draw.py` emits native shapes, pulls positions + orthogonal routes from `dot` (and, for clustered models, the pinned `neato -n2` routing pass), self-validates the XML, and prints a confirmation. `table.py` writes a **standalone** Markdown document — an H1 title (the model `title`, or the view's `label` under `--view`) then `## Nodes` / `## Edges` — and consumes `description`/`remark`. `--view KEY` (both tools) renders only that view's induced subgraph; `--cluster KEY` (table only) narrows the tables to a cluster subtree (matched on the cluster `name` path); `--view` and `--cluster` are mutually exclusive. A malformed model — a missing/blank `title`, an edge to an undefined node, a duplicate or `/`-bearing cluster name, or a node not placed exactly once — fails fast.
 
 **One-shot human workflow (Windows):** drag one or more `model.json` files onto `drawio-uml.bat` (in the skill root) — it runs both generators and exports `.svg`/`.png`, writing all outputs next to each input.
 

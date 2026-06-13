@@ -4,8 +4,8 @@
 | --- | --- |
 | 文書種別 | ANMS v0.33 準拠 単一仕様書 |
 | 対象 | `drawio-uml` ツールスイート(`draw` / `table`) |
-| 版 | 0.3.0 |
-| 最終更新 | 2026-06-13 |
+| 版 | 0.4.0 |
+| 最終更新 | 2026-06-14 |
 | 配置 | `gr-tools/drawio-uml/docs/spec-ja.md`(SSOT) |
 
 ---
@@ -131,7 +131,7 @@ RFC 2119 / 8174 に準拠する。**SHALL/MUST**=必須、**SHOULD**=推奨、**
 - **FR-D-06**(Ubiquitous): `draw` は次のエッジ種別をサポートする SHALL — generalization / realization / composition / aggregation / directed_association / dependency / transition / association。未知・未指定の `arrow` は `association` として描画する。`generalization` / `realization` は親を上位ランクに置くため `dot` へ反転投入し、描画される矢印は子→親を向く。
 - **FR-D-07**(State): While `neato` または `fdp` が PATH に存在する、clustered path において `draw` は全エッジ(内部・クラスタ間を問わず)を box-avoiding な経路で描く SHALL。
 - **FR-D-07a**(Unwanted): If `neato` と `fdp` がいずれも PATH に無い、then `draw` は draw.io 自動ルーティングに degrade する SHALL。この場合 box-avoiding(GL-1)を保証しない(LM-4)。degrade の判別のため `draw` は stderr に警告を出す SHOULD(本版は未実装;実装フェーズで対応)。
-- **FR-D-08**(State): While `description` / `remark` がモデルに存在する、`draw` はそれらを無視し図を不変に保つ SHALL(SSOT 共有のため)。
+- **FR-D-08**(State): While `description` / `remark` / top-level `title` がモデルに存在する、`draw` はそれらを無視し図を不変に保つ SHALL(SSOT 共有のため;`title` は table のみが消費)。
 - **FR-D-09**(Unwanted): If 生成 XML が整形式(well-formed)でない、then `draw` は `minidom.parseString` が送出する例外を握り潰さず、書き出し前に非ゼロ終了する SHALL(fail fast)。
 - **FR-D-10**(Optional): Where `node.style` が指定される、`draw` は形状プリセットおよび compartment 区画化(class/entity/object)を抑止し、当該 raw スタイルのみで描く SHALL。
 - **FR-D-11**: 欠番(0.2.2 で削除。旧・後方互換エイリアス `classes`/`kind` の受理要求)。番号は再利用しない。
@@ -156,6 +156,8 @@ RFC 2119 / 8174 に準拠する。**SHALL/MUST**=必須、**SHOULD**=推奨、**
 - **FR-T-09**(Unwanted): If 必須フィールド(node の `name`、edge の `source` / `target`)が欠落、then `table` はエラーを報告して非ゼロ終了する SHALL。
 - **FR-T-10**(Event): When `--view KEY` が指定される、`table` は node 表・edge 表を当該ビュー(node = `view.nodes` ∪ `view.clusters` 配下;edge = 両端が集合内の誘導)に限定する SHALL。
 - **FR-T-10a**(Unwanted): If `--view` と `--cluster` が同時指定される、then `table` はエラーを報告して非ゼロ終了する SHALL(排他)。未知の `--view KEY`、または存在しない node/cluster 名を参照するビューも fail-fast とする。
+- **FR-T-11**(Ubiquitous): `table` は出力の先頭に **H1 文書タイトル**を置き、節見出しを `## Nodes` / `## Edges`(H2)とする SHALL。H1 は、`--view KEY` 指定時は当該ビューの `label`(label 省略時はビューキー)、それ以外(全体 / `--cluster`)はモデルの top-level `title` とする。`title` はモデルの**必須**プロパティであり、`draw` は無視する(FR-D-08)。H1 は `# ` + 文字列を**そのまま**(raw・エスケープせず・単一行)出力する(表セルのエスケープ FR-T-08 は H1 に適用しない)。(0.3.x までの H4 埋め込み断片モードは廃止。)
+- **FR-T-11a**(Unwanted): If モデルが top-level `title` を持たない、または空文字列/空白のみ、then `table` はエラーを報告して非ゼロ終了する SHALL(必須欠落;FR-T-09 と同様。`--view` の有無に依らない)。なお title 欠落モデルは schema-invalid かつ table で fail-fast だが、`draw` は title を要求せず描画できる(意図的非対称:draw は title を消費しない)。
 
 #### 2.1.3 共通
 
@@ -229,6 +231,7 @@ gr-tools/drawio-uml/                 ← SSOT(ここだけ編集する)
 
 ```
 model
+├── title  : string                       ← **必須**。table が H1 文書タイトルに(FR-T-11)/ draw は無視
 ├── nodes[ node ]                         ← node 定義(オブジェクト)
 ├── edges[ edge ]
 ├── layout : cluster                      ← ルート cluster(再帰ツリー;省略時 flat)
@@ -287,13 +290,13 @@ view
 
 **table の処理フロー:**
 
-1. モデル読込。必須フィールド検証(FR-T-09)。`--view`/`--cluster` の排他検証(FR-T-10a)。
+1. モデル読込。必須フィールド検証(node.name / edge.source/target / **model.title**;FR-T-09/11a)。`--view`/`--cluster` の排他検証(FR-T-10a)。
 2. 対象 node 集合を確定:`--view` ならビュー(`nodes` ∪ `clusters` 配下)、`--cluster` なら名前付き祖先パスの `/` 境界一致(FR-T-06)、無指定は全件。
 3. 各 node のクラスタパス(名前付き祖先連鎖)を `layout` から導出し、共通接頭を計算・除去。残りが全空なら cluster 列を落とす(FR-T-05)。
 4. node 表を生成(FR-T-02)。
 5. edge を対象集合でフィルタ(`--cluster` は source/target の一方が対象なら採用;`--view` は両端が対象=誘導;FR-T-07/10)。
 6. edge 表を生成(FR-T-03)。
-7. セル `|` を `\|` にエスケープ、`<br>` は素通し → `.md` 書き出し(FR-T-08)。
+7. 見出しを組む:先頭に H1(`--view` 時は当該ビューの `label`、それ以外はモデル `title`)、節は `## Nodes` / `## Edges`(FR-T-11)。セル `|` を `\|` にエスケープ、`<br>` は素通し → `.md` 書き出し(FR-T-08)。
 
 ### 3.6 Decisions(設計判断 / ADR)
 
@@ -494,9 +497,24 @@ Feature: table — モデルから .md を生成
     Given --view と --cluster の両方を指定
     When  table.py を実行する
     Then  エラーを報告して非ゼロ終了する
+
+  Scenario: SC-110 全体の table は title を H1 にする (traces: FR-T-11)
+    Given top-level title を持つモデル
+    When  table.py で .md を生成する(--view なし)
+    Then  出力の先頭が `# <title>`、節が `## Nodes` / `## Edges` になる
+
+  Scenario: SC-111 --view の table は view の label を H1 にする (traces: FR-T-11)
+    Given views.answer(label あり)と title を持つモデル
+    When  table.py MODEL.json OUT.md --view answer を実行する
+    Then  出力の先頭が `# <answer の label>`、節が `## Nodes` / `## Edges` になる
+
+  Scenario: SC-112 title 欠落は異常終了 (traces: FR-T-11a)
+    Given top-level title を持たないモデル
+    When  table.py を実行する
+    Then  エラーを報告して非ゼロ終了する
 ```
 
-**Result:** PASS(0.3.0)  **Remark:** `tests/test_draw.py`(22 ケース・SC-012 skip)・`tests/test_table.py`(18 ケース)で SC-001〜020 / SC-101〜109 を検証し全 PASS。コードは敵対的レビュー反映済み(未定義エッジ端点の fail-fast 追加・`nodes`+`clusters` 同時指定ガード等)。回帰基準は 0.3.0 出力(後方互換は不要=オーナー決定;ADR-003 の基準リセット)。SC-011 は欠番。SC-012(整形式でない XML)は `esc()` により通常到達不能のため skip。
+**Result:** PASS(0.4.0)  **Remark:** `tests/test_draw.py`(SC-001〜020・SC-012 skip)・`tests/test_table.py`(SC-101〜112)で検証。0.4.0 で `table` 出力が H1+H2 に変わったため、`table` 系の基準 `.md`(`tests/*.model.md`・`samples/*.model.md`)を 0.4.0 形式で再生成しリセット(NFR-01;旧 H4 基準は破棄)。コードは敵対的レビュー反映済み。SC-011 は欠番。SC-012(整形式でない XML)は `esc()` により通常到達不能のため skip。
 
 ### 4.2 CLI Definition(コマンド定義)
 
@@ -509,7 +527,7 @@ Feature: table — モデルから .md を生成
 
 ### 4.3 Output Format(`table` の Markdown 出力形式)
 
-- 出力は1つの `.md` に「node 表」「edge 表」の2セクションを順に含む。
+- 出力は先頭に **H1 文書タイトル**(全体=モデル `title` / `--view`=ビュー `label`、label 省略時はビューキー)、続いて `## Nodes`・`## Edges`(H2)の2節を順に含む(FR-T-11)。`title` 欠落・空は非ゼロ終了(FR-T-11a)。
 - セル区切り `|` のエスケープは `\|`。改行は `<br>`(セル内実改行は使わない)。
 - cluster 列はパス階層の共通接頭を除いた表示。除去後に全行空なら列を省く(FR-T-05)。
 
@@ -542,7 +560,7 @@ Feature: table — モデルから .md を生成
 | FR-D-10 | SC-010 | FR-T-10 / 10a | SC-108 / SC-109 |
 | FR-D-12 | SC-004 | FR-C-01 | SC-001 / SC-101 |
 | FR-D-13 | SC-007 | FR-C-03 | SC-013 |
-| FR-D-14 | SC-019 | | |
+| FR-D-14 | SC-019 | FR-T-11 / 11a | SC-110 / SC-111 / SC-112 |
 
 個別テストケースの詳細は実装フェーズで AI が生成する。
 
@@ -583,3 +601,4 @@ Feature: table — モデルから .md を生成
 | 0.2.1 | 2026-06-13 | 再レビューの新規 Low 3件を反映。FR-D-07a に degrade 警告 SHOULD(未実装)、FR-D-09 を例外非捕捉の表現に、SC-014(rows 余分キー無視)追加、SC-012 到達性を Remark 明記。 |
 | 0.2.2 | 2026-06-13 | 後方互換エイリアス(classes/kind)を全廃(FR-D-11・SC-011 削除;FR-D-11 は欠番)。命名整理:w/h→width/height・attrs→attributes・col_w/nodesep/ranksep→column_width/node_separation/rank_separation・cluster の color/tint→stroke/fill。arrow を UML 正式名(generalization/realization/composition/aggregation/directed_association/dependency/transition/association;未指定は association)、shape の node→box。description=責務(主)/remark=補足(従)を用語集で明確化。レビュー指摘を反映:配置を `docs/` に修正、FR-D-11 欠番マーカー追記、`italic` を用語集に定義、FR-T-03 に未指定 `arrow` の出力規定、FR-D-13/14 の色×位置の直交を明記、SC-015/016(未知 shape→box・未指定 arrow→association)追加。 |
 | 0.3.0 | 2026-06-13 | **後方互換を破棄**し、モデル形式を全面刷新。`layout` を**再帰 cluster ツリー**(`direction` row/column・`label` で箱・`clusters`⊻`nodes`・`color`/`fill` を子孫へ cascade)に、`views`(関心事フィルタ・誘導部分グラフ)を追加。`node.cluster`・`options.clusters`・`options.layout.rows` を廃止、`options.rankdir`→`options.direction`。`draw` が入れ子クラスタを描く(ADR-005 撤回→ADR-009;A1=単一 dot run の `rank=same` は segfault で棄却)。views=ADR-010。LM-1 を可読性上限に書換。FR-D-02/03/03a/04/12/13/14/16/16a・FR-T-04/06/10/10a 改訂・追加、§3.4 ドメインモデル刷新、SC-003/004/005/007 改訂(SC-014 は「rows 余分キー無視」→ FR-D-03a「全 node 1回配置」へ**転用**)・SC-017〜020/108〜109 追加。スキーマ(`schema/model.schema.json`)は2巡の敵対的レビュー反映済み。設計ブリーフ=`poc/cluster-layout/schema-0.3.0-design-ja.md`。 |
+| 0.4.0 | 2026-06-14 | **breaking**:`table` をスタンドアロン文書化。top-level `title` を**必須**化し、`table` は常に `# <H1>` + `## Nodes` / `## Edges`(H1+H2)を出力(0.3.x の H4 埋め込みモードを廃止)。H1 は全体=モデル `title` / `--view`=当該ビューの `label`。`title` 欠落は table が fail-fast(FR-T-11a)。`draw` は `title` を無視。schema は top-level `title` を required 化。既存モデルは `title` 追加が必要(samples / ARC v009 等)。`table` の全基準 `.md`(tests/samples)も 0.4.0 形式へ再生成。FR-T-11/11a・SC-110〜112 追加。StrictDoc 等「先頭 H1 必須」ツールに `.md` を直接渡せる。要望 = `docs/improvement-request-table-h1-ja.md`。 |

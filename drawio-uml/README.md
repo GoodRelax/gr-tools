@@ -124,7 +124,8 @@ shows the whole model).
 1. Write a `model.json`:
 
 ```json
-{"nodes": [
+{"title": "State machine",
+ "nodes": [
   {"name": "start", "shape": "initial"},
   {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
   {"name": "Running", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},

@@ -270,6 +270,7 @@ When the `layout` contains a labelled cluster, a legend row is drawn below the d
 
 ```json
 {
+  "title": "GR-ARC-3 Domain Model (excerpt)",
   "options": {"direction": "column", "node_separation": 0.85, "rank_separation": 1.3, "column_width": 300},
   "nodes": [
     {"name": "Probe", "shape": "class", "attributes": ["moves : GameMove[*]"]},

@@ -1,11 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "drawio-uml model (0.3.0)",
+  "title": "drawio-uml model (0.4.0)",
   "description": "Single JSON input for the drawio-uml suite, consumed by draw (model -> .drawio) and table (model -> .md). 0.3.0 redesign (backward-incompatible with 0.2.x): `layout` is a recursive cluster tree (row/column) that holds arrangement + boxes + node membership in ONE place; `nodes` are flat definitions referenced elsewhere by name; `views` are named node subsets. The 0.2.x keys node.cluster, options.clusters and options.layout.rows are removed. This file performs STRUCTURAL validation only; referential integrity (node-name uniqueness, every node placed exactly once in the layout, view/edge/cluster references resolve, cluster-name uniqueness) is enforced by draw/table at run time, NOT by this schema.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["nodes"],
+  "required": ["nodes", "title"],
   "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Document title (REQUIRED, non-blank). `table` emits it as the H1 first line so the .md is a standalone document (FR-T-11); under --view KEY the view's label is the H1 instead. `draw` ignores it (FR-D-08); a title-less model is schema-invalid yet still renders under draw."
+    },
     "nodes": {
       "type": "array",
       "minItems": 1,

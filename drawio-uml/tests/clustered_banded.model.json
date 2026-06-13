@@ -1,18 +1,19 @@
 {
-  "options": {
-    "clusters": {
-      "core": {"label": "Core", "stroke": "#FF8C00"},
-      "ext":  {"label": "External", "stroke": "#87CEEB"}
-    },
-    "layout": {"rows": [["core"], ["ext"]]}
-  },
+  "title": "Clustered banded",
   "nodes": [
-    {"name": "Model",    "shape": "class",     "cluster": "core"},
-    {"name": "Draw",     "shape": "component", "cluster": "core"},
-    {"name": "Graphviz", "shape": "component", "cluster": "ext"}
+    {"name": "Model",    "shape": "class"},
+    {"name": "Draw",     "shape": "component"},
+    {"name": "Graphviz", "shape": "component"}
   ],
   "edges": [
     {"source": "Draw", "target": "Model",    "arrow": "dependency"},
     {"source": "Draw", "target": "Graphviz", "arrow": "directed_association"}
-  ]
+  ],
+  "layout": {
+    "direction": "column",
+    "clusters": [
+      {"name": "core", "label": "Core",     "color": "#FF8C00", "nodes": ["Model", "Draw"]},
+      {"name": "ext",  "label": "External", "color": "#87CEEB", "nodes": ["Graphviz"]}
+    ]
+  }
 }
