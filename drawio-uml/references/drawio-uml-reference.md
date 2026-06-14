@@ -18,6 +18,7 @@ box-avoiding-routing extensions, and troubleshooting.
 11. Composition, colour cascade, and views
 12. Box-avoiding edge routing (the pinned final pass)
 13. Worked example: clustered class diagram
+14. The `dot` engine — flow diagrams (state machine / activity)
 
 ## 1. The three tools and how they relate
 
@@ -26,6 +27,8 @@ box-avoiding-routing extensions, and troubleshooting.
 - **The generator** (`scripts/draw.py`) is the glue: JSON model → `.drawio` XML, calling `dot` for positions and edge routes (and `neato -n2` for whole-graph routing on clustered models).
 
 dot and draw.io never talk directly: dot computes geometry, draw.io renders, the generator translates.
+
+**Two layout engines** — `options.engine`, default `cluster-dot`. `cluster-dot` lays out each cluster with its own `dot` run and composes them in Python, then a pinned `neato` pass routes the edges (§9–§12) — best for **structure** diagrams (class / component / package / ER). **`dot`** (§14) hands the whole model to ONE `dot` run so the layout follows the transition edges — best for **flow** diagrams (state machine / activity). Both engines draw the cluster boxes.
 
 ## 2. Install matrix (cross-platform)
 
@@ -135,10 +138,10 @@ Colour by role so related nodes read together (fill / stroke):
   {"source": "Save", "target": "done", "arrow": "transition"}]}
 ```
 
-**Use case** — `actor` + `usecase`; `association` for participation, `dependency` + `«include»`/`«extend»`. Use `"options": {"direction": "row"}`:
+**Use case** — `actor` + `usecase`; `association` for participation, `dependency` + `«include»`/`«extend»`. Use `"options": {"direction": "LR"}`:
 
 ```json
-{"options": {"direction": "row"},
+{"options": {"direction": "LR"},
  "nodes": [
   {"name": "Customer", "shape": "actor", "fill": "#DAE8FC", "stroke": "#6C8EBF"},
   {"name": "Checkout", "shape": "usecase", "fill": "#D5E8D4", "stroke": "#82B366"},
@@ -170,7 +173,7 @@ Colour by role so related nodes read together (fill / stroke):
  "edges": [
   {"source": "ui", "target": "domain", "arrow": "dependency", "label": "depends on"},
   {"source": "infra", "target": "domain", "arrow": "dependency", "label": "depends on"}],
- "layout": {"direction": "column", "clusters": [
+ "layout": {"direction": "TB", "clusters": [
   {"name": "ui", "label": "UI", "color": "#6C8EBF", "nodes": ["UI"]},
   {"name": "domain", "label": "Domain", "color": "#82B366", "nodes": ["UseCases"]},
   {"name": "infra", "label": "Infrastructure", "color": "#9673A6", "nodes": ["Repo", "DB"]}]}}
@@ -217,7 +220,7 @@ Applying the same transform to node corners and edge polyline points is what kee
 | draw.io CLI hangs on Linux | Electron has no display | `xvfb-run -a "$DRAWIO" … --no-sandbox` |
 | a shape renders as a plain box | unknown `shape` name | use a catalog name (section 3) or pass a raw `"style"` |
 | labels clipped in a class box | box too narrow | raise `options.column_width` or set per-node `"width"` |
-| self-transition missing | `splines=ortho` drops self-loops | model recursion as an attribute, or add the self-edge by hand in draw.io |
+| self-transition missing | `splines=ortho` drops self-loops (cluster-dot / flat) | use `options.engine:"dot"` — it draws self-loops (§14); else model it as an attribute or add the self-edge by hand |
 | `'cp932' codec can't encode '—'` | Windows console encoding on the dot subprocess | the generator passes `encoding="utf-8"` to dot on the cluster paths; keep it |
 | an edge to a cluster is rejected (fails fast) | the endpoint cluster isn't both named **and** labelled | give it a `name` *and* a `label` — a cluster endpoint needs a drawn box to anchor to (§4) |
 | edge endpoint "ambiguous" error | a node and a cluster share that name | rename one; endpoints resolve node-first then cluster, and a node/cluster name collision fails fast |
@@ -233,15 +236,15 @@ Everything below applies when the model has a `layout` (a recursive cluster tree
 
 `layout` is a tree of **clusters**. Each cluster:
 
-- arranges its contents along `direction` — `row` (left→right) or `column` (top→bottom); resolves cluster → `options.direction` → `column`;
-- draws a dashed labelled box **iff it has a `label`** (no label ⇒ an invisible arrangement-only container, used for unlabelled bands/rows);
+- arranges its contents along `direction` — `TB` (top→bottom) or `LR` (left→right); resolves cluster → `options.direction` → `TB` (under `engine:"dot"` only `options.direction` applies — §14);
+- draws a dashed labelled box **iff it has a `label`** (no label ⇒ an invisible arrangement-only container, used for unlabelled bands);
 - may set `name` (a unique, `/`-free id for `--view`/`--cluster` references and the table cluster path) and `color`/`fill` (which cascade — §11);
 - may carry `description` / `remark` (table-only docs — `draw` ignores them; `table` lists them in a `## Clusters` section), and may itself be an edge endpoint when named+labelled (§4);
 - holds EXACTLY ONE of `clusters` (child clusters ⇒ internal node) or `nodes` (member node names ⇒ leaf). List order = arrangement order.
 
 ```json
 "layout": {
-  "direction": "row",
+  "direction": "LR",
   "clusters": [
     {"name": "core",  "label": "Core domain",   "color": "#5B5FC7", "fill": "#EEF0FF", "nodes": ["A", "B"]},
     {"name": "infra", "label": "Infrastructure", "color": "#82B366", "fill": "#E7F4E7", "nodes": ["C", "D"]}
@@ -259,7 +262,7 @@ When the `layout` contains a labelled cluster, a legend row is drawn below the d
 
 ## 11. Composition, colour cascade, and views
 
-**Composition (the A2 engine).** Python composes the tree: each leaf is laid out independently (§9), then each internal cluster places its children along its `direction` — `row` left→right, `column` top→bottom, centred on the cross axis, `ROW_GAP`/`COL_GAP` apart. Sibling order is therefore the **listed order**, guaranteed by Python.
+**Composition (the `cluster-dot` engine).** Under `cluster-dot`, Python composes the tree: each leaf is laid out independently (§9), then each internal cluster places its children along its `direction` — `LR` left→right, `TB` top→bottom, centred on the cross axis, `ROW_GAP`/`COL_GAP` apart. Sibling order is therefore the **listed order**, guaranteed by Python. (The `dot` engine — §14 — does not compose; dot lays out the whole tree in one run.)
 
 *Why Python composes instead of one big `dot` run.* Plain `dot` is a 1-D layered engine: a single run cannot be forced to put sibling sub-clusters in a chosen left→right order — the heavily-connected one migrates toward its edge mass. The one mechanism that pins sibling order, `rank=same` + flat invisible edges, **conflicts with cluster containment and segfaults `dot` 13.x** (verified). So `dot` only ever lays out a single leaf (its strength), and Python owns the ordering (ADR-009; PoC in `poc/cluster-layout/`).
 
@@ -283,7 +286,7 @@ When the `layout` contains a labelled cluster, a legend row is drawn below the d
 
 **The unit round-trip (the subtle part).** `neato -n`/`-n2` reads `pos` in **points** (origin bottom-left, y up); `-Tplain` re-emits in inches. Rather than guess the engine's graph height or input scale, the generator **pins the nodes and then reads their echoed centres back**: because it also knows each node's centre in draw.io px, it recovers the exact affine map (`x' = x_pt + ox`, `y' = -y_pt + oy`) from those known correspondences and applies it to every routed waypoint. This is immune to scale/height guesswork — the routed lines line up with the boxes exactly. (Sanity-check by rendering the PNG anyway.)
 
-**Constraints.** `splines=ortho` still breaks on self-loops, so the pass **skips** any edge whose source == target — model recursion as an attribute, never a self-edge. The pass operates on the **flat** pinned graph (no subgraphs — positions are already fixed), so it is independent of nesting depth.
+**Constraints.** `splines=ortho` still breaks on self-loops, so the `cluster-dot` pass **skips** any edge whose source == target — model recursion as an attribute, never a self-edge (the **`dot` engine, §14, draws self-loops**). The pass operates on the **flat** pinned graph (no subgraphs — positions are already fixed), so it is independent of nesting depth.
 
 **Long ids (0.5.0).** A long node name yields a long dot id, which `-Tplain` wraps (a trailing `\` continuation) and double-quotes. Every `-Tplain` parser therefore rejoins continuation lines on the raw text *before* splitting, and strips the surrounding quotes from id tokens before matching them to `nid`/`cid` — so long names/labels never break parsing.
 
@@ -296,7 +299,7 @@ When the `layout` contains a labelled cluster, a legend row is drawn below the d
 ```json
 {
   "title": "GR-ARC-3 Domain Model (excerpt)",
-  "options": {"direction": "column", "node_separation": 0.85, "rank_separation": 1.3, "column_width": 300},
+  "options": {"direction": "TB", "node_separation": 0.85, "rank_separation": 1.3, "column_width": 300},
   "nodes": [
     {"name": "Probe", "shape": "class", "attributes": ["moves : GameMove[*]"]},
     {"name": "TurnRecord", "shape": "class", "attributes": ["frames : Frame[*]"]},
@@ -313,15 +316,15 @@ When the `layout` contains a labelled cluster, a legend row is drawn below the d
     {"source": "GoalPredicate", "target": "Relation", "arrow": "dependency", "label": "tests relations"}
   ],
   "layout": {
-    "direction": "column",
+    "direction": "TB",
     "clusters": [
-      {"direction": "row", "clusters": [
+      {"direction": "LR", "clusters": [
         {"name": "input", "label": "Input port — perception", "color": "#2F8FA8", "fill": "#E3F2F5",
          "nodes": ["TurnRecord", "Probe"]},
         {"name": "consider", "label": "Consider — the Conception", "color": "#9673A6", "fill": "#EDE7F6",
          "clusters": [
            {"nodes": ["Conception"]},
-           {"direction": "row", "clusters": [
+           {"direction": "LR", "clusters": [
              {"name": "world", "label": "world", "nodes": ["WorldModel"]},
              {"name": "goal",  "label": "goal",  "nodes": ["GoalPredicate"]}
            ]}
@@ -330,7 +333,7 @@ When the `layout` contains a labelled cluster, a legend row is drawn below the d
          "nodes": ["GameMove"]}
       ]},
       {"name": "vocabulary", "label": "Vocabulary — Lexicon", "color": "#82B366", "fill": "#E7F4E7",
-       "direction": "row", "nodes": ["Relation"]}
+       "direction": "LR", "nodes": ["Relation"]}
     ]
   },
   "views": {
@@ -348,4 +351,51 @@ python scripts/draw.py model.json answer.drawio --view answer   # just the Conce
 "$DRAWIO" -x -f png -e -b 12 -o out.png out.drawio   # then READ out.png to verify
 ```
 
-Expect: `input | consider | output` across the top (input's two members stacked vertically), `consider` boxing `Conception` above a `world | goal` sub-row, a full-width `vocabulary` band below, a legend of the four outermost clusters, and every edge — including the `Probe → GameMove` cross-cluster edge — routed around the boxes rather than through them.
+Expect: `input | consider | output` across the top (input's two members stacked vertically), `consider` boxing `Conception` above a `world | goal` LR sub-band, a full-width `vocabulary` band below, a legend of the four outermost clusters, and every edge — including the `Probe → GameMove` cross-cluster edge — routed around the boxes rather than through them.
+
+## 14. The `dot` engine — flow diagrams (state machine / activity)
+
+`options.engine` selects the layout engine; it defaults to **`cluster-dot`** (everything in §9–§13: independent leaf runs + Python composition + the pinned routing pass). Set **`"engine": "dot"`** for **flow** diagrams — state machines and activities — where the **transition edges should drive the layout**.
+
+**Why a second engine.** `cluster-dot` arranges by the declared `direction`, not by the edges, so a state machine comes out tall and stiff (the edges are an afterthought routed around fixed boxes). The `dot` engine instead hands the WHOLE model to dot in ONE run, so dot's layered ranker places the states **following the transitions** — the result reads top-to-bottom like the flow it models, from the same JSON SSOT.
+
+**What it does.**
+- Emits the whole model as ONE `digraph` (`compound=true`, `rankdir=options.direction`, `splines=true`). A labelled cluster becomes a **native** `subgraph cluster_*` and dot lays out the nesting itself (no Python composition).
+- A **transition** is an edge. A **cluster-endpoint transition** (an edge naming a named+labelled cluster, §4) is aimed at an interior anchor of that cluster with `lhead`/`ltail` + `compound=true`, so dot clips it at the **box border**; the drawn edge binds to the cluster box `mxCell`.
+- Runs `dot -Tjson` **once** and imports the geometry: node `pos`, cluster bounding boxes (`bb`), and edge splines (`_draw_`). `pos`/`bb`/spline points are in **points** (×1 to px); node `width`/`height` are **inches** (×72); the same y-flip as §7 applies (by the graph `bb` height). Edges import as **curved** waypoints (not orthogonal).
+- **Draws self-loops** (a state's self-transition) — unlike the `cluster-dot` pass, which skips them.
+- Box-avoidance comes from dot's own spline routing; **no `neato`/`fdp`** pass is used (so the `dot` engine runs without them). This is best-effort, not the hard guarantee the pinned ortho pass gives — read the PNG to verify.
+
+**Direction.** The `dot` engine honours only **`options.direction`** (the outermost flow); a **per-cluster `direction` is ignored** (dot has no per-subgraph `rankdir`) with a one-time stderr warning — strip per-cluster `direction` from a model you switch to `dot`. `TB` (default) is vertical; a **linear** state machine often reads better with `"direction": "LR"`.
+
+**Keep `cluster-dot` for structure diagrams** (class / component / package / ER), where you want explicit bands and order. Use `dot` for edge-driven flow.
+
+**Worked state machine** — a composite state as a nested box; `Idle → loop` / `loop → Done` are cluster-endpoint transitions that enter/leave the box; `Eval → Sim` is the inner back-edge:
+
+```json
+{
+  "title": "Player loop",
+  "options": {"engine": "dot", "direction": "TB"},
+  "nodes": [
+    {"name": "boot", "shape": "initial"},
+    {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
+    {"name": "Sim", "shape": "state"}, {"name": "Eval", "shape": "state"},
+    {"name": "Done", "shape": "state"}, {"name": "end", "shape": "final"}
+  ],
+  "edges": [
+    {"source": "boot", "target": "Idle", "arrow": "transition"},
+    {"source": "Idle", "target": "loop", "arrow": "transition", "label": "play"},
+    {"source": "Sim", "target": "Eval", "arrow": "transition", "label": "predict"},
+    {"source": "Eval", "target": "Sim", "arrow": "transition"},
+    {"source": "loop", "target": "Done", "arrow": "transition", "label": "stop"},
+    {"source": "Done", "target": "end", "arrow": "transition"}
+  ],
+  "layout": {"clusters": [
+    {"nodes": ["boot"]}, {"nodes": ["Idle"]},
+    {"name": "loop", "label": "Plan loop", "color": "#D79B00", "fill": "#FFF0DD", "nodes": ["Sim", "Eval"]},
+    {"nodes": ["Done"]}, {"nodes": ["end"]}
+  ]}
+}
+```
+
+`python scripts/draw.py model.json out.drawio` reads `engine` from the model — no extra flag. Expect a clean top-to-bottom flow: `boot → Idle →` the **Plan loop** box (holding `Sim ⇄ Eval`) `→ Done → end`, the loop's enter/leave edges meeting the box border, no edge crossing a non-endpoint box.

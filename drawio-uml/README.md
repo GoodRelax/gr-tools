@@ -23,7 +23,8 @@ Features (grouping is optional — omit `layout` for a plain flat diagram):
 
 | Feature | What you get |
 |---------|--------------|
-| **Cluster tree** | `layout` is a recursive tree of clusters; each arranges its children/members along `direction` (`row`/`column`) and draws a labelled, coloured dashed box when it has a `label`. Nestable — e.g. `world \| goal \| plan` inside `consider`, `input \| consider \| output` across the top, a full-width `vocabulary` band below. |
+| **Two layout engines** | `options.engine`: `cluster-dot` (default; structure diagrams — class/component/package/ER) **or** `dot` — one dot run that follows the transitions for **edge-driven flow** (state machine / activity), with native composite-state boxes and self-loops. Both draw the cluster boxes. |
+| **Cluster tree** | `layout` is a recursive tree of clusters; each arranges its children/members along `direction` (`TB`/`LR`) and draws a labelled, coloured dashed box when it has a `label`. Nestable — e.g. `world \| goal \| plan` inside `consider`, `input \| consider \| output` across the top, a full-width `vocabulary` band below. |
 | **Colour cascade** | A cluster's `color`/`fill` cascades to its descendant nodes (nearest ancestor wins; a node's own wins) — no repeating colours per node. |
 | **Legend** | A row of swatches for the outermost labelled clusters (deduped by colour) + UML arrow glyphs (◆ ◇ → ⇢), under the diagram. |
 | **Views** | `views` defines named node subsets; `--view KEY` renders the induced subgraph (the master layout pruned to those nodes) — one SSOT, many small diagrams. |
@@ -31,7 +32,7 @@ Features (grouping is optional — omit `layout` for a plain flat diagram):
 | **Cluster docs** | A cluster may carry `description`/`remark`; `table` surfaces them in a `## Clusters` section (the diagram is unchanged). |
 | **Edges that never cross boxes** | A final **position-pinned Graphviz pass** (`neato -n2`, `splines=ortho`) routes *every* edge — including cross-cluster and whole-cluster (group-to-group) ones — around the placed boxes. Verified: 0 edge-through-box crossings on the 26-edge reference model. |
 
-A model with no `layout` takes the flat path (dot lays out everything; flow = `options.direction`).
+A model with no `layout` takes the flat path (dot lays out everything; flow = `options.direction`, default `TB`). State-machine / activity diagrams read best with `options.engine:"dot"` (an edge-driven vertical flow that follows the transitions).
 The schema and full mechanism are documented in `SKILL.md` and
 `references/drawio-uml-reference.md` (§9–§13).
 
@@ -127,6 +128,7 @@ shows the whole model).
 
 ```json
 {"title": "State machine",
+ "options": {"engine": "dot"},
  "nodes": [
   {"name": "start", "shape": "initial"},
   {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},

@@ -1,6 +1,6 @@
 ---
 name: drawio-uml
-description: Generate clean UML and node-link diagrams as native draw.io (.drawio) files with automatic, non-overlapping layout — Graphviz dot computes both node positions AND orthogonal edge routes, so lines never cut through boxes. Use whenever the user wants to draw, generate, or clean up a diagram in draw.io or drawio — class, state-machine, use-case, component, package, activity, deployment, ER, or object diagrams — especially when layout quality matters (overlapping lines, edges crossing boxes, messy auto-layout, or a Mermaid diagram that looks bad). Also use when reverse-engineering structure from source code into a diagram, or when the user says an existing diagram is ugly, low-quality, or hard to read. Produces real UML shapes (class compartments, state rounded-rects, use-case ellipses, actors, decision diamonds, package folders) with proper UML arrows, exported to PNG/SVG via the draw.io CLI. Optionally arranges nodes into a recursive layout tree of labelled, coloured clusters (row/column, nestable) with a legend, generates focused sub-views with --view, and routes EVERY edge — including cross-cluster and whole-cluster (group-to-group) ones — around the boxes via a position-pinned Graphviz pass. Edges may connect whole clusters (e.g. layer/module dependencies), not just nodes. Does NOT do sequence or timing diagrams. Requires Graphviz (dot, plus neato/fdp for the pinned routing pass), draw.io desktop, and Python 3.10+. The same model also yields a standalone Markdown document (H1 title + node/edge/cluster tables: responsibilities, element lists) via the companion table.py.
+description: Generate clean UML and node-link diagrams as native draw.io (.drawio) files with automatic, non-overlapping layout — Graphviz dot computes both node positions AND orthogonal edge routes, so lines never cut through boxes. Use whenever the user wants to draw, generate, or clean up a diagram in draw.io or drawio — class, state-machine, use-case, component, package, activity, deployment, ER, or object diagrams — especially when layout quality matters (overlapping lines, edges crossing boxes, messy auto-layout, or a Mermaid diagram that looks bad). Also use when reverse-engineering structure from source code into a diagram, or when the user says an existing diagram is ugly, low-quality, or hard to read. Produces real UML shapes (class compartments, state rounded-rects, use-case ellipses, actors, decision diamonds, package folders) with proper UML arrows, exported to PNG/SVG via the draw.io CLI. Optionally arranges nodes into a recursive layout tree of labelled, coloured clusters (TB/LR, nestable) with a legend, generates focused sub-views with --view, and routes EVERY edge — including cross-cluster and whole-cluster (group-to-group) ones — around the boxes via a position-pinned Graphviz pass. Two layout engines via options.engine: cluster-dot (default; structure diagrams) and dot (a single dot run for edge-driven flow — state machine / activity — that follows the transitions for a clean top-to-bottom layout). Edges may connect whole clusters (e.g. layer/module dependencies), not just nodes. Does NOT do sequence or timing diagrams. Requires Graphviz (dot, plus neato/fdp for the pinned routing pass), draw.io desktop, and Python 3.10+. The same model also yields a standalone Markdown document (H1 title + node/edge/cluster tables: responsibilities, element lists) via the companion table.py.
 ---
 
 # drawio-uml: clean UML / node-link diagrams in draw.io
@@ -34,12 +34,17 @@ Anything that is **boxes and arrows** — i.e. a node-link graph dot can lay out
 
 **Not supported: sequence and timing diagrams.** They are ordered by *time* along lifelines, which is not a graph-layout problem — dot does not help, and forcing it produces nonsense. Tell the user this honestly and suggest Mermaid `sequenceDiagram` or PlantUML instead.
 
-## Layout: flat, or a cluster tree
+## Layout: pick an engine, then flat or cluster tree
 
-Two layout paths, chosen by whether the model has a `layout`:
+**Engine** — `options.engine` (default `cluster-dot`). Two engines; both draw the labelled cluster boxes:
 
-- **Flat** (no `layout`) — dot lays out every node; flow follows `options.direction` (`column` = top-down, the default; `row` = left-to-right). Best for a single diagram of up to ~12 boxes.
-- **Clustered** (a `layout` tree) — `layout` is a RECURSIVE tree of clusters. Each cluster arranges its children/members along its `direction` (`row`/`column`) and draws a dashed labelled box **iff it has a `label`** (a label-less cluster is an invisible arrangement-only container). A cluster holds EITHER child `clusters` or member `nodes` (referenced by name). This is how you get `input | consider | output` across the top with a full-width `vocabulary` band below — and nested sub-groups inside a cluster.
+- **`cluster-dot`** (default) — for **structure** diagrams (class, component, package, ER), where you want explicit bands and order. Each leaf cluster is laid out by its own dot run and Python composes them along `direction`; a position-pinned pass then routes every edge around the boxes. Has the flat and clustered paths below.
+- **`dot`** — for **flow** diagrams (state machine, activity). The whole model goes through ONE dot run, so the layout **follows the transition edges** (composite states become native boxes; cluster-endpoint transitions clip at the box border) for a clean top-to-bottom flow. It **draws self-loops**, honours only `options.direction` (a per-cluster `direction` is ignored, with a warning), and needs only `dot` (no neato/fdp). Prefer it for anything edge-driven.
+
+Within `cluster-dot`, two layout paths, chosen by whether the model has a `layout`:
+
+- **Flat** (no `layout`) — dot lays out every node; flow follows `options.direction` (`TB` = top-down, the default; `LR` = left-to-right). Best for a single diagram of up to ~12 boxes.
+- **Clustered** (a `layout` tree) — `layout` is a RECURSIVE tree of clusters. Each cluster arranges its children/members along its `direction` (`TB`/`LR`) and draws a dashed labelled box **iff it has a `label`** (a label-less cluster is an invisible arrangement-only container). A cluster holds EITHER child `clusters` or member `nodes` (referenced by name). This is how you get `input | consider | output` across the top with a full-width `vocabulary` band below — and nested sub-groups inside a cluster.
 
 On top of the clustered path:
 
@@ -48,7 +53,7 @@ On top of the clustered path:
 - **Box-avoiding routing for ALL edges** — a final **position-pinned Graphviz pass** (`neato -n2` / `fdp -n2`, `splines=ortho`) routes *every* edge — internal, cross-cluster, **and cluster-endpoint (group-to-group)** — around the placed boxes.
 - **Views** (`--view KEY`) — a named subset of nodes rendered as the induced subgraph (the master layout pruned to those nodes). One model (SSOT) → many small, focused diagrams.
 
-Each leaf cluster is laid out in its own dot run (members ordered by their internal edges, or stacked along `direction` via invisible edges when they have none); Python composes the children by `direction`, so sibling order is exactly the listed order. Validation is fail-fast: every node must be placed exactly once, cluster names are unique and `/`-free.
+Under **`cluster-dot`**, each leaf cluster is laid out in its own dot run (members ordered by their internal edges, or stacked along `direction` via invisible edges when they have none); Python composes the children by `direction`, so sibling order is exactly the listed order. Validation is fail-fast: every node must be placed exactly once, cluster names are unique and `/`-free.
 
 ## Prerequisites (check once per machine)
 
@@ -69,7 +74,7 @@ Read the target — source code or a spec — and extract the nodes and relation
 ```json
 {
   "title": "Player state machine",
-  "options": {"direction": "column", "column_width": 260, "node_separation": 0.7, "rank_separation": 1.1},
+  "options": {"engine": "dot", "direction": "TB", "column_width": 260, "node_separation": 0.7, "rank_separation": 1.1},
   "nodes": [
     {"name": "Idle", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
     {"name": "Running", "shape": "state", "fill": "#D5E8D4", "stroke": "#82B366"},
@@ -114,12 +119,12 @@ Put multiplicity / role / guard text in the optional edge `"label"`. Colour by l
 
 ### 1b. (Optional) cluster tree, cascade, legend, and views
 
-Add a `layout` (a recursive cluster tree) to group and arrange nodes; omit it for a flat diagram. A cluster sets `direction` (`row`/`column`), draws a box when it has a `label`, may set `color`/`fill` (which **cascade** to its descendant nodes), may set a `name` (for `--view`/`--cluster` references and the table cluster path), and holds EITHER child `clusters` or member `nodes` (referenced by name). Add `views` for focused sub-diagrams.
+Add a `layout` (a recursive cluster tree) to group and arrange nodes; omit it for a flat diagram. A cluster sets `direction` (`TB`/`LR`), draws a box when it has a `label`, may set `color`/`fill` (which **cascade** to its descendant nodes), may set a `name` (for `--view`/`--cluster` references and the table cluster path), and holds EITHER child `clusters` or member `nodes` (referenced by name). Add `views` for focused sub-diagrams.
 
 ```json
 {
   "title": "Agent loop",
-  "options": {"direction": "column", "column_width": 300},
+  "options": {"direction": "TB", "column_width": 300},
   "nodes": [
     {"name": "Probe", "shape": "class", "attributes": ["moves : GameMove[*]"]},
     {"name": "TurnRecord", "shape": "class", "attributes": ["frames : Frame[*]"]},
@@ -134,15 +139,15 @@ Add a `layout` (a recursive cluster tree) to group and arrange nodes; omit it fo
     {"source": "Probe", "target": "GameMove", "arrow": "aggregation", "label": "trial moves"}
   ],
   "layout": {
-    "direction": "column",
+    "direction": "TB",
     "clusters": [
-      {"direction": "row", "clusters": [
+      {"direction": "LR", "clusters": [
         {"name": "input", "label": "Input port", "color": "#2F8FA8", "fill": "#E3F2F5",
          "nodes": ["TurnRecord", "Probe"]},
         {"name": "consider", "label": "Consider", "color": "#9673A6", "fill": "#EDE7F6",
          "clusters": [
            {"nodes": ["Conception"]},
-           {"direction": "row", "clusters": [
+           {"direction": "LR", "clusters": [
              {"name": "world", "label": "world", "nodes": ["WorldModel"]},
              {"name": "goal",  "label": "goal",  "nodes": ["GoalPredicate"]}
            ]}
@@ -159,13 +164,14 @@ Add a `layout` (a recursive cluster tree) to group and arrange nodes; omit it fo
 }
 ```
 
-This yields `input | consider | output` across the top, with `consider` holding `Conception` above a `world | goal` sub-row; `input`'s two edge-less members stack vertically (invisible-edge alignment). `draw.py model.json answer.drawio --view answer` then draws just the Conception internals.
+This yields `input | consider | output` across the top, with `consider` holding `Conception` above a `world | goal` LR sub-band; `input`'s two edge-less members stack vertically (invisible-edge alignment). `draw.py model.json answer.drawio --view answer` then draws just the Conception internals.
 
 Layout / view keys:
 
 | key | scope | meaning |
 |-----|-------|---------|
-| `direction` | cluster / options | `row` = children left→right, `column` = top→bottom. Resolves cluster → `options.direction` → `column`. |
+| `engine` | options | `cluster-dot` (default; structure: class/component/package/ER) **or** `dot` (edge-driven flow: state machine / activity). Both draw the cluster boxes. |
+| `direction` | cluster / options | `TB` = top→bottom (default), `LR` = children left→right. Resolves cluster → `options.direction` → `TB`. Under `engine:"dot"` only `options.direction` applies (per-cluster `direction` ignored, with a warning). |
 | `label` | cluster | present ⇒ a dashed labelled box is drawn; absent ⇒ invisible arrangement-only container. |
 | `name` | cluster | id for `--view`/`--cluster` and the table cluster path. Unique across clusters, no `/`. |
 | `color` / `fill` | cluster | box border colour / a node-fill suggestion; both **cascade** to descendant nodes (nearest ancestor wins; a node's own `fill`/`stroke` wins over both). |
@@ -202,16 +208,17 @@ Read the exported PNG and check: shapes render as intended, arrowheads are the c
 
 ## Tuning layout (if anything overlaps)
 
+- **Engine for flows**: a state-machine / activity diagram that looks cramped or scattered under the default `cluster-dot` usually reads far better with `options.engine:"dot"` (dot lays it out following the transitions — a clean top-to-bottom flow).
 - **More room**: raise `options.rank_separation` / `options.node_separation`.
-- **Orientation**: `options.direction` = `"column"` (top-down, default) or `"row"` (left-to-right) — `row` suits use-case and wide hierarchies. A per-cluster `direction` overrides it locally.
-- **Cluster gaps**: children in a row are `ROW_GAP` apart, in a column `COL_GAP` apart (constants near the top of the script).
+- **Orientation**: `options.direction` = `"TB"` (top-down, default) or `"LR"` (left-to-right) — `LR` suits use-case and wide hierarchies. A per-cluster `direction` overrides it locally (cluster-dot only; `engine:"dot"` honours only `options.direction`).
+- **Cluster gaps**: children arranged `LR` are `ROW_GAP` apart, `TB` are `COL_GAP` apart (constants near the top of the script).
 - **Fewer crossings by design**: keep the primary structure (inheritance, control flow) as the backbone; dash or drop secondary `dependency`/`directed_association` edges. Or split concerns into `views`.
 - **Interactive last resort**: open in draw.io, `Arrange → Layout → Vertical Tree` / `Hierarchical`, or drag.
 
 ## Pitfalls
 
 - The generator escapes `&`, `<`, `>` for you (including the legend HTML); if you hand-edit `.drawio` XML, do the same.
-- `splines=ortho` dislikes self-loops (an edge from a node to itself — common in state machines for a self-transition, or a recursive composite). Model recursion as an **attribute/label**, not a self-edge; the routing pass skips self-loops for the same reason. If you truly need one, add it by hand in draw.io.
+- Self-loops (an edge from a node to itself — a state's self-transition): the **`dot` engine draws them**, so for state machines with self-transitions use `options.engine:"dot"`. The `cluster-dot` path uses `splines=ortho`, which cannot route a self-loop and skips them — there, model recursion as an **attribute/label** or add the loop by hand in draw.io.
 - Keep `model.json` as the single source of truth and regenerate, rather than editing the `.drawio` by hand — that keeps the diagram reproducible.
 - The pinned routing pass needs `neato` (or `fdp`) from Graphviz on PATH. If neither is found, clustered models still render but cross-cluster edges fall back to draw.io's auto-router (which may cross boxes) — install Graphviz fully.
 - Sequence/timing diagrams: decline and suggest Mermaid/PlantUML (see "What this can draw").
