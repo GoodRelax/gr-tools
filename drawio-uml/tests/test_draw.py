@@ -1,7 +1,8 @@
-"""Acceptance tests for draw.py 0.3.0 (spec 4.1, scenarios SC-001..020).
+"""Acceptance tests for draw.py 0.6.0 (spec 4.1, scenarios SC-001..032).
 
-Models are built inline in the 0.3.0 format (recursive `layout` cluster tree +
-`views`). Requires Graphviz `dot` (and `neato`/`fdp` for routing).
+Models are built inline in the 0.6.0 format (recursive `layout` cluster tree +
+`views`; direction TB/LR; options.engine dot|cluster-dot). Requires Graphviz
+`dot` (and `neato`/`fdp` for the cluster-dot routing pass).
 Run: python tests/test_draw.py -v
 """
 import contextlib
@@ -36,8 +37,8 @@ def clustered_model():
         "edges": [{"source": "A", "target": "B", "arrow": "composition"},
                   {"source": "C", "target": "D", "arrow": "dependency"},
                   {"source": "A", "target": "C", "arrow": "dependency"}],
-        "layout": {"direction": "column", "clusters": [
-            {"direction": "row", "clusters": [
+        "layout": {"direction": "TB", "clusters": [
+            {"direction": "LR", "clusters": [
                 {"name": "core", "label": "Core domain", "color": "#5B5FC7",
                  "fill": "#EEF0FF", "nodes": ["A", "B"]},
                 {"name": "infra", "label": "Infrastructure", "color": "#82B366",
@@ -59,9 +60,30 @@ def cluster_edge_model():
     """Two stacked labelled clusters with a cluster->cluster 'depends on' edge."""
     return {"nodes": [{"name": "N1", "shape": "box"}, {"name": "N2", "shape": "box"}],
             "edges": [{"source": "lower", "target": "upper", "arrow": "dependency", "label": "depends on"}],
-            "layout": {"direction": "column", "clusters": [
+            "layout": {"direction": "TB", "clusters": [
                 {"name": "upper", "label": "Upper", "color": "#B36200", "nodes": ["N1"]},
                 {"name": "lower", "label": "Lower", "color": "#2E8B57", "nodes": ["N2"]}]}}
+
+
+def dot_model():
+    """A composite state machine for the dot engine: a labelled cluster, ordinary
+    transitions, a cluster-endpoint transition (i->grp, grp->C) and a node
+    self-loop (B->B). engine='dot' + direction TB (FR-D-19)."""
+    return {"title": "SM",
+            "options": {"engine": "dot", "direction": "TB"},
+            "nodes": [{"name": "i", "shape": "initial"},
+                      {"name": "A", "shape": "state"},
+                      {"name": "B", "shape": "state"},
+                      {"name": "C", "shape": "state"}],
+            "edges": [{"source": "i", "target": "grp", "arrow": "transition"},
+                      {"source": "A", "target": "B", "arrow": "transition"},
+                      {"source": "B", "target": "B", "arrow": "transition", "label": "self"},
+                      {"source": "grp", "target": "C", "arrow": "transition", "label": "done"}],
+            "layout": {"clusters": [
+                {"nodes": ["i"]},
+                {"name": "grp", "label": "Group", "color": "#2F8FA8", "fill": "#E8F4F7",
+                 "nodes": ["A", "B"]},
+                {"nodes": ["C"]}]}}
 
 
 def cluster_boxes(xml):
@@ -95,8 +117,8 @@ class DrawAcceptance(unittest.TestCase):
         self.assertIn("Core domain", xml)                 # outermost labelled -> swatch
         self.assertIn("Infrastructure", xml)
 
-    def test_sc005_row_column_tree(self):                 # FR-D-03
-        # core | infra arranged in a row -> core's box left of infra's box
+    def test_sc005_tb_lr_tree(self):                      # FR-D-03
+        # core | infra arranged left-to-right (LR) -> core's box left of infra's box
         boxes = cluster_boxes(draw.render(clustered_model()))
         self.assertLess(boxes["cluster_core"][0], boxes["cluster_infra"][0])
 
@@ -188,7 +210,7 @@ class DrawAcceptance(unittest.TestCase):
                         "inner box must nest inside outer box")
 
     def test_sc018_leaf_invisible_stacking(self):         # FR-D-04
-        cluster = {"direction": "column", "nodes": ["P", "Q"]}
+        cluster = {"direction": "TB", "nodes": ["P", "Q"]}
         members = [{"name": "P", "shape": "box"}, {"name": "Q", "shape": "box"}]
         nid = {"P": "n_P", "Q": "n_Q"}
         pos, _ = draw._leaf_layout(cluster, members, [], nid, {})
@@ -273,11 +295,119 @@ class DrawAcceptance(unittest.TestCase):
 
     def test_anon_box_id_no_collision_with_cid(self):     # box_cell id reservation
         m = {"nodes": [{"name": "A"}, {"name": "B"}], "edges": [],
-             "layout": {"direction": "column", "clusters": [
+             "layout": {"direction": "TB", "clusters": [
                  {"label": "Anon band", "nodes": ["A"]},                # anonymous labelled box
                  {"name": "box_0", "label": "Named box_0", "nodes": ["B"]}]}}
         xml = draw.render(m)
         self.assertEqual(xml.count('id="cluster_box_0"'), 1)  # only the named cluster's box
+
+    # ---- 0.6.0: layout engines + direction TB/LR (SC-027..032) ----
+    def test_sc027_default_engine_is_cluster_dot(self):   # FR-D-18
+        # engine omitted == engine "cluster-dot": same clustered output (boxes + routing)
+        base = draw.render(clustered_model())
+        m = clustered_model()
+        m["options"] = {"engine": "cluster-dot"}
+        self.assertEqual(base, draw.render(m))
+        self.assertIn("cluster_core", base)               # clustered path drew the boxes
+
+    def test_sc028_dot_engine_native_clusters(self):      # FR-D-18, FR-D-19
+        xml = draw.render(dot_model())
+        self.assertIn("<mxGraphModel", xml)
+        self.assertIn('id="cluster_grp"', xml)            # composite box from dot bb (both engines draw boxes)
+        self.assertIn('target="cluster_grp"', xml)        # cluster-endpoint transition -> box mxCell
+        self.assertIn('as="points"', xml)                 # edge splines imported as waypoints
+        self.assertIn("curved=1;", xml)                   # dot-only edge style (proves render_dot ran, not cluster-dot)
+
+    def test_sc029_invalid_engine_fails(self):            # FR-D-18
+        m = {"title": "T", "options": {"engine": "graphviz"},
+             "nodes": [{"name": "A"}], "edges": []}
+        self.assertRaises(SystemExit, draw.render, m)
+
+    def test_sc030_invalid_direction_fails(self):         # FR-D-20
+        opt_bad = {"nodes": [{"name": "A"}, {"name": "B"}], "edges": [],
+                   "options": {"direction": "column"}}     # abolished value -> fail-fast
+        self.assertRaises(SystemExit, draw.render, opt_bad)
+        cl_bad = {"nodes": [{"name": "A"}], "edges": [],
+                  "layout": {"direction": "sideways", "label": "X", "nodes": ["A"]}}
+        self.assertRaises(SystemExit, draw.render, cl_bad)
+
+    def test_sc031_dot_ignores_per_cluster_direction_warns(self):  # FR-D-20
+        base = draw.render(dot_model())                   # no per-cluster direction
+        m = dot_model()
+        m["layout"]["clusters"][1]["direction"] = "LR"    # per-cluster direction under dot
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            xml = draw.render(m)
+        self.assertIn("per-cluster direction", buf.getvalue())  # warned
+        self.assertEqual(xml, base)                       # and truly ignored (byte-identical layout)
+
+    def test_sc032_dot_draws_self_loop(self):             # FR-D-15, FR-D-19
+        xml = draw.render(dot_model())                    # B->B is drawn WITH a loop spline
+        cell = re.search(r'<mxCell id="edge\d+"[^>]*source="n_B" target="n_B".*?</mxCell>', xml)
+        self.assertIsNotNone(cell)                        # cluster-dot would route no waypoints here
+        self.assertIn('as="points"', cell.group(0))       # the self-loop carries dot's arc spline
+
+    def test_dot_flat_no_layout(self):                    # FR-D-19 (layout-None branch)
+        m = {"title": "T", "options": {"engine": "dot"},
+             "nodes": [{"name": "A", "shape": "state"}, {"name": "B", "shape": "state"}],
+             "edges": [{"source": "A", "target": "B", "arrow": "transition"}]}
+        xml = draw.render(m)
+        self.assertIn('id="n_A"', xml)
+        self.assertIn("curved=1;", xml)                   # dot engine ran
+        self.assertNotIn("cluster_", xml)                 # no boxes
+        self.assertNotIn("Legend", xml)                   # no legend without labelled clusters
+
+    def test_dot_view_pruned(self):                       # FR-D-16 x FR-D-19
+        m = dot_model()
+        m["views"] = {"justgrp": {"label": "G", "clusters": ["grp"]}}
+        xml = draw.render(m, "justgrp")
+        self.assertIn('id="cluster_grp"', xml)            # surviving cluster box under dot
+        self.assertNotIn('id="n_C"', xml)                 # C pruned away
+
+    def test_dot_anonymous_labelled_cluster(self):        # FR-D-19 (cluster_anon_<k> reservation)
+        m = {"title": "T", "options": {"engine": "dot"},
+             "nodes": [{"name": "A", "shape": "state"}, {"name": "B", "shape": "state"}],
+             "edges": [{"source": "A", "target": "B", "arrow": "transition"}],
+             "layout": {"clusters": [
+                 {"label": "Anon", "nodes": ["A"]},                       # anonymous labelled -> anonbox_0
+                 {"name": "anon_0", "label": "Named", "nodes": ["B"]}]}}   # claims cluster_anon_0 in dot
+        xml = draw.render(m)
+        self.assertIn('id="anonbox_0"', xml)              # anonymous box drawn from its own bb
+        self.assertIn('id="cluster_anon_0"', xml)         # named cluster's box (cid), no clash
+
+    def test_dot_generalization_reversed(self):           # FR-D-06 x FR-D-19 (spline reversal)
+        m = {"title": "T", "options": {"engine": "dot"},
+             "nodes": [{"name": "Base", "shape": "class"}, {"name": "Derived", "shape": "class"}],
+             "edges": [{"source": "Derived", "target": "Base", "arrow": "generalization"}]}
+        xml = draw.render(m)
+        self.assertIn('source="n_Derived" target="n_Base"', xml)  # endpoints NOT swapped in the cell
+        self.assertIn("endArrow=block;endFill=0;", xml)           # hollow triangle (at parent)
+
+    def test_dot_per_cluster_direction_warns_once(self):  # FR-D-20 (aggregate, warn once)
+        m = dot_model()
+        m["layout"]["direction"] = "LR"                   # root declares direction
+        m["layout"]["clusters"][1]["direction"] = "LR"    # and a child too
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            draw.render(m)
+        self.assertEqual(buf.getvalue().count("per-cluster direction"), 1)  # one aggregated warning
+
+    def test_dot_parallel_edges_distinct_routes(self):    # parallel edges keep distinct splines (no route collapse)
+        m = {"title": "T", "options": {"engine": "dot"},
+             "nodes": [{"name": "A", "shape": "state"}, {"name": "B", "shape": "state"}],
+             "edges": [{"source": "A", "target": "B", "arrow": "transition", "label": "e1"},
+                       {"source": "A", "target": "B", "arrow": "transition", "label": "e2"}]}
+        arrs = re.findall(r'<Array as="points">(.*?)</Array>', draw.render(m))
+        self.assertEqual(len(arrs), 2)                    # both routed
+        self.assertEqual(len(set(arrs)), 2)               # with DISTINCT waypoints
+
+    def test_dot_empty_cluster_endpoint_fails(self):      # hardening: empty labelled cluster endpoint
+        m = {"title": "T", "options": {"engine": "dot"},
+             "nodes": [{"name": "A"}],
+             "edges": [{"source": "A", "target": "E", "arrow": "transition"}],
+             "layout": {"clusters": [{"nodes": ["A"]},
+                                     {"name": "E", "label": "E", "nodes": []}]}}
+        self.assertRaises(SystemExit, draw.render, m)     # fail-fast, not KeyError
 
 
 if __name__ == "__main__":

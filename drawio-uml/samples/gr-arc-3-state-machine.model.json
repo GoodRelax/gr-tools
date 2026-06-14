@@ -1,0 +1,66 @@
+{
+  "title": "GR-ARC-3 Agent Lifecycle (state machine)",
+  "options": {"engine": "dot", "direction": "TB", "node_separation": 0.45, "rank_separation": 0.6, "column_width": 220},
+  "nodes": [
+    {"name": "boot", "shape": "initial"},
+    {"name": "Loading", "shape": "state", "description": "AssetLoader loads the baked deck (LTM: Lexicon.base / GoalPatterns / role priors), read-only. WM empty."},
+    {"name": "NewGame", "shape": "state", "description": "Receive the first frame; init working memory (cleared per game)."},
+    {"name": "s_init", "shape": "initial"},
+    {"name": "Explore", "shape": "state", "description": "perceive: probing actions, collect TurnRecord/Probe, segment objects."},
+    {"name": "c_init", "shape": "initial"},
+    {"name": "ModelWorld", "shape": "state", "description": "induce/refine WorldModel (InteractionRule, StateAbstraction); verified free on the in-house sim."},
+    {"name": "ModelGoal", "shape": "state", "description": "infer GoalPredicate (GoalPatterns instantiate + first-win bootstrap)."},
+    {"name": "p_init", "shape": "initial"},
+    {"name": "Simulate", "shape": "state", "description": "predict one step via WorldModel.predict (in-house sim) -- RHAE-free look-ahead."},
+    {"name": "Evaluate", "shape": "state", "description": "goal-test + heuristic; expand the search, or stop when a winning line is found."},
+    {"name": "Execute", "shape": "state", "description": "act: MPC -- commit ONE GameMove -> Action (the only RHAE cost); observe."},
+    {"name": "Diagnose", "shape": "state", "description": "check prediction vs observation at the first divergence; route back to the wrong layer (re-explore / re-model / re-plan)."},
+    {"name": "LevelCleared", "shape": "state", "description": "Outcome=win; carry-forward the WorldModel to the next level."},
+    {"name": "GameOver", "shape": "state", "description": "Outcome=over (lives out)."},
+    {"name": "Done", "shape": "state", "description": "is_done: scorecard exhausted / wall-clock out. (next game -> NewGame, omitted.)"},
+    {"name": "end", "shape": "final"}
+  ],
+  "edges": [
+    {"source": "boot", "target": "Loading", "arrow": "transition"},
+    {"source": "Loading", "target": "NewGame", "arrow": "transition", "label": "loaded"},
+    {"source": "NewGame", "target": "solving", "arrow": "transition", "label": "first frame"},
+    {"source": "s_init", "target": "Explore", "arrow": "transition"},
+    {"source": "Explore", "target": "consider", "arrow": "transition", "label": "enough signal"},
+    {"source": "c_init", "target": "ModelWorld", "arrow": "transition"},
+    {"source": "ModelWorld", "target": "ModelGoal", "arrow": "transition"},
+    {"source": "ModelGoal", "target": "plan", "arrow": "transition", "label": "goal set"},
+    {"source": "p_init", "target": "Simulate", "arrow": "transition"},
+    {"source": "Simulate", "target": "Evaluate", "arrow": "transition", "label": "predict"},
+    {"source": "Evaluate", "target": "Simulate", "arrow": "transition"},
+    {"source": "plan", "target": "Execute", "arrow": "transition", "label": "plan found"},
+    {"source": "Execute", "target": "Diagnose", "arrow": "transition", "label": "observe"},
+    {"source": "Diagnose", "target": "consider", "arrow": "transition", "label": "re-model / re-plan"},
+    {"source": "solving", "target": "LevelCleared", "arrow": "transition", "label": "win"},
+    {"source": "solving", "target": "GameOver", "arrow": "transition", "label": "over"},
+    {"source": "LevelCleared", "target": "solving", "arrow": "transition", "label": "next level (carry WM)"},
+    {"source": "LevelCleared", "target": "Done", "arrow": "transition", "label": "all cleared"},
+    {"source": "GameOver", "target": "Done", "arrow": "transition", "label": "no lives"},
+    {"source": "Done", "target": "end", "arrow": "transition"}
+  ],
+  "layout": {
+    "clusters": [
+      {"nodes": ["boot"]},
+      {"nodes": ["Loading"]},
+      {"nodes": ["NewGame"]},
+      {"name": "solving", "label": "Solving - gated solve loop (per level; Execute = the only RHAE cost)", "color": "#2F8FA8", "fill": "#E8F4F7", "clusters": [
+        {"nodes": ["s_init"]},
+        {"nodes": ["Explore"]},
+        {"name": "consider", "label": "Consider - build the Conception (multi-solution)", "color": "#9673A6", "fill": "#EDE7F6", "clusters": [
+          {"nodes": ["c_init"]},
+          {"nodes": ["ModelWorld"]},
+          {"nodes": ["ModelGoal"]},
+          {"name": "plan", "label": "Plan - look-ahead on in-house sim (RHAE-free)", "color": "#D79B00", "fill": "#FFF0DD", "nodes": ["p_init", "Simulate", "Evaluate"]}
+        ]},
+        {"nodes": ["Execute", "Diagnose"]}
+      ]},
+      {"nodes": ["LevelCleared", "GameOver"]},
+      {"nodes": ["Done"]},
+      {"nodes": ["end"]}
+    ]
+  }
+}

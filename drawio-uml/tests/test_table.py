@@ -43,7 +43,7 @@ class PureFunctions(unittest.TestCase):
         layout = {"clusters": [
             {"name": "consider", "label": "C", "clusters": [
                 {"nodes": ["Conception"]},
-                {"direction": "row", "clusters": [
+                {"direction": "LR", "clusters": [
                     {"name": "world", "label": "W", "nodes": ["WorldModel"]}]}]}]}
         paths = table.node_paths(layout)
         self.assertEqual(paths["Conception"], "consider")
@@ -159,7 +159,7 @@ class Acceptance(unittest.TestCase):
 
     def test_sc113_clusters_section(self):                # FR-T-12
         m = {"title": "T", "nodes": [{"name": "A"}, {"name": "B"}], "edges": [],
-             "layout": {"direction": "column", "clusters": [
+             "layout": {"direction": "TB", "clusters": [
                  {"name": "up", "label": "Up", "description": "upper layer", "remark": "see X", "nodes": ["A"]},
                  {"name": "lo", "label": "Lo", "nodes": ["B"]}]}}
         out = table.render(m, None, None)

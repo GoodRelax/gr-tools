@@ -9,14 +9,15 @@ imported as draw.io waypoints so lines route around boxes instead of through the
   * nodes  : flat node definitions, referenced elsewhere by name.
   * edges  : relations between nodes.
   * layout : a RECURSIVE cluster tree. Each cluster arranges its contents along
-             `direction` (row=left->right / column=top->bottom), draws a dashed
+             `direction` (LR=left->right / TB=top->bottom), draws a dashed
              labelled box iff it has a `label`, cascades color/fill to descendant
              nodes (nearest ancestor wins), and holds EXACTLY ONE of `clusters`
              (child clusters) or `nodes` (member node names). Omit `layout` for a
              flat diagram (dot lays out everything; flow = options.direction).
   * views  : named node subsets; --view KEY renders the induced subgraph (the
              master layout pruned to the selected nodes).
-  * options: direction (default column=TB), column_width, node_separation,
+  * options: engine (dot|cluster-dot, default cluster-dot), direction (TB|LR,
+             default TB), column_width, node_separation,
              rank_separation.
 
 Layout engine (clustered path): each LEAF cluster is laid out in its own dot run
@@ -50,6 +51,9 @@ ARROW = {
 }
 EDGE_BASE = ("edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#3A3A3A;"
              "fontSize=11;fontColor=#222222;labelBackgroundColor=#FFFFFF;")
+# dot engine: import dot's curved splines as waypoints (non-orthogonal; FR-D-19)
+EDGE_BASE_DOT = ("rounded=0;html=1;strokeColor=#3A3A3A;fontSize=11;fontColor=#222222;"
+                 "labelBackgroundColor=#FFFFFF;curved=1;")
 
 # ------------------------------------------------------- node shape presets
 SHAPES = {
@@ -190,19 +194,22 @@ def _node_cells(node, nid, pos, opt, rs, eff):
     return out
 
 
-def _edge_cell(i, e, ref, routes):
+def _edge_cell(i, e, ref, routes, base=EDGE_BASE, route=None):
     a = arrow_of(e)
     si, ti = ref[e["source"]], ref[e["target"]]
-    key, rev = ((ti, si), True) if a in ("generalization", "realization") else ((si, ti), False)
-    pts = routes.get(key, [])
-    if rev:
-        pts = pts[::-1]
+    if route is None:                                       # cluster-dot/flat: look up by endpoint pair
+        key, rev = ((ti, si), True) if a in ("generalization", "realization") else ((si, ti), False)
+        pts = routes.get(key, [])
+        if rev:
+            pts = pts[::-1]
+    else:                                                   # dot engine: explicit per-edge route (source->target)
+        pts = route
     inner = "".join('<mxPoint x="%d" y="%d"/>' % (round(px), round(py)) for px, py in pts[1:-1])
     geo = ('<mxGeometry relative="1" as="geometry"><Array as="points">%s</Array>'
            '</mxGeometry>' % inner) if inner else '<mxGeometry relative="1" as="geometry"/>'
     return ('<mxCell id="edge%d" value="%s" style="%s" edge="1" parent="1" '
             'source="%s" target="%s">%s</mxCell>'
-            % (i, esc(e.get("label", "")), EDGE_BASE + ARROW.get(a, ARROW["association"]),
+            % (i, esc(e.get("label", "")), base + ARROW.get(a, ARROW["association"]),
                si, ti, geo))
 
 
@@ -216,7 +223,11 @@ def rs_style():
 
 
 def direction_to_rankdir(direction):
-    return "TB" if direction == "column" else "LR"
+    """0.6.0: a direction value IS the dot rankdir (TB/LR). Validate and pass it
+    through; anything else (e.g. the abolished row/column) fails fast (FR-D-20)."""
+    if direction in ("TB", "LR"):
+        return direction
+    sys.exit("draw: invalid direction %r (must be 'TB' or 'LR')" % (direction,))
 
 
 def resolve_styles(nodes, layout):
@@ -249,7 +260,7 @@ def resolve_styles(nodes, layout):
 # ======================================================================
 def dot_layout(nodes, edges, nid, opt):
     """Graphviz dot -> (pos, routes) in draw.io px. y flipped, min corner at (40,40)."""
-    rankdir = direction_to_rankdir(opt.get("direction", "column"))
+    rankdir = direction_to_rankdir(opt.get("direction", "TB"))
     g = ["digraph G {",
          "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho;"
          % (rankdir, opt.get("node_separation", 0.7), opt.get("rank_separation", 1.1)),
@@ -319,7 +330,7 @@ def is_leaf(cluster):
 
 
 def resolve_direction(cluster, opt):
-    return cluster.get("direction") or opt.get("direction") or "column"
+    return direction_to_rankdir(cluster.get("direction") or opt.get("direction") or "TB")
 
 
 def _parse_plain(out, off_x, off_y, re_origin):
@@ -364,7 +375,7 @@ def _leaf_layout(cluster, members, edges, nid, opt):
     nodesep, ranksep = opt.get("node_separation", 0.8), opt.get("rank_separation", 1.25)
     g = ["digraph G {",
          "rankdir=%s; nodesep=%s; ranksep=%s; splines=ortho;"
-         % (direction_to_rankdir(direction), nodesep, ranksep),
+         % (direction, nodesep, ranksep),
          "node [shape=box, fixedsize=true];"]
     for n in members:
         w, h = node_size(n, opt)
@@ -399,9 +410,9 @@ def compose(cluster, edges, nid, opt, nodemap):
 
     direction = resolve_direction(cluster, opt)
     children = [compose(ch, edges, nid, opt, nodemap) for ch in cluster["clusters"]]
-    gap = ROW_GAP if direction == "row" else COL_GAP
+    gap = ROW_GAP if direction == "LR" else COL_GAP
     pos, boxes = {}, []
-    if direction == "row":
+    if direction == "LR":
         cross = max((h for (_, (w, h), _) in children), default=0.0)
         cur = 0.0
         for cpos, (cw, ch), cboxes in children:
@@ -584,6 +595,8 @@ def validate_tree(nodes, layout):
             if "/" in nm:
                 sys.exit("draw: cluster name must not contain '/': %r" % nm)
             names.append(nm)
+        if "direction" in c:
+            direction_to_rankdir(c["direction"])           # FR-D-20: TB/LR only (fail-fast)
         d = depth + (1 if "label" in c else 0)
         max_depth[0] = max(max_depth[0], d)
         if is_leaf(c):
@@ -669,6 +682,240 @@ def render_clustered(model, nodes, edges, layout):
         maxx = max([x1 for (_, _, _, x1, _) in boxes]
                    + [pos[nid[n["name"]]][0] + node_size(n, opt)[0] for n in nodes], default=MARGIN)
         maxy = max([y1 for (_, _, _, _, y1) in boxes]
+                   + [pos[nid[n["name"]]][1] + node_size(n, opt)[1] for n in nodes], default=MARGIN)
+        cells.append(legend_cell(outer, MARGIN, maxy + 36, max(900, maxx - MARGIN)))
+
+    xml = ('<mxGraphModel adaptiveColors="auto"><root><mxCell id="0"/>'
+           '<mxCell id="1" parent="0"/>%s</root></mxGraphModel>' % "".join(cells))
+    minidom.parseString(xml)
+    return xml
+
+
+# ======================================================================
+#  DOT ENGINE  (options.engine="dot": ONE dot run; labelled clusters become
+#  native subgraph cluster_*; the flow is laid out by dot's ranker; node
+#  positions + cluster boxes + edge splines are imported from dot -Tjson.
+#  FR-D-19 / ADR-014 / ADR-016.)
+# ======================================================================
+def _dq(s):
+    return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _ordered_members(cluster):
+    """Descendant node names of a cluster, in pre-order leaf order."""
+    if is_leaf(cluster):
+        return list(cluster["nodes"])
+    out = []
+    for ch in cluster["clusters"]:
+        out += _ordered_members(ch)
+    return out
+
+
+def _sample_bezier(ctrl, per_seg=4):
+    """On-curve points of a dot bezier spline (3n+1 control points), so the
+    drawn polyline follows dot's curve rather than cutting to control points."""
+    pts = [(float(ctrl[0][0]), float(ctrl[0][1]))]
+    i = 0
+    while i + 3 < len(ctrl):
+        p0, p1, p2, p3 = ctrl[i:i + 4]
+        for k in range(1, per_seg + 1):
+            t = k / float(per_seg)
+            mt = 1.0 - t
+            x = mt*mt*mt*p0[0] + 3*mt*mt*t*p1[0] + 3*mt*t*t*p2[0] + t*t*t*p3[0]
+            y = mt*mt*mt*p0[1] + 3*mt*mt*t*p1[1] + 3*mt*t*t*p2[1] + t*t*t*p3[1]
+            pts.append((x, y))
+        i += 3
+    return pts
+
+
+def _edge_spline_px(ej, H):
+    """Edge polyline in draw.io px (y-flipped by graph height H) from a -Tjson
+    edge's _draw_ ops: bezier (op b/B) is sampled, polyline (L/l/p/P) used as-is."""
+    for op in ej.get("_draw_", []):
+        o, pts = op.get("op"), op.get("points")
+        if not pts:
+            continue
+        if o in ("b", "B") and len(pts) >= 4:
+            return [(x, H - y) for (x, y) in _sample_bezier(pts)]
+        if o in ("L", "l", "p", "P"):
+            return [(float(p[0]), H - float(p[1])) for p in pts]
+    return []
+
+
+def render_dot(model, nodes, edges, layout):
+    """FR-D-19: lay the WHOLE model out in ONE dot run. Labelled clusters become
+    native `subgraph cluster_*`; transitions are edges; cluster endpoints anchor
+    to an interior node with lhead/ltail + compound=true. Import node `pos`,
+    cluster `bb` and edge splines from `dot -Tjson` and rebuild the .drawio."""
+    opt = model.get("options", {})
+    nid = make_nid(nodes)
+    nodemap = {n["name"]: n for n in nodes}
+    node_names = set(nid)
+    clusters = collect_clusters(layout)
+    rankdir = direction_to_rankdir(opt.get("direction", "TB"))
+    if layout:
+        validate_tree(nodes, layout)
+
+    # labelled clusters -> (cluster, subgraph id) pre-order (outer-first); a named
+    # cluster uses cid(name); an anonymous one uses the first free cluster_anon_<k>
+    # not colliding with any cid(name) (cid maps onto cluster_<alnum_> so a plain
+    # counter could clash). entry/exit anchors are only for named+labelled clusters.
+    sid_of, labelled, entry, exit_ = {}, [], {}, {}
+    if layout:
+        used = {cid(c["name"]) for c in clusters.values() if "label" in c}
+        anon = [0]
+
+        def assign(c):
+            if "label" in c:
+                if c.get("name"):
+                    sid = cid(c["name"])
+                else:
+                    while ("cluster_anon_%d" % anon[0]) in used:
+                        anon[0] += 1
+                    sid = "cluster_anon_%d" % anon[0]
+                    used.add(sid)
+                    anon[0] += 1
+                sid_of[id(c)] = sid
+                labelled.append((c, sid))
+            if not is_leaf(c):
+                for ch in c["clusters"]:
+                    assign(ch)
+        assign(layout)
+        for c, _sid in labelled:
+            if c.get("name"):
+                names = _ordered_members(c)
+                if names:
+                    inits = [x for x in names if nodemap[x].get("shape") == "initial"]
+                    states = [x for x in names if nodemap[x].get("shape") not in ("initial", "final")]
+                    entry[c["name"]] = (inits or states or names)[0]
+                    exit_[c["name"]] = (states or names)[-1]
+
+    # endpoint reference: node name -> nid, named+labelled cluster -> cid (FR-D-17)
+    ref = dict(nid)
+    for cname, cl in clusters.items():
+        if "label" in cl:
+            ref[cname] = cid(cname)
+
+    # per-cluster direction is not honoured under the dot engine (FR-D-20): warn once
+    declared = []
+    if layout:
+        def chk(c):
+            if "direction" in c:
+                declared.append(c.get("name") or c.get("label") or "<cluster>")
+            if not is_leaf(c):
+                for ch in c["clusters"]:
+                    chk(ch)
+        chk(layout)
+    if declared:
+        print("draw: warning: engine 'dot' ignores per-cluster direction (dot has no "
+              "per-subgraph rankdir); using options.direction=%s. Declared on: %s (FR-D-20)"
+              % (rankdir, ", ".join(declared)), file=sys.stderr)
+
+    def node_decl(node):
+        w, h = node_size(node, opt)
+        return '%s [width=%.4f, height=%.4f, label=""];' % (nid[node["name"]], w / 72.0, h / 72.0)
+
+    def emit(c, depth):
+        out, pad = [], "  " * (depth + 1)
+        lab = "label" in c
+        if lab:
+            out.append('%ssubgraph %s {' % (pad, sid_of[id(c)]))
+            out.append('%s  label=%s; labeljust=l; fontsize=11; margin=8;' % (pad, _dq(c["label"])))
+        if is_leaf(c):
+            for nm in c["nodes"]:
+                out.append(pad + "  " + node_decl(nodemap[nm]))
+        else:
+            for ch in c["clusters"]:
+                out += emit(ch, depth + 1)
+        if lab:
+            out.append(pad + "}")
+        return out
+
+    def anchor(name, head):
+        if name in node_names:
+            return nid[name], None
+        table = entry if head else exit_
+        if name not in table:                               # empty labelled cluster: fail fast, don't KeyError
+            sys.exit("draw: cluster endpoint %r has no member to anchor (empty cluster)" % (name,))
+        return nid[table[name]], ("lhead" if head else "ltail") + "=" + cid(name)
+
+    def skip_route(e):
+        s, t = e["source"], e["target"]
+        if s == t:                                          # node self-loop drawn; cluster self-loop skipped
+            return s not in node_names
+        a = _endpoint_membership(s, node_names, clusters)
+        b = _endpoint_membership(t, node_names, clusters)   # containment degeneracy (FR-D-17)
+        return bool(a and b and (a <= b or b <= a))
+
+    g = ["digraph G {",
+         "  compound=true; rankdir=%s; splines=true; nodesep=%s; ranksep=%s;"
+         % (rankdir, opt.get("node_separation", 0.4), opt.get("rank_separation", 0.5)),
+         '  node [shape=box, fixedsize=true, fontname="Helvetica", fontsize=11];',
+         '  graph [fontname="Helvetica"]; edge [fontname="Helvetica", fontsize=9];']
+    g += emit(layout, 0) if layout else ["  " + node_decl(n) for n in nodes]
+    emitted = []                                            # (model edge index, reversed?) per emitted dot edge
+    for ei, e in enumerate(edges):
+        if skip_route(e):
+            continue
+        rev = arrow_of(e) in ("generalization", "realization")
+        dt, dh = (e["target"], e["source"]) if rev else (e["source"], e["target"])  # parent above: reverse into dot
+        tid, tport = anchor(dt, head=False)
+        hid, hport = anchor(dh, head=True)
+        attrs = [x for x in (("label=" + _dq(e["label"])) if e.get("label") else None,
+                             tport, hport) if x]
+        g.append("  %s -> %s [%s];" % (tid, hid, ",".join(attrs)))
+        emitted.append((ei, rev))
+    g.append("}")
+
+    out = subprocess.run(["dot", "-Tjson"], input="\n".join(g),
+                         capture_output=True, text=True, check=True, encoding="utf-8").stdout
+    data = json.loads(out)
+    H = float(data["bb"].split(",")[3])                     # graph height (points; y-up origin)
+    node_geo, cbb = {}, {}
+    for o in data.get("objects", []):
+        nm = o.get("name")
+        if "pos" in o:                                      # node: pos=centre (pts), w/h in inches
+            cx, cy = (float(v) for v in o["pos"].split(","))
+            w, h = float(o.get("width", 0)) * 72.0, float(o.get("height", 0)) * 72.0
+            node_geo[nm] = (cx - w / 2.0, H - cy - h / 2.0, w, h)
+        elif "bb" in o and isinstance(nm, str) and nm.startswith("cluster"):
+            x0, y0, x1, y1 = (float(v) for v in o["bb"].split(","))
+            cbb[nm] = (x0, H - y1, x1 - x0, y1 - y0)
+    edge_routes = {}                                        # model edge index -> spline (source->target), per-edge
+    ejs = data.get("edges", [])
+    for jidx, (ei, rev) in enumerate(emitted):              # -Tjson keeps input edge order
+        if jidx < len(ejs):
+            pts = _edge_spline_px(ejs[jidx], H)
+            if rev:                                         # dot drew it head<-tail reversed: flip back to source->target
+                pts = pts[::-1]
+            edge_routes[ei] = pts
+
+    # translate so the diagram's min corner sits at (MARGIN, MARGIN)
+    allx = ([v[0] for v in node_geo.values()] + [v[0] for v in cbb.values()]
+            + [p[0] for pts in edge_routes.values() for p in pts])
+    ally = ([v[1] for v in node_geo.values()] + [v[1] for v in cbb.values()]
+            + [p[1] for pts in edge_routes.values() for p in pts])
+    ox, oy = MARGIN - (min(allx) if allx else 0.0), MARGIN - (min(ally) if ally else 0.0)
+    pos = {k: (x + ox, y + oy) for k, (x, y, w, h) in node_geo.items()}
+    boxes = [(c, cbb[sid][0] + ox, cbb[sid][1] + oy, cbb[sid][2], cbb[sid][3])
+             for (c, sid) in labelled if sid in cbb]
+    edge_routes = {ei: [(x + ox, y + oy) for (x, y) in pts] for ei, pts in edge_routes.items()}
+
+    eff = resolve_styles(nodes, layout)
+    rs = rs_style()
+    cells = []
+    for idx, (c, x, y, w, h) in enumerate(boxes):           # outer-first -> behind
+        cells.append(box_cell(c, idx, x, y, w, h))
+    for node in nodes:
+        cells += _node_cells(node, nid, pos, opt, rs, eff)
+    for i, e in enumerate(edges):
+        cells.append(_edge_cell(i, e, ref, {}, EDGE_BASE_DOT, route=edge_routes.get(i)))
+
+    outer = outermost_labelled(layout) if layout else []
+    if outer:
+        maxx = max([x + w for (_, x, y, w, h) in boxes]
+                   + [pos[nid[n["name"]]][0] + node_size(n, opt)[0] for n in nodes], default=MARGIN)
+        maxy = max([y + h for (_, x, y, w, h) in boxes]
                    + [pos[nid[n["name"]]][1] + node_size(n, opt)[1] for n in nodes], default=MARGIN)
         cells.append(legend_cell(outer, MARGIN, maxy + 36, max(900, maxx - MARGIN)))
 
@@ -815,12 +1062,21 @@ def render_model(model, view_key=None):
     nodes = model.get("nodes") or []
     edges = model.get("edges") or []
     layout = model.get("layout")
+    opt = model.get("options") or {}
+    engine = opt.get("engine", "cluster-dot")               # FR-D-18
+    if engine not in ("dot", "cluster-dot"):
+        sys.exit("draw: invalid options.engine %r (must be 'dot' or 'cluster-dot')" % (engine,))
+    if "direction" in opt:
+        direction_to_rankdir(opt["direction"])              # FR-D-20: TB/LR only (fail-fast)
     node_names = {n["name"] for n in nodes}
     clusters = collect_clusters(layout)
     _validate_endpoints(edges, node_names, clusters)        # FR-D-17: node -> cluster resolution
     if view_key is not None:
         nodes, edges, layout = apply_view(model, view_key)
-    xml = render_clustered(model, nodes, edges, layout) if layout else render_flat(model, nodes, edges)
+    if engine == "dot":                                     # FR-D-19: dot-native flow engine
+        xml = render_dot(model, nodes, edges, layout)
+    else:
+        xml = render_clustered(model, nodes, edges, layout) if layout else render_flat(model, nodes, edges)
     return xml, nodes, edges
 
 

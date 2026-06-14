@@ -10,7 +10,7 @@
     {"source": "Draw", "target": "Graphviz", "arrow": "directed_association"}
   ],
   "layout": {
-    "direction": "column",
+    "direction": "TB",
     "clusters": [
       {"name": "core", "label": "Core",     "color": "#FF8C00", "nodes": ["Model", "Draw"]},
       {"name": "ext",  "label": "External", "color": "#87CEEB", "nodes": ["Graphviz"]}
