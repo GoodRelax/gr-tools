@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "drawio-uml model (0.4.0)",
-  "description": "Single JSON input for the drawio-uml suite, consumed by draw (model -> .drawio) and table (model -> .md). 0.3.0 redesign (backward-incompatible with 0.2.x): `layout` is a recursive cluster tree (row/column) that holds arrangement + boxes + node membership in ONE place; `nodes` are flat definitions referenced elsewhere by name; `views` are named node subsets. The 0.2.x keys node.cluster, options.clusters and options.layout.rows are removed. This file performs STRUCTURAL validation only; referential integrity (node-name uniqueness, every node placed exactly once in the layout, view/edge/cluster references resolve, cluster-name uniqueness) is enforced by draw/table at run time, NOT by this schema.",
+  "title": "drawio-uml model (0.5.0)",
+  "description": "Single JSON input for the drawio-uml suite, consumed by draw (model -> .drawio) and table (model -> .md). 0.3.0 redesign (backward-incompatible with 0.2.x): `layout` is a recursive cluster tree (row/column) that holds arrangement + boxes + node membership in ONE place; `nodes` are flat definitions referenced elsewhere by name; `views` are named node subsets. The 0.2.x keys node.cluster, options.clusters and options.layout.rows are removed. This file performs STRUCTURAL validation only; referential integrity (node-name uniqueness, every node placed exactly once in the layout, view/edge/cluster references resolve (an edge endpoint resolves to exactly one node, or one named+labelled cluster), cluster-name uniqueness) is enforced by draw/table at run time, NOT by this schema. 0.5.0 adds optional cluster description/remark (table-only, surfaced in a ## Clusters section) and lets an edge endpoint name a named+labelled cluster (a cluster-endpoint edge).",
   "type": "object",
   "additionalProperties": false,
   "required": ["nodes", "title"],
@@ -60,8 +60,8 @@
       "additionalProperties": false,
       "required": ["source", "target"],
       "properties": {
-        "source": { "type": "string", "description": "Source node name." },
-        "target": { "type": "string", "description": "Target node name. If equal to source, draw skips routing." },
+        "source": { "type": "string", "description": "Source endpoint: a node name OR a cluster name. A cluster endpoint MUST be a named AND labelled cluster (the edge anchors to its drawn box). Resolution is node-first, then cluster (run-time): a name that is both is ambiguous and fails fast; an unknown name fails fast; an unnamed or label-less cluster endpoint fails fast." },
+        "target": { "type": "string", "description": "Target endpoint: a node name OR a cluster name (same rules as source). If equal to source, draw skips routing; an edge between a node and its own ancestor cluster, or a cluster and itself/its descendant, is likewise excluded from routing." },
         "arrow": { "type": "string", "description": "One of: generalization, realization, composition, aggregation, directed_association, dependency, transition, association. draw renders unknown/unset values as association; table outputs the literal value." },
         "label": { "type": "string", "description": "Relation label shown on the edge." },
         "description": { "type": "string", "description": "Ignored by draw; consumed by table." },
@@ -86,6 +86,8 @@
         "name": { "type": "string", "description": "Short identifier for referencing this cluster from views (view.clusters) and table --cluster. Optional; needed only if referenced. Run-time rules: names are unique across all clusters (duplicate => fail-fast); an UNNAMED cluster cannot be targeted by a view or --cluster. PATH: a node's cluster path (used by table's cluster column and --cluster) = the chain of NAMED ancestor clusters from root to the node's leaf, skipping nameless levels, joined with '/'. A `name` MUST NOT contain '/' (run-time fail-fast). --cluster matches on '/'-segment boundaries (KEY matches KEY and KEY/*). A node whose deepest named ancestor is an INTERNAL cluster takes that cluster's path (e.g. the header node directly under `consider` has path `consider`, while a node under `consider`->`world` has path `consider/world`)." },
         "color": { "type": "string", "description": "Box border colour (e.g. #9673A6). Named `color` (not `stroke`) because it does double duty: the box border AND the cascaded default `stroke` of descendant nodes. Cascade resolves to the NEAREST enclosing cluster that sets `color`; a node's own `stroke` overrides. The box itself is unfilled. LEGEND: clusters that are OUTERMOST labelled (a `label`-bearing cluster with no `label`-bearing ancestor) each contribute one legend swatch, deduplicated by `color`; an outermost labelled cluster with no `color` falls back to #888888." },
         "fill": { "type": "string", "description": "Cascaded default `fill` of descendant nodes. Resolves to the NEAREST enclosing cluster that sets `fill`, INDEPENDENTLY of `color` (a node may inherit fill and stroke from different ancestors); a node's own `fill` overrides. Does not fill the box itself." },
+        "description": { "type": "string", "description": "What this grouping is / its purpose (single line). Ignored by draw; consumed by table (the `## Clusters` section)." },
+        "remark": { "type": "string", "description": "Side note about the grouping (origin, ADR, constraint). Ignored by draw; consumed by table (the `## Clusters` section)." },
         "clusters": {
           "type": "array",
           "minItems": 1,
