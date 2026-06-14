@@ -210,7 +210,7 @@ def cluster_table(rows):
     lines = ["| " + " | ".join(columns) + " |",
              "| " + " | ".join("---" for _ in columns) + " |"]
     for path, cl in rows:
-        cells = [escape_cell(" / ".join(path.split("/")) if path else ""),
+        cells = [escape_cell(path.replace("/", " / ")),
                  escape_cell(cl.get("label", "")),
                  escape_cell(cl.get("description", "")),
                  escape_cell(cl.get("remark", ""))]
@@ -230,6 +230,32 @@ def validate(nodes, edges):
                 sys.exit("table: edge is missing required '%s': %r" % (field, edge))
 
 
+def validate_layout(layout):
+    """Cluster integrity the schema delegates to draw/table: cluster names unique
+    and '/'-free; no cluster has both `nodes` and `clusters`. Mirrors draw's
+    validate_tree so a standalone `table` fails fast instead of emitting bad docs."""
+    names = []
+
+    def walk(c):
+        if "nodes" in c and "clusters" in c:
+            sys.exit("table: cluster has both 'nodes' and 'clusters': %r"
+                     % (c.get("name") or c.get("label") or "<anonymous>"))
+        nm = c.get("name")
+        if nm is not None:
+            if "/" in nm:
+                sys.exit("table: cluster name must not contain '/': %r" % nm)
+            names.append(nm)
+        if "nodes" not in c:
+            for ch in c.get("clusters", []):
+                walk(ch)
+
+    if layout:
+        walk(layout)
+    dups = sorted({n for n in names if names.count(n) > 1})
+    if dups:
+        sys.exit("table: duplicate cluster name(s): %s" % ", ".join(dups))
+
+
 def render(model, cluster_key, view_key):
     """Model -> a standalone Markdown document: an H1 title, then `## Nodes` and
     `## Edges` (FR-T-11). The H1 is the view's label under --view, else the model's
@@ -237,6 +263,7 @@ def render(model, cluster_key, view_key):
     nodes = model.get("nodes") or []
     edges = model.get("edges") or []
     validate(nodes, edges)
+    validate_layout(model.get("layout"))
     title = model.get("title")
     if not title or not str(title).strip():               # FR-T-11a
         sys.exit("table: model is missing required non-empty 'title'")

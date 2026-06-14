@@ -527,7 +527,7 @@ def _route_pinned(nodes, edges, ref, opt, pos, cl_pins=None, skip=None):
 
 def box_cell(cluster, idx, x, y, w, h):
     name = cluster.get("name")
-    bid = cid(name) if name else "cluster_box_%d" % idx
+    bid = cid(name) if name else "anonbox_%d" % idx        # reserved prefix cid() cannot emit (no collision)
     col = cluster.get("color") or DEFAULT_BOX_COLOR
     return ('<mxCell id="%s" value="%s" style="rounded=1;arcSize=3;fillColor=none;'
             'strokeColor=%s;dashed=1;dashPattern=8 4;strokeWidth=2;verticalAlign=top;'

@@ -55,6 +55,15 @@ def nested_model():
                                      "nodes": ["A", "B"]}]}}
 
 
+def cluster_edge_model():
+    """Two stacked labelled clusters with a cluster->cluster 'depends on' edge."""
+    return {"nodes": [{"name": "N1", "shape": "box"}, {"name": "N2", "shape": "box"}],
+            "edges": [{"source": "lower", "target": "upper", "arrow": "dependency", "label": "depends on"}],
+            "layout": {"direction": "column", "clusters": [
+                {"name": "upper", "label": "Upper", "color": "#B36200", "nodes": ["N1"]},
+                {"name": "lower", "label": "Lower", "color": "#2E8B57", "nodes": ["N2"]}]}}
+
+
 def cluster_boxes(xml):
     """id -> (x, y, w, h) for every dashed cluster box cell."""
     out = {}
@@ -216,6 +225,59 @@ class DrawAcceptance(unittest.TestCase):
         # A (core) -> C (infra) is in no single leaf's dot run; the pinned pass routes it
         xml = draw.render(clustered_model())
         self.assertIn('source="n_A" target="n_C"', xml)
+
+    # ---- 0.5.0: cluster-endpoint edges + long-name fix (SC-021..026) ----
+    def test_sc021_cluster_endpoint_edge_anchored_routed(self):   # FR-D-17, FR-D-07
+        xml = draw.render(cluster_edge_model())
+        self.assertIn('source="cluster_lower" target="cluster_upper"', xml)
+        self.assertIn('as="points"', xml)                 # box-avoiding waypoints
+
+    def test_sc022_node_to_cluster_edge(self):            # FR-D-17
+        m = cluster_edge_model()
+        m["edges"] = [{"source": "N2", "target": "upper", "arrow": "dependency"}]
+        self.assertIn('source="n_N2" target="cluster_upper"', draw.render(m))
+
+    def test_sc023_ambiguous_endpoint_fails(self):        # FR-D-17
+        m = {"nodes": [{"name": "dup"}, {"name": "N"}],
+             "edges": [{"source": "dup", "target": "N"}],
+             "layout": {"clusters": [{"name": "dup", "label": "D", "nodes": ["dup"]},
+                                     {"name": "e", "label": "E", "nodes": ["N"]}]}}
+        self.assertRaises(SystemExit, draw.render, m)
+
+    def test_sc024_unlabelled_cluster_endpoint_fails(self):  # FR-D-17
+        m = {"nodes": [{"name": "A"}, {"name": "B"}],
+             "edges": [{"source": "grp", "target": "A"}],
+             "layout": {"clusters": [{"name": "grp", "nodes": ["A", "B"]}]}}  # named, no label
+        self.assertRaises(SystemExit, draw.render, m)
+
+    def test_sc025_long_node_name_renders(self):          # FR-D-03b
+        long = "X" + "_verylongnodename" * 15
+        m = {"nodes": [{"name": long, "shape": "box"}, {"name": "Y", "shape": "box"}],
+             "edges": [{"source": long, "target": "Y", "arrow": "dependency"}],
+             "layout": {"name": "l", "label": "L", "nodes": [long, "Y"]}}
+        self.assertIn("<mxGraphModel", draw.render(m))
+
+    def test_sc026_view_drops_cluster_edge_when_endpoint_pruned(self):  # FR-D-16, FR-D-17
+        m = cluster_edge_model()
+        m["views"] = {"justupper": {"label": "U", "clusters": ["upper"]}}
+        xml = draw.render(m, "justupper")
+        self.assertNotIn("cluster_lower", xml)            # lower pruned away
+        self.assertNotIn('target="cluster_upper"', xml)   # lower->upper edge dropped
+
+    def test_degenerate_cluster_edge_not_routed(self):    # FR-D-17 (containment)
+        m = cluster_edge_model()
+        m["edges"] = [{"source": "N1", "target": "upper", "arrow": "dependency"}]  # N1 inside upper
+        xml = draw.render(m)
+        self.assertIn('source="n_N1" target="cluster_upper"', xml)  # cell emitted
+        self.assertNotIn('as="points"', xml)              # but not routed
+
+    def test_anon_box_id_no_collision_with_cid(self):     # box_cell id reservation
+        m = {"nodes": [{"name": "A"}, {"name": "B"}], "edges": [],
+             "layout": {"direction": "column", "clusters": [
+                 {"label": "Anon band", "nodes": ["A"]},                # anonymous labelled box
+                 {"name": "box_0", "label": "Named box_0", "nodes": ["B"]}]}}
+        xml = draw.render(m)
+        self.assertEqual(xml.count('id="cluster_box_0"'), 1)  # only the named cluster's box
 
 
 if __name__ == "__main__":

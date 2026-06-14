@@ -157,6 +157,27 @@ class Acceptance(unittest.TestCase):
              "views": {"plain": {"nodes": ["A"]}}}
         self.assertTrue(table.render(m, None, "plain").startswith("# plain\n"))
 
+    def test_sc113_clusters_section(self):                # FR-T-12
+        m = {"title": "T", "nodes": [{"name": "A"}, {"name": "B"}], "edges": [],
+             "layout": {"direction": "column", "clusters": [
+                 {"name": "up", "label": "Up", "description": "upper layer", "remark": "see X", "nodes": ["A"]},
+                 {"name": "lo", "label": "Lo", "nodes": ["B"]}]}}
+        out = table.render(m, None, None)
+        self.assertIn("## Clusters", out)
+        self.assertIn("| cluster | label | description | remark |", out)
+        self.assertIn("| up | Up | upper layer | see X |", out)
+        self.assertTrue(out.index("## Edges") < out.index("## Clusters"))   # section order
+
+    def test_sc113_flat_model_no_clusters_section(self):  # FR-T-12 (omit when none)
+        m = {"title": "T", "nodes": [{"name": "A"}], "edges": []}
+        self.assertNotIn("## Clusters", table.render(m, None, None))
+
+    def test_validate_layout_duplicate_name_fails(self):  # cluster integrity (table side)
+        m = {"title": "T", "nodes": [{"name": "A"}, {"name": "B"}], "edges": [],
+             "layout": {"clusters": [{"name": "d", "label": "1", "nodes": ["A"]},
+                                     {"name": "d", "label": "2", "nodes": ["B"]}]}}
+        self.assertRaises(SystemExit, table.render, m, None, None)
+
 
 class CLI(unittest.TestCase):
     def _run(self, model, extra=()):
