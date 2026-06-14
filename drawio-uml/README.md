@@ -27,7 +27,9 @@ Features (grouping is optional — omit `layout` for a plain flat diagram):
 | **Colour cascade** | A cluster's `color`/`fill` cascades to its descendant nodes (nearest ancestor wins; a node's own wins) — no repeating colours per node. |
 | **Legend** | A row of swatches for the outermost labelled clusters (deduped by colour) + UML arrow glyphs (◆ ◇ → ⇢), under the diagram. |
 | **Views** | `views` defines named node subsets; `--view KEY` renders the induced subgraph (the master layout pruned to those nodes) — one SSOT, many small diagrams. |
-| **Edges that never cross boxes** | A final **position-pinned Graphviz pass** (`neato -n2`, `splines=ortho`) routes *every* edge — including cross-cluster ones — around the placed boxes. Verified: 0 edge-through-box crossings on the 26-edge reference model. |
+| **Cluster-endpoint edges** | An edge's `source`/`target` may name a whole **cluster** (named+labelled), so you can relate groups — e.g. Clean-Architecture layer or module dependencies — not just nodes. Anchored to the cluster box and routed around the others. |
+| **Cluster docs** | A cluster may carry `description`/`remark`; `table` surfaces them in a `## Clusters` section (the diagram is unchanged). |
+| **Edges that never cross boxes** | A final **position-pinned Graphviz pass** (`neato -n2`, `splines=ortho`) routes *every* edge — including cross-cluster and whole-cluster (group-to-group) ones — around the placed boxes. Verified: 0 edge-through-box crossings on the 26-edge reference model. |
 
 A model with no `layout` takes the flat path (dot lays out everything; flow = `options.direction`).
 The schema and full mechanism are documented in `SKILL.md` and
@@ -39,7 +41,7 @@ The schema and full mechanism are documented in `SKILL.md` and
 |------|---------|
 | `SKILL.md` | The Claude Code skill manifest (frontmatter + workflow + new schema keys). |
 | `scripts/draw.py` | Generator: JSON model → `.drawio` (native shapes + dot layout + pinned routing). |
-| `scripts/table.py` | Generator: JSON model → `.md` node/edge tables (consumes `description`/`remark`). |
+| `scripts/table.py` | Generator: JSON model → `.md` node/edge/cluster tables (a `## Clusters` section; consumes `description`/`remark`). |
 | `drawio-uml.bat` | Windows launcher: drag-and-drop model JSON → `.drawio` + `.md` + `.svg` + `.png`. |
 | `schema/model.schema.json` | JSON Schema (draft-07) for the model — editor autocomplete / validation. |
 | `references/drawio-uml-reference.md` | Concepts, install matrix, full shape/arrow catalog, per-type examples, cluster-tree/cascade/legend/views/edge-routing sections, troubleshooting. |
