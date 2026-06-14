@@ -129,7 +129,7 @@ RFC 2119 / 8174 に準拠する。**SHALL/MUST**=必須、**SHOULD**=推奨、**
 - **FR-D-02**(Event): When モデルが `layout` を持たない、`draw` は flat path で描画する SHALL。出力は決定的であり、同一版での再生成と**バイト一致**する(NFR-01)。flow 方向は `options.direction`(既定 `column`=TB)。
 - **FR-D-03**(Event): When モデルが `layout`(ルート cluster ツリー)を持つ、`draw` は clustered path で描画する SHALL。各**葉クラスタ**を独立 dot run でレイアウトし、Python が各 cluster の `direction`(`row`=左→右 / `column`=上→下)に従って子を**再帰合成**する。`label` を持つ cluster には破線箱を描く(z 順:外側の箱ほど背面)。
 - **FR-D-03a**(Constraint): `layout` がある時、全 node は**ちょうど1回**いずれかの葉 `nodes` に出現する SHALL。未配置・重複は `draw` が報告して非ゼロ終了する(fail-fast)。
-- **FR-D-03b**(Ubiquitous): `draw` は Graphviz の `-Tplain` 出力を解析する際、**行分割(splitlines)より前に**生文字列上で継続(行末 `\` + 改行、CRLF を含む)を結合する SHALL。これにより長い node 名・長いラベル(= 長い dot id)で `-Tplain` が物理行を折り返しても解析が破綻しない。`_parse_plain`・`_parse_plain_raw` の両解析(flat / clustered / pinned routing)に適用する。
+- **FR-D-03b**(Ubiquitous): `draw` は Graphviz の `-Tplain` 出力を解析する際、**行分割(splitlines)より前に**生文字列上で継続(行末 `\` + 改行、CRLF を含む)を結合する SHALL。これにより長い node 名・長いラベル(= 長い dot id)で `-Tplain` が物理行を折り返しても解析が破綻しない。さらに Graphviz は長い id/ラベルを二重引用符で囲むため、解析時に id トークンの両端引用符を除去してから `nid`/`cid` と照合する。`_parse_plain`・`_parse_plain_raw`・flat path の解析(pinned routing を含む)すべてに適用する。
 - **FR-D-04**(Event): When 葉クラスタのメンバ間に内部エッジが無い、`draw` は当該メンバを `direction` 方向に陰線(`style=invis`)で整列する SHALL(列挙順=並び順;葉の `direction` は cluster→`options.direction`→`column` で解決)。内部エッジがある葉は dot の rank 配置が支配し、列挙順はヒントに留まる(LM-1 と同根の Graphviz 制約)。
 - **FR-D-05**(Ubiquitous): `draw` は次の形状をサポートする SHALL — class / entity / object / component / package / box / usecase / actor / state / action / decision / initial / final / note。未知の `shape` は `box` として描画する。`class` / `entity` / `object` は compartment(名前・属性・操作の3区画 swimlane)で描き、形状プリセットは適用しない。
 - **FR-D-06**(Ubiquitous): `draw` は次のエッジ種別をサポートする SHALL — generalization / realization / composition / aggregation / directed_association / dependency / transition / association。未知・未指定の `arrow` は `association` として描画する。`generalization` / `realization` は親を上位ランクに置くため `dot` へ反転投入し、描画される矢印は子→親を向く。
@@ -237,7 +237,7 @@ gr-tools/drawio-uml/                 ← SSOT(ここだけ編集する)
 └── SKILL.md
 ```
 
-- **本版(0.5.0)の作業:** 0.4.0 まで実装・テスト緑。0.5.0 はクラスタ端点エッジ + cluster `description`/`remark`(`## Clusters`)+ `-Tplain` 継続行修正の**追加フェーズ**(本仕様が対象)。`schema/model.schema.json` は 0.5.0 へ更新済み。`scripts/`(draw/table)と `tests/`・基準 `.md` は本フェーズで更新する。設計 PoC・ブリーフは `poc/cluster-layout/`。
+- **本版(0.5.0)の作業:** 0.4.0 まで実装・テスト緑。0.5.0 はクラスタ端点エッジ + cluster `description`/`remark`(`## Clusters`)+ `-Tplain` 継続行修正の**追加フェーズ**(本仕様が対象)。`schema` / `scripts`(draw/table)/ `tests` 更新済み・全テスト緑。基準 `.md`(samples)は再生成予定。設計 PoC・ブリーフは `poc/cluster-layout/`。
 - 配布コピー(グローバルスキル等)・利用先リポジトリは本ディレクトリからの**コピー**であり、編集しない(ADR-007)。
 
 ### 3.4 Domain Model(ドメインモデル=モデルスキーマ)
@@ -367,7 +367,7 @@ view
 *Status:* Accepted(0.5.0) / *Context:* レイヤ依存のような**群対群**の関係を表せず、代表 node に付けると「コンポーネント単位の関係は別図」という設計意図と矛盾する(IS-6)。/ *Decision:* `edge.source`/`target` に labelled+named cluster 名を許し、当該クラスタの箱 mxCell(`cid(name)`)へ接続する。解決は node 優先 → cluster、曖昧/未知/無名・無 label は fail-fast(FR-D-17)。箱回避は **pinned routing にクラスタの箱(合成済み位置・寸法、id=`cid(name)`)を固定ノードとして加える堅牢版**とし、通常配置で非貫通を達成する(端点は箱境界でクリップ;クラスタ箱が子 node と重なる病的配置は FR-D-07a の degrade。FR-D-07、GL-1)。/ *Alternatives:* (a) 代表 node 間エッジ → 群の関係を node に歪曲、却下。(b) クラスタ線のみ draw.io 自動ルータ任せ(最小版)→ 隣接箱では足りるが任意配置で貫通しうるため GL-1 を破り却下。/ *Consequences:* レイヤ依存等を正しく図示。pinned routing がクラスタ箱を扱うよう拡張。ノード↔クラスタも副産物として描ける。
 
 **ADR-013 — `-Tplain` の継続行を結合してから解析する**
-*Status:* Accepted(0.5.0) / *Context:* `dot`/`neato` の `-Tplain` は長い行を行末 `\` で折り返す。長い node 名(= 長い dot id)やラベルでパーサが破綻していた(欠陥)。/ *Decision:* `-Tplain` を読む全パーサで継続行を結合してから解析する(FR-D-03b)。/ *Alternatives:* node 名長を制限 → 注釈用途等を阻害、却下。/ *Consequences:* 長い名前・ラベルでも安定。出力は不変(NFR-01)。
+*Status:* Accepted(0.5.0) / *Context:* `dot`/`neato` の `-Tplain` は長い行を行末 `\` で折り返す。長い node 名(= 長い dot id)やラベルでパーサが破綻していた(欠陥)。/ *Decision:* `-Tplain` を読む全パーサで (1) 継続行を結合し (2) id トークンの両端引用符を除去してから解析する(FR-D-03b)。/ *Alternatives:* node 名長を制限 → 注釈用途等を阻害、却下。/ *Consequences:* 長い名前・ラベルでも安定。出力は不変(NFR-01)。
 
 ---
 
@@ -590,7 +590,7 @@ Feature: table — モデルから .md を生成
     And   flat モデルでは `## Clusters` 節を出力しない
 ```
 
-**Result:** 0.4.0 まで PASS(`tests/test_draw.py` SC-001〜020・SC-012 skip / `tests/test_table.py` SC-101〜112)。**0.5.0 は仕様確定・実装/テストは後続フェーズ**:追加分 SC-021〜026(クラスタ端点エッジ・node↔cluster・曖昧/無名無 label の fail-fast・長ラベル・view 剪定)と SC-113(`## Clusters`)は実装フェーズで検証する。SC-011 は欠番。SC-012(整形式でない XML)は `esc()` により通常到達不能のため skip。`table` の基準 `.md`(`tests/*.model.md`・`samples/*.model.md`)は `## Clusters` 追加に伴い 0.5.0 形式へ再生成する(NFR-01)。
+**Result:** PASS(0.5.0)。`tests/test_draw.py` 30件(SC-001〜026・SC-012 skip・無名箱 id 衝突回帰)/ `tests/test_table.py` 25件(SC-101〜113・layout 整合検証)で検証。spec / source の2フェーズで敵対的レビューを各1巡反映済み。SC-011 は欠番。SC-012(整形式でない XML)は `esc()` により通常到達不能のため skip。`table` の基準 `.md`(`samples/*.model.md`)は `## Clusters` を含む 0.5.0 形式へ再生成予定(NFR-01)。
 
 ### 4.2 CLI Definition(コマンド定義)
 
@@ -680,4 +680,4 @@ Feature: table — モデルから .md を生成
 | 0.2.2 | 2026-06-13 | 後方互換エイリアス(classes/kind)を全廃(FR-D-11・SC-011 削除;FR-D-11 は欠番)。命名整理:w/h→width/height・attrs→attributes・col_w/nodesep/ranksep→column_width/node_separation/rank_separation・cluster の color/tint→stroke/fill。arrow を UML 正式名(generalization/realization/composition/aggregation/directed_association/dependency/transition/association;未指定は association)、shape の node→box。description=責務(主)/remark=補足(従)を用語集で明確化。レビュー指摘を反映:配置を `docs/` に修正、FR-D-11 欠番マーカー追記、`italic` を用語集に定義、FR-T-03 に未指定 `arrow` の出力規定、FR-D-13/14 の色×位置の直交を明記、SC-015/016(未知 shape→box・未指定 arrow→association)追加。 |
 | 0.3.0 | 2026-06-13 | **後方互換を破棄**し、モデル形式を全面刷新。`layout` を**再帰 cluster ツリー**(`direction` row/column・`label` で箱・`clusters`⊻`nodes`・`color`/`fill` を子孫へ cascade)に、`views`(関心事フィルタ・誘導部分グラフ)を追加。`node.cluster`・`options.clusters`・`options.layout.rows` を廃止、`options.rankdir`→`options.direction`。`draw` が入れ子クラスタを描く(ADR-005 撤回→ADR-009;A1=単一 dot run の `rank=same` は segfault で棄却)。views=ADR-010。LM-1 を可読性上限に書換。FR-D-02/03/03a/04/12/13/14/16/16a・FR-T-04/06/10/10a 改訂・追加、§3.4 ドメインモデル刷新、SC-003/004/005/007 改訂(SC-014 は「rows 余分キー無視」→ FR-D-03a「全 node 1回配置」へ**転用**)・SC-017〜020/108〜109 追加。スキーマ(`schema/model.schema.json`)は2巡の敵対的レビュー反映済み。設計ブリーフ=`poc/cluster-layout/schema-0.3.0-design-ja.md`。 |
 | 0.4.0 | 2026-06-14 | **breaking**:`table` をスタンドアロン文書化。top-level `title` を**必須**化し、`table` は常に `# <H1>` + `## Nodes` / `## Edges`(H1+H2)を出力(0.3.x の H4 埋め込みモードを廃止)。H1 は全体=モデル `title` / `--view`=当該ビューの `label`。`title` 欠落は table が fail-fast(FR-T-11a)。`draw` は `title` を無視。schema は top-level `title` を required 化。既存モデルは `title` 追加が必要(samples / ARC v009 等)。`table` の全基準 `.md`(tests/samples)も 0.4.0 形式へ再生成。FR-T-11/11a・SC-110〜112 追加。StrictDoc 等「先頭 H1 必須」ツールに `.md` を直接渡せる。要望 = `docs/improvement-request-table-h1-ja.md`。 |
-| 0.5.0 | 2026-06-14 | **feature**:(1) edge 端点に cluster を許可(クラスタ端点エッジ;`source`/`target` が labelled+named cluster を指す → node 優先→cluster 解決、`cid` の箱 mxCell へ接続)。pinned routing にクラスタの箱を固定ノードとして加える**堅牢な箱回避**(ADR-012、FR-D-07/17、LM-5)。(2) cluster に `description`/`remark` を追加し `table` が `## Clusters` 表(`\| cluster \| label \| description \| remark \|`)を出力(ADR-011、FR-T-12)。(3) `-Tplain` 継続行の結合で長い名前/ラベルの解析破綻を修正(ADR-013、FR-D-03b)。FR-D-08/16 改訂、IS-6・LM-5・SC-021〜026/113・ADR-011〜013 追加、トレース表更新。schema(`cluster.description`/`remark`、edge 端点 node\|cluster)更新済み。`scripts/`(draw/table)と `tests/`・基準 `.md` は実装フェーズで 0.5.0 化。 |
+| 0.5.0 | 2026-06-14 | **feature**:(1) edge 端点に cluster を許可(クラスタ端点エッジ;`source`/`target` が labelled+named cluster を指す → node 優先→cluster 解決、`cid` の箱 mxCell へ接続)。pinned routing にクラスタの箱を固定ノードとして加える**堅牢な箱回避**(ADR-012、FR-D-07/17、LM-5)。(2) cluster に `description`/`remark` を追加し `table` が `## Clusters` 表(`\| cluster \| label \| description \| remark \|`)を出力(ADR-011、FR-T-12)。(3) `-Tplain` 継続行の結合で長い名前/ラベルの解析破綻を修正(ADR-013、FR-D-03b)。FR-D-08/16 改訂、IS-6・LM-5・SC-021〜026/113・ADR-011〜013 追加、トレース表更新。schema(`cluster.description`/`remark`、edge 端点 node\|cluster)更新済み。`scripts/`(draw/table)実装 + `tests/`(SC-021〜026・SC-113・無名箱衝突回帰・layout 検証)追加で全テスト緑。基準 `.md`(samples)は `## Clusters` を含む 0.5.0 形式へ再生成予定。 |
