@@ -1,0 +1,50 @@
+digraph SM {
+  compound=true; rankdir=LR; nodesep=0.35; ranksep=0.5; splines=true;
+  graph [fontname="Helvetica"]; node [fontname="Helvetica",fontsize=11]; edge [fontname="Helvetica",fontsize=9,color="#444444"];
+      n_boot [shape=circle,width=0.2,height=0.2,fixedsize=true,style=filled,fillcolor="#333333",label=""];
+      n_Loading [shape=box,style="rounded,filled",fillcolor="#F0F0FF",color="#6C6C8A",penwidth=1.2,label="Loading"];
+      n_NewGame [shape=box,style="rounded,filled",fillcolor="#F0F0FF",color="#6C6C8A",penwidth=1.2,label="NewGame"];
+    subgraph cluster_solving {
+      label="Solving — gated solve loop (per level; Execute = the only RHAE cost)"; labeljust=l; fontsize=11; style="rounded,filled"; color="#2F8FA8"; fillcolor="#E8F4F7"; penwidth=1.4;
+        n_s_init [shape=circle,width=0.2,height=0.2,fixedsize=true,style=filled,fillcolor="#333333",label=""];
+        n_Explore [shape=box,style="rounded,filled",fillcolor="#E8F4F7",color="#6C6C8A",penwidth=1.2,label="Explore"];
+      subgraph cluster_consider {
+        label="Consider — build the Conception (multi-solution)"; labeljust=l; fontsize=11; style="rounded,filled"; color="#9673A6"; fillcolor="#EDE7F6"; penwidth=1.4;
+          n_c_init [shape=circle,width=0.2,height=0.2,fixedsize=true,style=filled,fillcolor="#333333",label=""];
+          n_ModelWorld [shape=box,style="rounded,filled",fillcolor="#EDE7F6",color="#6C6C8A",penwidth=1.2,label="ModelWorld"];
+          n_ModelGoal [shape=box,style="rounded,filled",fillcolor="#EDE7F6",color="#6C6C8A",penwidth=1.2,label="ModelGoal"];
+        subgraph cluster_plan {
+          label="Plan — look-ahead on in-house sim (RHAE-free)"; labeljust=l; fontsize=11; style="rounded,filled"; color="#D79B00"; fillcolor="#FFF0DD"; penwidth=1.4;
+          n_p_init [shape=circle,width=0.2,height=0.2,fixedsize=true,style=filled,fillcolor="#333333",label=""];
+          n_Simulate [shape=box,style="rounded,filled",fillcolor="#FFF0DD",color="#6C6C8A",penwidth=1.2,label="Simulate"];
+          n_Evaluate [shape=box,style="rounded,filled",fillcolor="#FFF0DD",color="#6C6C8A",penwidth=1.2,label="Evaluate"];
+        }
+      }
+        n_Execute [shape=box,style="rounded,filled",fillcolor="#E8F4F7",color="#6C6C8A",penwidth=1.2,label="Execute"];
+        n_Diagnose [shape=box,style="rounded,filled",fillcolor="#E8F4F7",color="#6C6C8A",penwidth=1.2,label="Diagnose"];
+    }
+      n_LevelCleared [shape=box,style="rounded,filled",fillcolor="#F0F0FF",color="#6C6C8A",penwidth=1.2,label="LevelCleared"];
+      n_GameOver [shape=box,style="rounded,filled",fillcolor="#F0F0FF",color="#6C6C8A",penwidth=1.2,label="GameOver"];
+      n_Done [shape=box,style="rounded,filled",fillcolor="#F0F0FF",color="#6C6C8A",penwidth=1.2,label="Done"];
+      n_end [shape=doublecircle,width=0.22,height=0.22,fixedsize=true,style=filled,fillcolor="#333333",label=""];
+  n_boot -> n_Loading [];
+  n_Loading -> n_NewGame [label="loaded"];
+  n_NewGame -> n_s_init [label="first frame",lhead=cluster_solving];
+  n_s_init -> n_Explore [];
+  n_Explore -> n_c_init [label="enough signal",lhead=cluster_consider];
+  n_c_init -> n_ModelWorld [];
+  n_ModelWorld -> n_ModelGoal [];
+  n_ModelGoal -> n_p_init [label="goal set",lhead=cluster_plan];
+  n_p_init -> n_Simulate [];
+  n_Simulate -> n_Evaluate [label="predict"];
+  n_Evaluate -> n_Simulate [];
+  n_Evaluate -> n_Execute [label="plan found",ltail=cluster_plan];
+  n_Execute -> n_Diagnose [label="observe"];
+  n_Diagnose -> n_c_init [label="re-model / re-plan",lhead=cluster_consider];
+  n_Diagnose -> n_LevelCleared [label="win",ltail=cluster_solving];
+  n_Diagnose -> n_GameOver [label="over",ltail=cluster_solving];
+  n_LevelCleared -> n_s_init [label="next level (carry WM)",lhead=cluster_solving];
+  n_LevelCleared -> n_Done [label="all cleared"];
+  n_GameOver -> n_Done [label="no lives"];
+  n_Done -> n_end [];
+}

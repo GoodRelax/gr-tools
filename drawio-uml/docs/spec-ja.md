@@ -4,7 +4,7 @@
 | --- | --- |
 | 文書種別 | ANMS v0.33 準拠 単一仕様書 |
 | 対象 | `drawio-uml` ツールスイート(`draw` / `table`) |
-| 版 | 0.5.0 |
+| 版 | 0.6.0 |
 | 最終更新 | 2026-06-14 |
 | 配置 | `gr-tools/drawio-uml/docs/spec-ja.md`(SSOT) |
 
@@ -51,7 +51,7 @@ AI(LLM)は構造図(クラス図・コンポーネント図・状態機械図等
 **In-scope:**
 
 - `draw`:`dot` がレイアウト可能なノード=リンク図の生成 — クラス / オブジェクト / コンポーネント / パッケージ / 配置 / 状態機械 / アクティビティ / ユースケース / ER。
-- `draw`:**階層(入れ子)クラスタ**、凡例、`layout` ツリー(行/列)による配置、箱回避ルーティング、関心事**ビュー**(`--view`)。
+- `draw`:**階層(入れ子)クラスタ**、凡例、`layout` ツリー(`TB`/`LR`)による配置、箱回避ルーティング、関心事**ビュー**(`--view`)、**レイアウトエンジン選択**(`options.engine`:`cluster-dot`=構造図 / `dot`=フロー図)。
 - `table`:モデルからの node 表・edge 表(Markdown)生成、クラスタ部分木の抽出(`--cluster`)、関心事ビュー(`--view`)。
 
 **Out-of-scope:**
@@ -65,7 +65,7 @@ AI(LLM)は構造図(クラス図・コンポーネント図・状態機械図等
 | --- | --- |
 | CN-1 | オフラインで動作する SHALL。外部ネットワークサービスに依存しない。 |
 | CN-2 | `draw` および `table` は Python 標準ライブラリのみで動作する SHALL(`json` / `re` / `subprocess` / `sys` / `xml`)。 |
-| CN-3 | Graphviz `dot` を必須とする SHALL。clustered path の箱回避ルーティングは `neato`/`fdp` の**存在**に依存する(環境次第=MAY);存在する場合は当該エンジンでルーティングする(FR-D-07, SHALL)。いずれも無い場合の挙動は FR-D-07a に定義する。 |
+| CN-3 | Graphviz `dot` を必須とする SHALL。`cluster-dot`/flat の箱回避ルーティングは `neato`/`fdp` の**存在**に依存する(環境次第=MAY);存在する場合は当該エンジンでルーティングする(FR-D-07, SHALL)。いずれも無い場合の挙動は FR-D-07a に定義する。`dot` エンジンは `dot -Tjson` のみで配線し neato/fdp を要しない(pinned routing は flat/`cluster-dot` 専用)。 |
 | CN-4 | `.svg` / `.png` 化には draw.io CLI を用いる(図そのものの生成には不要)。 |
 | CN-5 | SSOT は `gr-tools/drawio-uml` とする。配布先(グローバルスキル等)はコピーであり編集しない(ADR-007)。 |
 
@@ -74,10 +74,12 @@ AI(LLM)は構造図(クラス図・コンポーネント図・状態機械図等
 | ID | 制限 | 妥協の理由 |
 | --- | --- | --- |
 | LM-1 | `draw` の入れ子クラスタは可読性のため **labelled で ≤3 段**を推奨し、4 段超で警告する(深い入れ子は箱の余白が嵩み読みにくい)。 | 入れ子描画は 0.3.0 で実装(ADR-009)。深さは可読性が律速のためソフト上限とする。 |
-| LM-2 | 自己参照(`source == target`)は経路描画されない(FR-D-15)。属性・ラベルで表現する。 | `splines=ortho` が自己ループを扱えない Graphviz の制約。 |
+| LM-2 | 自己参照(`source == target`)は `cluster-dot`/flat では経路描画されない(FR-D-15;属性・ラベルで表現)。**`dot` エンジンは self-loop を描く**(FR-D-19)。 | `splines=ortho` が自己ループを扱えない Graphviz の制約。`dot` は `splines=true` で arc 可。 |
 | LM-3 | シーケンス/タイミング図は生成できない。 | グラフレイアウト問題でないため(Out-of-scope)。 |
-| LM-4 | `neato`/`fdp` がいずれも無い環境では box-avoiding を保証しない(FR-D-07a の degrade)。 | dot 単独では全エッジの事後箱回避ができないため。 |
+| LM-4 | `cluster-dot`/flat path で `neato`/`fdp` がいずれも無い環境では box-avoiding を保証しない(FR-D-07a の degrade)。 | dot 単独では全エッジの事後箱回避ができないため。 |
 | LM-5 | クラスタ端点エッジは `name` かつ `label` を持つ(箱が描かれる)クラスタに限る。一方の箱が他方を包含する端点対(node↔祖先クラスタ、cluster↔自身/祖先/子孫)は経路描画しない。曖昧名/未知名/無名・無 label 端点は fail-fast(すべて FR-D-17)。 | アンカー箱 mxCell が要る・包含は self-loop と同根。 |
+| LM-6 | `dot` エンジンは per-cluster `direction` を持てない(dot に per-subgraph rankdir 無し)。`options.direction`(outermost)のみ有効、宣言された per-cluster `direction` は無視+警告(ADR-016)。 | 単一 dot run で兄弟順序を `rank=same` 強制すると ADR-009 の segfault に逆戻りするため、順序は dot のランカに委ねる。 |
+| LM-7 | `dot` エンジンは GL-1(全 box 非貫通)を保証せず目視で確認する。`splines=true` は各エッジ経路上の箱は避けるが curved・非 ortho・pinned 無しのため、非端点 box への接触を厳密には排除しない。 | フロー図は dot のランカ+spline で十分読みやすく、pinned の二重レイアウトは spline と不整合。GL-1 の厳密保証は `cluster-dot`/flat の役割。 |
 
 ### 1.8 Glossary(用語集)
 
@@ -88,7 +90,9 @@ AI(LLM)は構造図(クラス図・コンポーネント図・状態機械図等
 | node | 図の箱(クラス・状態・コンポーネント等)を表すモデル要素。`nodes`(トップ)で**定義**し、`layout` の葉や `views` では**名前で参照**する。 |
 | edge | 関係(継承・関連・依存等)を表すモデル要素。端点(`source`/`target`)は node 名、または **labelled+named cluster 名**(クラスタ端点エッジ)。 |
 | cluster | `layout` ツリーの要素。`direction` で子の並べ方を決め、`label` があれば破線箱を描く。子クラスタ(`clusters`)かメンバ node 名(`nodes`)のどちらか一方を持つ。node の所属はツリーの葉が定める(0.2.x の `/` 区切りパス文字列・`node.cluster` は廃止;ADR-009)。 |
-| direction | cluster の子/メンバの並べ方。`row`=左→右、`column`=上→下。解決順 = cluster → `options.direction` → `column`。葉では dot の rankdir(column=TB / row=LR)を兼ねる。 |
+| direction | レイアウトの向き。`TB`=上→下(縦)/ `LR`=左→右(横)。値は `TB`/`LR` のみ(それ以外は fail-fast)。解決順 = cluster → `options.direction` → `TB`。`cluster-dot`/flat では dot の `rankdir` を兼ねる。`dot` エンジンでは outermost(`options.direction`)のみ有効で per-cluster は無視+警告(FR-D-20)。 |
+| engine | `options.engine`。`cluster-dot`(既定)=現行 A2 合成(構造図向け)。`dot`=全体を1回の dot run でレイアウトするフロー図向けエンジン(状態機械/アクティビティ)。**両エンジンとも labelled cluster の箱を描く。**(FR-D-18) |
+| dot path / dot engine | `engine:"dot"` の描画経路。全モデルを1 digraph(labelled cluster→native `subgraph cluster_*`、遷移→edge、クラスタ端点→`lhead`/`ltail`+`compound=true`)にして `dot -Tjson` を1回実行し、node `pos`・cluster `bb`・edge spline を draw.io px に変換して native 図形・破線箱・waypoint を emit する。箱回避は dot 自身の spline ルーティングで達成(pinned 不要)。self-loop を描く(FR-D-19)。 |
 | layout | モデルのルート cluster(再帰ツリー)。配置・箱・所属を一元化する。省略時は flat path。 |
 | view | `views` 配下の名前付き node 部分集合(`nodes` ∪ `clusters` 配下)。`--view` で誘導部分グラフ(両端が集合内の edge のみ)を描く。master の `layout` を剪定して再合成する。 |
 | cascade(継承) | cluster の `color`→子孫 node の `stroke`、`fill`→子孫 node の `fill` を**最近接祖先**から継承させる規則。node 側の `fill`/`stroke` が優先。 |
@@ -97,9 +101,9 @@ AI(LLM)は構造図(クラス図・コンポーネント図・状態機械図等
 | italic | node の真偽値。`true` で見出し名を斜体にする(`stereotype` の `interface`/`abstract` による斜体化とは独立の明示指定。ただし shape=`object` の下線が優先する)。 |
 | compartment | クラス/エンティティ/オブジェクトを名前・属性・操作の3区画で描く箱(swimlane)。 |
 | box-avoiding | どのエッジも自身の端点でないノードのボックス内部を通らない状態。GL-1 の検証基準。 |
-| flat path | `layout` を持たないモデルの描画経路。dot が全 node を配置(flow 方向 = `options.direction`、既定 column=TB)。最小コーナを原点 (40,40) に置く。 |
-| clustered path | `layout` を持つモデルの描画経路。各葉クラスタを独立 dot run で組み、Python が `direction` 順に再帰合成。最小コーナを原点 (70,70)=`MARGIN` に置く。 |
-| banded layout | 帯状配置(上段に複数クラスタ・下段に全幅)は `layout` ツリーの特例(`direction:column` の中に `direction:row` の帯)。0.2.x の `options.layout.rows` は廃止(ADR-009)。 |
+| flat path | `layout` を持たないモデルの描画経路(`cluster-dot`)。dot が全 node を配置(flow 方向 = `options.direction`、既定 `TB`)。最小コーナを原点 (40,40) に置く。 |
+| clustered path | `layout` を持つモデルの描画経路(`cluster-dot`)。各葉クラスタを独立 dot run で組み、Python が `direction` 順に再帰合成。最小コーナを原点 (70,70)=`MARGIN` に置く。 |
+| banded layout | 帯状配置(上段に複数クラスタ・下段に全幅)は `layout` ツリーの特例(`direction:TB` の中に `direction:LR` の帯)。0.2.x の `options.layout.rows` は廃止(ADR-009)。 |
 | pinned routing | 全ノード位置を固定し `neato -n2`(失敗時 `fdp -n2` → `neato -n`)で全エッジを箱回避ルーティングする最終パス。 |
 | cluster-endpoint edge(クラスタ端点エッジ) | `source`/`target` がクラスタ名(labelled+named)を指すエッジ。当該クラスタの箱(`cid(name)` の mxCell)に接続し、箱回避ルーティングの対象とする(FR-D-07/17)。 |
 | suite(スイート) | `drawio-uml` 全体。生成器 `draw` と `table` を含む。 |
@@ -123,18 +127,18 @@ RFC 2119 / 8174 に準拠する。**SHALL/MUST**=必須、**SHOULD**=推奨、**
 
 #### 2.1.1 描画部 `draw`
 
-ディスパッチは `layout` の有無で決まる:`layout` を持たないモデルは flat path、持つモデルは clustered path(階層クラスタ箱・箱回避ルーティング)。
+ディスパッチは **`options.engine`**(既定 `cluster-dot`)と `layout` の有無で決まる:`engine:"dot"` は dot path(dot エンジン)、`cluster-dot` は `layout` を持たないモデルが flat path、持つモデルが clustered path(階層クラスタ箱・箱回避ルーティング)。両エンジンとも labelled cluster の箱を描く(FR-D-18/19)。
 
 - **FR-D-01**(Ubiquitous): `draw` は、モデル(JSON)を入力として `.drawio`(draw.io ネイティブ図形)を出力する SHALL。
-- **FR-D-02**(Event): When モデルが `layout` を持たない、`draw` は flat path で描画する SHALL。出力は決定的であり、同一版での再生成と**バイト一致**する(NFR-01)。flow 方向は `options.direction`(既定 `column`=TB)。
-- **FR-D-03**(Event): When モデルが `layout`(ルート cluster ツリー)を持つ、`draw` は clustered path で描画する SHALL。各**葉クラスタ**を独立 dot run でレイアウトし、Python が各 cluster の `direction`(`row`=左→右 / `column`=上→下)に従って子を**再帰合成**する。`label` を持つ cluster には破線箱を描く(z 順:外側の箱ほど背面)。
+- **FR-D-02**(Event): When モデルが `layout` を持たない、`draw` は flat path で描画する SHALL。出力は決定的であり、同一版での再生成と**バイト一致**する(NFR-01)。flow 方向は `options.direction`(既定 `TB`)。
+- **FR-D-03**(Event): When モデルが `layout`(ルート cluster ツリー)を持つ、`draw` は clustered path で描画する SHALL。各**葉クラスタ**を独立 dot run でレイアウトし、Python が各 cluster の `direction`(`LR`=左→右 / `TB`=上→下)に従って子を**再帰合成**する。`label` を持つ cluster には破線箱を描く(z 順:外側の箱ほど背面)。
 - **FR-D-03a**(Constraint): `layout` がある時、全 node は**ちょうど1回**いずれかの葉 `nodes` に出現する SHALL。未配置・重複は `draw` が報告して非ゼロ終了する(fail-fast)。
 - **FR-D-03b**(Ubiquitous): `draw` は Graphviz の `-Tplain` 出力を解析する際、**行分割(splitlines)より前に**生文字列上で継続(行末 `\` + 改行、CRLF を含む)を結合する SHALL。これにより長い node 名・長いラベル(= 長い dot id)で `-Tplain` が物理行を折り返しても解析が破綻しない。さらに Graphviz は長い id/ラベルを二重引用符で囲むため、解析時に id トークンの両端引用符を除去してから `nid`/`cid` と照合する。`_parse_plain`・`_parse_plain_raw`・flat path の解析(pinned routing を含む)すべてに適用する。
-- **FR-D-04**(Event): When 葉クラスタのメンバ間に内部エッジが無い、`draw` は当該メンバを `direction` 方向に陰線(`style=invis`)で整列する SHALL(列挙順=並び順;葉の `direction` は cluster→`options.direction`→`column` で解決)。内部エッジがある葉は dot の rank 配置が支配し、列挙順はヒントに留まる(LM-1 と同根の Graphviz 制約)。
+- **FR-D-04**(Event): When 葉クラスタのメンバ間に内部エッジが無い、`cluster-dot` の `draw` は当該メンバを `direction` 方向に陰線(`style=invis`)で整列する SHALL(列挙順=並び順;葉の `direction` は cluster→`options.direction`→`TB` で解決)。内部エッジがある葉は dot の rank 配置が支配し、列挙順はヒントに留まる(LM-1 と同根の Graphviz 制約)。`dot` エンジンは全 node を1 run に投入するため本 FR の陰線整列は行わない(順序は dot のランカが決定)。
 - **FR-D-05**(Ubiquitous): `draw` は次の形状をサポートする SHALL — class / entity / object / component / package / box / usecase / actor / state / action / decision / initial / final / note。未知の `shape` は `box` として描画する。`class` / `entity` / `object` は compartment(名前・属性・操作の3区画 swimlane)で描き、形状プリセットは適用しない。
 - **FR-D-06**(Ubiquitous): `draw` は次のエッジ種別をサポートする SHALL — generalization / realization / composition / aggregation / directed_association / dependency / transition / association。未知・未指定の `arrow` は `association` として描画する。`generalization` / `realization` は親を上位ランクに置くため `dot` へ反転投入し、描画される矢印は子→親を向く。
 - **FR-D-07**(State): While `neato` または `fdp` が PATH に存在する、clustered path において `draw` は全エッジ(葉内部・クラスタをまたぐ node 間・**クラスタ端点エッジ(FR-D-17)**を問わず)を box-avoiding な経路で描く SHALL(エンジン連鎖は用語集「pinned routing」参照)。クラスタ端点エッジについては、当該クラスタの**合成済み箱の位置・寸法**を持つ固定サイズ・ピン留めノード(id=`cid(name)`)を pinned routing に与えて配線する(堅牢版;ADR-012)。経路端点はクラスタ箱の境界で**クリップ**し、端点クラスタの箱内部に入る waypoint は破棄する(描画は箱 mxCell へ接続するため draw.io も境界で再クリップする)。クラスタ箱は子 node を内包するため、病的な重なりで ortho 配線が成立しない場合は FR-D-07a の degrade に従う(GL-1 は通常配置で満たす)。
-- **FR-D-07a**(Unwanted): If `neato` と `fdp` がいずれも PATH に無い、then `draw` は draw.io 自動ルーティングに degrade する SHALL。この場合 box-avoiding(GL-1)を保証しない(LM-4)。degrade の判別のため `draw` は stderr に警告を出す SHOULD(本版は未実装;実装フェーズで対応)。
+- **FR-D-07a**(Unwanted): If `neato` と `fdp` がいずれも PATH に無い、then `cluster-dot`/flat の `draw` は draw.io 自動ルーティングに degrade する SHALL。この場合 box-avoiding(GL-1)を保証しない(LM-4)。degrade の判別のため `draw` は stderr に警告を出す SHOULD(本版は未実装;実装フェーズで対応)。**`dot` エンジンは neato/fdp を用いないため本 degrade の対象外**(箱回避は FR-D-19/LM-7)。
 - **FR-D-08**(State): While `description` / `remark`(node / edge / **cluster**)/ top-level `title` がモデルに存在する、`draw` はそれらを無視し図を不変に保つ SHALL(SSOT 共有のため;`title` は table のみが消費)。
 - **FR-D-09**(Unwanted): If 生成 XML が整形式(well-formed)でない、then `draw` は `minidom.parseString` が送出する例外を握り潰さず、書き出し前に非ゼロ終了する SHALL(fail fast)。
 - **FR-D-10**(Optional): Where `node.style` が指定される、`draw` は形状プリセットおよび compartment 区画化(class/entity/object)を抑止し、当該 raw スタイルのみで描く SHALL。
@@ -142,13 +146,24 @@ RFC 2119 / 8174 に準拠する。**SHALL/MUST**=必須、**SHOULD**=推奨、**
 - **FR-D-12**(Event): When `layout` に labelled cluster が存在する、`draw` は凡例(クラスタ swatch + エッジ種別グリフ)を図の下に描く SHALL。swatch は **outermost labelled cluster**(`label` を持ち、`label` を持つ祖先がいない cluster)を対象とし、`color` で重複排除する(`color` 無しは `#888888`)。エッジ種別グリフは composition / aggregation / association / dependency の4種を固定で描く。labelled cluster が無い場合は凡例を描かない。
 - **FR-D-13**(State): While node が `fill`/`stroke` を持たない、`draw` は**最近接**の祖先 cluster の `fill`/`color` を継承する SHALL(cascade)。`fill` と `color`(→ node の `stroke`)は独立に最近接で解決し、node 側の指定が優先する。labelled cluster が `color` を持たない場合の箱枠線・凡例 swatch は `#888888` とする。
 - **FR-D-14**(Constraint): `draw` は `cluster.name` の一意性を検証する SHALL(重複は fail-fast)。`name` は `/` を含まない SHALL(含む場合 fail-fast)。root→葉の経路で **labelled 段数が 4 を超える**場合、`draw` は stderr に警告を出す SHOULD(可読性のソフト上限;無名の器は数えない。LM-1)。
-- **FR-D-15**(Unwanted): If edge の `source == target`(自己参照)、then `draw` は当該エッジを経路描画から除外する SHALL(代替:自己参照は node 属性で表現する;LM-2)。
+- **FR-D-15**(Unwanted): If edge の `source == target`(自己参照)、then `cluster-dot`/flat の `draw` は当該エッジを経路描画から除外する SHALL(代替:自己参照は node 属性で表現する;LM-2)。**ただし `dot` エンジンは self-loop を描画する**(dot が arc を生成;FR-D-19)。
 - **FR-D-16**(Event): When `--view KEY` が与えられ KEY が `views` に存在する、`draw` は当該ビューの**誘導部分グラフ**(node = `view.nodes` ∪ `view.clusters` 配下;edge = 両端が集合内)のみを描く SHALL。`layout` を選択 node に**剪定**して再合成し、空の箱・帯は除外、一部生存の箱は survivors に縮小する。凡例の outermost 判定は**剪定後ツリー**で再計算する。クラスタ端点エッジ(FR-D-17)は、両端のクラスタが剪定後も生存(配下に生存 node あり)し、かつ剪定後ツリーで縮退(FR-D-17)に当たらない場合のみ残す(誘導は node メンバ集合の一致ではなく**端点クラスタの生存**で判定する)。`--view` 無指定時は全体を描く。
 - **FR-D-16a**(Unwanted): If `--view KEY` の KEY が `views` に無い、または `view` が存在しない node/cluster 名を参照する、then `draw` はエラーを報告して非ゼロ終了する SHALL(fail-fast)。
 - **FR-D-17**(Optional): Where edge の `source`/`target` がクラスタ名を指す(クラスタ端点エッジ)、`draw` は当該エッジを node ではなく**クラスタの箱 mxCell**(`cid(name)`)に接続する SHALL。
     - **端点解決**:全エッジ端点を **node 名 → cluster 名** の順で1回だけ解決する単一検証パスとする(既存の node 名のみの事前チェックはこれに**置換**される;§3.5 draw フロー手順1)。次は報告して非ゼロ終了する(fail-fast):(a) node にも cluster にも一致する曖昧名、(b) どちらにも一致しない未知名、(c) `name` なし or `label` なし(箱が描かれない)クラスタを端点とする場合。
     - **縮退の除外**:いずれか一方の箱が他方を**幾何的に包含**する端点対(node がその祖先クラスタ配下にある=どちら向きでも;cluster が自身/祖先/子孫=どちら向きでも)は経路描画から除外する(FR-D-15 と同根。包含判定は配下 node 集合で行う)。`name` 文字列一致の自己ループ除外(FR-D-15)に加えて適用する。
     - **配線**:クラスタ端点エッジは per-leaf(`_leaf_layout`)/ flat(`dot_layout`)の dot run には**投入しない**(pinned routing でのみ扱う)。pinned ノード id・経路表キー・mxCell の `source`/`target` 参照は、node 端点の `nid` に対応して**いずれも `cid(name)`** とする。箱回避は FR-D-07 に従う。
+
+#### 2.1.1.1 レイアウトエンジン(0.6.0)
+
+- **FR-D-18**(Optional): Where `options.engine` が与えられる、`draw` はレイアウトエンジンを選択する SHALL — `cluster-dot`(既定;省略時)= clustered/flat の現行 dispatch(FR-D-02/03)、`dot` = dot エンジン(FR-D-19)。`cluster-dot`/`dot` 以外の値は報告して非ゼロ終了する(fail-fast)。**両エンジンとも labelled cluster の破線箱を描く**(「`dot`=箱無し」ではない)。
+- **FR-D-19**(Event): When `options.engine` が `dot`、`draw` は全モデルを **1回の `dot` run** でレイアウトする SHALL(状態機械・アクティビティ等のフロー図向け)。`rankdir` は `options.direction`(既定・省略時 `TB`)。**既定は `TB`(縦)だが、線形(パイプライン状)の状態機械は `options.direction:"LR"` の方が読みやすい**(PoC 実証)。
+    - **DOT 生成**:1 digraph(`compound=true`・`rankdir=<options.direction>`・`splines=true`)。labelled cluster → native `subgraph cluster_*`(箱は描かず dot に `bb` を出させる;subgraph 名は named=`cid(name)` / 無名=全 `cid(name)` と照合して**未使用の** `cluster_anon_<k>`(`cid` は `cluster_`+英数字下線に全射のため単純連番では衝突しうる→未使用 k を採る)。`bb` 取得後は cluster の pre-order 位置で `box_cell` に対応付ける(描画 cell id は `anonbox_%d`=`cid` と非衝突))、無 label cluster は arrangement のみで subgraph 化せず順序を dot のランカに委ねる。node は **flat path と同じく `node_size(node,opt)/72` を `width`/`height`/`fixedsize=true` で投入**し、dot の確保箱と後描画の `_node_cells` 箱を一致させる(形状自体は `_node_cells` が描く)。遷移 → edge。`generalization`/`realization` は親を上位ランクへ置くため `dot` に反転投入する(FR-D-06 と同様;取り込み時に spline を source→target へ反転して戻す)。
+    - **クラスタ端点遷移**:端点が labelled+named cluster の場合、dot レイアウト上は当該クラスタの内部 anchor node(entry/exit)へ向け `lhead`/`ltail`+`compound=true` で境界クリップする。描画 mxCell の `source`/`target` は当該クラスタの**箱**(`cid(name)`)に接続する(端点解決・包含縮退除外は FR-D-17 を踏襲)。`-Tjson` の edge は **モデルの edge 入力順**で対応付ける(同一 anchor 対を共有する多重辺の曖昧を順序で排除)。
+    - **幾何取り込み**:`dot -Tjson` を1回実行し、node `pos`・`width`/`height`、cluster `bb`、edge `_draw_` の bezier spline を取得する。**単位は `-Tplain` と異なる**:`pos`・`bb`・spline 点は **points(×1 で px)**、`width`/`height` のみ **inch(×72 で px)**。y 反転 `y_px = bb_height − y_pt` は **`pos`・`bb` 各隅・spline 各点に適用し、`width`/`height` には適用しない**(`bb_height` = graph 全体 `bb` の第4要素)。`pos` は**中心**なので px 化後に幅/高の半分を引いて top-left 化してから `_node_cells` へ渡す(`_node_cells` は top-left 期待;既存 `-Tplain` の ×72 座標スケールは流用しない)。`-Tjson` は `json.load` が引用符/エスケープを処理するため `-Tplain` の `_unwrap`/`_unq` は不要(id は dot id とそのまま照合)。cluster → `box_cell`(`layout` ツリーの pre-order=外側ほど背面の z 順)、node → `_node_cells`、edge spline → waypoint(**curved・非 ortho**;bezier 制御点をそのまま waypoint 化)を emit する。
+    - **self-loop**:node の自己遷移(`source==target`、真の `nid→nid` 辺として dot に投入)を描画する(FR-D-15 の緩和;dot が loop の `_draw_` spline を出す。本版で新規=PoC 未実証のため source/test フェーズで確認)。包含縮退(node↔祖先 cluster、cluster の自己/祖先/子孫)は FR-D-17 同様に経路描画から除外する。
+    - **箱回避・共有・決定性**:`dot` の `splines=true` は**各エッジ経路上の**ノード/クラスタは避けるが、`cluster-dot`/flat の `splines=ortho`+pinned のような**全 box 非貫通(GL-1)の保証ではない**。`dot` エンジンの GL-1 は**目視検証**で担保する(LM-7;pinned routing(neato/fdp)は用いない)。color cascade(FR-D-13)・凡例(FR-D-12;位置は dot path 自身の変換済み extent から算出)・`--view` 剪定(FR-D-16)は共有ロジックを再利用する。出力は**同一 Graphviz 版で**決定的(NFR-01)だが、flat の md5 バイト回帰には含めず構造検証+目視で確認する(ADR-003 と整合)。
+- **FR-D-20**(Ubiquitous): `direction` の語彙は全レベル **`TB`**(上→下・縦)| **`LR`**(左→右・横)、既定 **`TB`** とする SHALL。`TB`/`LR` 以外の値は報告して非ゼロ終了する(fail-fast)。`cluster-dot`/flat は per-cluster `direction` を従来どおり honour する。`dot` エンジンは `options.direction`(outermost、省略時 `TB`)のみ honour する。`layout` の**ルートを含む任意の cluster** が `direction` を宣言していれば、それを無視し**実行あたり1回だけ**(複数宣言でも集約して)stderr 警告する(dot に per-subgraph rankdir が無いため。`rank=same` 強制は ADR-009 の segfault に逆戻り;LM-6/ADR-016)。
 
 #### 2.1.2 作表部 `table`
 
@@ -184,7 +199,7 @@ RFC 2119 / 8174 に準拠する。**SHALL/MUST**=必須、**SHOULD**=推奨、**
 
 ### 2.2 Non-Functional Requirements(非機能要求)
 
-- **NFR-01**(再現性): 同一モデル + 同一版の生成器は、バイト一致する成果物を生成する SHALL。これを唯一の再現性基準とし、FR-D-02・Chapter 5 の回帰テストが参照する。
+- **NFR-01**(再現性): 同一モデル + 同一版の生成器は、バイト一致する成果物を生成する SHALL(同一 Graphviz 版を前提)。これを唯一の再現性基準とし、FR-D-02・Chapter 5 の回帰テストが参照する。**`dot` エンジン出力は Graphviz 版に依存するため md5 バイト回帰の対象外とし、構造検証で担保する(FR-D-19)。**
 - **NFR-02**(可搬性): `draw` / `table` は Python 標準ライブラリのみに依存する SHALL(CN-2)。
 - **NFR-03**(オフライン): 生成処理はネットワーク接続なしで完了する SHALL(CN-1)。
 - **NFR-04**(副作用): 生成器は出力ファイル以外を変更しない SHALL(冪等な再実行が可能)。
@@ -212,6 +227,7 @@ RFC 2119 / 8174 に準拠する。**SHALL/MUST**=必須、**SHOULD**=推奨、**
 | draw | Generator | モデル → `.drawio`。`render()` が `layout` の有無で flat/clustered を振り分ける。`--view` 指定時はビューに剪定。 |
 | ├ flat path | Generator | `layout` なし。`dot_layout` + `render_flat`。 |
 | ├ clustered path | Generator | `layout` ツリーを再帰合成(葉=独立 dot run、Python が `direction` 順に配置) + `_route_pinned` + `render_clustered`(入れ子箱)。 |
+| ├ dot path | Generator | `engine:"dot"`。全体を1 dot run(native `subgraph cluster_*` + 遷移 edge + `lhead`/`ltail`)→ `dot -Tjson` の幾何(node `pos`・cluster `bb`・edge spline)を draw.io px に取り込み(`render_dot`)。neato/fdp 不要。 |
 | └ 共有レンダラ | Generator | `_node_cells` / `_edge_cell`(両 path 共通の図形・エッジ生成)。 |
 | table | Generator | モデル → `.md`。node 表・edge 表生成、cluster パス処理、`--cluster` フィルタ。 |
 | Graphviz | External | `dot`(レイアウト+ortho 経路)、`neato`/`fdp`(pinned routing)。 |
@@ -237,7 +253,7 @@ gr-tools/drawio-uml/                 ← SSOT(ここだけ編集する)
 └── SKILL.md
 ```
 
-- **本版(0.5.0)の作業:** 0.4.0 まで実装・テスト緑。0.5.0 はクラスタ端点エッジ + cluster `description`/`remark`(`## Clusters`)+ `-Tplain` 継続行修正の**追加フェーズ**(本仕様が対象)。`schema` / `scripts`(draw/table)/ `tests` 更新済み・全テスト緑。基準 `.md`(samples)は再生成予定。設計 PoC・ブリーフは `poc/cluster-layout/`。
+- **本版(0.6.0)の作業:** 0.5.0 までは実装・全テスト緑(クラスタ端点エッジ・cluster `## Clusters`・`-Tplain` 継続行修正;設計 PoC は `poc/cluster-layout/`)。0.6.0 は **dot ネイティブ・フローエンジン(`options.engine:"dot"`)+ `direction` の `TB`/`LR` 統一**の追加フェーズ(本仕様が対象)。設計 PoC・実証は `poc/state-machine-dot/`(`sm_to_dot.py`・`native*.png`・`FINDINGS.md`)。`schema`/`scripts`(draw)/`tests`/`docs` を 0.6.0 化し、samples/tests の `direction` を `TB`/`LR` へ一括移行、state-machine デモを `engine:dot` で再生成する。
 - 配布コピー(グローバルスキル等)・利用先リポジトリは本ディレクトリからの**コピー**であり、編集しない(ADR-007)。
 
 ### 3.4 Domain Model(ドメインモデル=モデルスキーマ)
@@ -252,11 +268,12 @@ model
 ├── layout : cluster                      ← ルート cluster(再帰ツリー;省略時 flat)
 ├── views  : { <viewKey>: view }          ← 関心事ビュー(オプトイン)
 └── options
-    ├── direction : "row" | "column"      既定 column(flat / cluster の既定方向)
+    ├── engine    : "dot" | "cluster-dot"  既定 cluster-dot(描画エンジン;FR-D-18)
+    ├── direction : "TB" | "LR"            既定 TB(flat / cluster の既定方向。それ以外は fail-fast)
     └── column_width / node_separation / rank_separation   レイアウト寸法
 
 cluster(layout ツリーの要素・再帰)
-├── direction : "row" | "column"          子/メンバの並べ方(既定 options.direction)
+├── direction : "TB" | "LR"               子/メンバの並べ方(既定 options.direction=TB。`dot` エンジンでは無視+警告)
 ├── label                                 あれば破線箱を描く(無ければ透明な配置器)
 ├── name                                  view/--cluster の参照 id(一意・"/" 不可)
 ├── color                                 箱枠線 + 子孫 node の stroke へ cascade
@@ -301,9 +318,10 @@ view
 **draw の処理フロー:**
 
 1. モデル読込(`json.load`, UTF-8;失敗時 FR-C-03)。全エッジ端点を node → cluster の順に解決・検証(FR-D-17;旧 node 限定の事前チェックを置換)。`--view` 指定時はビューに剪定(FR-D-16/16a)。
-2. `layout` の有無を判定。
+2. `options.engine`(既定 `cluster-dot`)を解決(`cluster-dot`/`dot` 以外は fail-fast;FR-D-18)。`engine:"dot"` は手順 **4d**(dot path)へ。`cluster-dot` は `layout` の有無で flat/clustered を判定。
 3. 無 → flat path:`dot_layout`(`dot -Tplain`、flow=`options.direction`)→ 最小コーナを原点 **(40,40)** に平行移動 → `render_flat`。
 4. 有 → clustered path:`layout` ツリーを**再帰合成**(各葉クラスタを独立 dot run → 親の `direction` 順に Python が配置;内部エッジ無しの葉は陰線整列)→ name 一意・全 node 1 回・深さ警告を検証(FR-D-03a/14)→ 最小コーナを原点 **(70,70)=MARGIN** に配置 → `_route_pinned`(全 node を pin)→ `render_clustered`(z 順:**外側の箱 → 内側の箱** → node → edge → 凡例)。node の fill/stroke は祖先 cluster から cascade(FR-D-13)。
+4d. `engine:"dot"`(dot path)→ 全モデルを1 digraph(`compound=true`・`rankdir=options.direction`・`splines=true`;labelled cluster→`subgraph cluster_*`、遷移→edge、クラスタ端点→内部 anchor+`lhead`/`ltail`、`generalization`/`realization` は反転投入、per-cluster `direction` は無視+警告)→ `dot -Tjson` 1回 → node `pos`(中心)・`width`/`height`(inch)・cluster `bb`・edge `_draw_` spline(bezier・points)を取得 → graph `bb` 高で y 反転し draw.io px(1pt=1px、寸法 inch×72)へ変換 → `box_cell`(pre-order=外側背面)・`_node_cells`・waypoint・凡例を emit。self-loop を描画、包含縮退は除外。箱回避は dot の spline で達成(pinned 無し)→ `render_dot`(FR-D-19)。
 5. `_route_pinned` は全 node をピン留めし、**クラスタ端点エッジがある場合は当該クラスタの合成済み箱(位置・寸法)を id=`cid(name)` の固定サイズ・ピン留めノードとして `boxes` の決定的順序で追加**(経路表キーも `cid(name)`)したうえで、`neato -n2` → `fdp -n2` → `neato -n` の順に試行。経路端点はクラスタ箱境界でクリップし箱内部の waypoint は破棄。`-Tplain` は**行分割前に**生文字列で継続(行末 `\`+改行)を結合してから解析する(FR-D-03b)。いずれも不在/失敗なら空の経路表を返し draw.io 自動ルーティングに degrade する(FR-D-07a)。
 6. `minidom.parseString` で整形式検証(FR-D-09)→ ファイル書き出し。
 
@@ -325,6 +343,13 @@ view
 - **pinned 追加**:クラスタ箱は `compose` が返す `boxes`(外側優先・list 順)から決定的に追加し、`size`/`pos` 辞書にも登録して affine 変換に参加させる。経路端点は箱境界でクリップ。
 - **id 予約**:無名箱 id `cluster_box_%d` は `cid(name)`(接頭 `cluster_`)と衝突しうる(例:`box_0` という名の cluster → `cluster_box_0`)。無名箱 id は `cid` が生成し得ない予約接頭にする。
 - **table 側**:`## Clusters` 用に cluster 列挙の木走査を新設(`node_paths` は leaf node のみ)。`--view` スコープは「配下に選択 node を持つ cluster」で判定(table に箱剪定は無い)。
+
+**実装メモ(0.6.0;ソースフェーズ向け):**
+
+- **dispatch**:`render_model` に `engine` 解決を追加(不正値 fail-fast;FR-D-18)。`engine=="dot"` → `render_dot`、それ以外は従来(`layout` 有 `render_clustered` / 無 `render_flat`)。`apply_view` 剪定は engine 共通。
+- **direction**:`direction_to_rankdir` を「`TB`/`LR` を素通し、それ以外 fail-fast」の検証器へ置換(旧2値分岐を撤去)。`resolve_direction` の既定を `TB` に。`compose` の方向比較を `LR`/`TB` へ。旧既定・移行後の値はいずれも同一 `rankdir` に写るため flat/cluster 出力はバイト不変(NFR-01 回帰維持)。
+- **render_dot(新規)**:PoC `poc/state-machine-dot/sm_to_dot.py` を本実装化(FR-D-19)。`nid`=`make_nid`(PoC の `nid()` と同一サニタイズ)・`eff`=`resolve_styles(nodes,layout)` を先に作り、node は `node_size/72` を `fixedsize` で投入。DOT 生成(`emit`/`anchor` 相当)+ `dot -Tjson` パース + 座標変換(`pos`/`bb`/spline=points×1・`width`/`height`=inch×72、graph `bb` 第4要素で y 反転、`pos` 中心→top-left 化)+ bezier→waypoint。レンダラ部品(`_node_cells`/`box_cell`/`legend_cell`/`outermost_labelled`/`resolve_styles`/`node_size`)を再利用(`_node_cells`/`box_cell` は per-node ではなく `pos`/`nid` マップ全体を引く点に注意)。cluster 端点 anchor(entry/exit)選定は「initial 優先→state→任意」(PoC 準拠);entry/exit は **named+labelled cluster のみ**算出。`-Tjson` の edge は入力順で model edge に対応付け、`generalization`/`realization` は反転投入した spline を取り込み時に逆転して戻す。self-loop は真の `nid→nid` 辺(PoC の `minlen=2` ではなく実辺)。無名 labelled cluster の dot subgraph 名は全 `cid(name)` と照合して未使用の `cluster_anon_<k>` を採る(衝突回避;0.5.0 の id 予約と同趣旨)。描画 box cell id は `anonbox_%d`(接頭が `cluster_` でないため `cid` と非衝突)。FR-D-17 の包含縮退集合は `_endpoint_membership`/`node_names_under` を再利用。描画 mxCell の `source`/`target` は cluster 端点で `cid(name)`、box は `layout` pre-order で外側背面。
+- **警告**:`engine=="dot"` で `layout` 中に `direction` 宣言があれば 1 回だけ stderr 警告して無視(FR-D-20/LM-6)。
 
 ### 3.6 Decisions(設計判断 / ADR)
 
@@ -355,7 +380,7 @@ view
 *Status:* Accepted / *Context:* clustered path の box-avoiding は `neato`/`fdp` に依存するが、これらが無い環境がありうる(CN-3)。/ *Decision:* `neato`/`fdp` がいずれも使えない場合、異常終了せず draw.io 自動ルーティングに degrade する(box-avoiding は保証しない)。/ *Alternatives:* 異常終了する案 → 図自体は生成可能なのにツールが止まり可用性を損なうため却下。/ *Consequences:* 可用性を優先(FR-D-07a)。degrade 時は GL-1 を満たさない(LM-4)。degrade 判別用の stderr 警告は SHOULD だが本版未実装(FR-D-07a)。
 
 **ADR-009 — `layout` を再帰 cluster ツリーとし、`draw` が入れ子クラスタを描く(ADR-005 を撤回)**
-*Status:* Accepted(0.3.0) / *Context:* 大規模モデルの単一図は判読困難。0.2.x は配置を `options.layout.rows`(Python grid 合成)で帯のみ対応し、`draw` の階層は YAGNI 却下していた(ADR-005)。/ *Decision:* 配置・箱・所属・スタイルを単一の再帰ツリー `layout` に集約する。各 cluster は `direction`(row/column)で子を並べ、`label` があれば箱を描き、`clusters`(子)か `nodes`(メンバ名)を持つ。`color`/`fill` は子孫 node へ最近接 cascade。レイアウトは **A2**:各**葉**を独立 dot run で組み(dot の得意分野)、Python が `direction` 順に再帰合成(順序を Python が保証)、最後に pinned neato で全エッジ箱回避。/ *Alternatives:* (a) 単一 dot run + 入れ子 subgraph + `rank=same` で兄弟順序を強制(A1)→ クラスタ所属と衝突し dot が **segfault**、棄却。(b) 0.2.x の `rows` grid を維持 → 階層・順序の明示指定ができず却下。/ *Consequences:* `draw` が階層図示可能(LM-1 を可読性上限に書換)。`node.cluster`・`options.clusters`・`options.layout.rows` は廃止(後方互換は不要=オーナー決定)。`table` のクラスタパスはツリーの名前付き祖先連鎖から導出(FR-T-04)。
+*Status:* Accepted(0.3.0) / *Context:* 大規模モデルの単一図は判読困難。0.2.x は配置を `options.layout.rows`(Python grid 合成)で帯のみ対応し、`draw` の階層は YAGNI 却下していた(ADR-005)。/ *Decision:* 配置・箱・所属・スタイルを単一の再帰ツリー `layout` に集約する。各 cluster は `direction`(`TB`/`LR`)で子を並べ、`label` があれば箱を描き、`clusters`(子)か `nodes`(メンバ名)を持つ。`color`/`fill` は子孫 node へ最近接 cascade。レイアウトは **A2**:各**葉**を独立 dot run で組み(dot の得意分野)、Python が `direction` 順に再帰合成(順序を Python が保証)、最後に pinned neato で全エッジ箱回避。/ *Alternatives:* (a) 単一 dot run + 入れ子 subgraph + `rank=same` で兄弟順序を強制(A1)→ クラスタ所属と衝突し dot が **segfault**、棄却。(b) 0.2.x の `rows` grid を維持 → 階層・順序の明示指定ができず却下。/ *Consequences:* `draw` が階層図示可能(LM-1 を可読性上限に書換)。`node.cluster`・`options.clusters`・`options.layout.rows` は廃止(後方互換は不要=オーナー決定)。`table` のクラスタパスはツリーの名前付き祖先連鎖から導出(FR-T-04)。
 
 **ADR-010 — `views`:SSOT 内の純フィルタ。`draw`/`table` 双方が誘導部分グラフを出力**
 *Status:* Accepted(0.3.0) / *Context:* 1枚に詰めると判読不能(可読限界 ≒ 7–12 箱)。完全さ=モデル / 読みやすさ=複数の小ビュー、の分離が要る。/ *Decision:* `views` に名前付き node 部分集合(`nodes` ∪ `clusters` 配下)を置き、`--view KEY` で `draw`/`table` 双方が誘導部分グラフ(両端が集合内の edge のみ)を出力する。`draw` は master `layout` を選択 node に剪定して再合成する(空箱・空帯は除外、凡例 outermost は剪定後に再計算)。/ *Alternatives:* (a) ビューごとに別モデル → SSOT を失う。(b) node に tag を分散 → 全 node を汚す。(c) `--cluster` 流用のみ → クラスタ内部分集合を表現できない。/ *Consequences:* 単一 SSOT から関心事別の図+表。ビューは構造を改変しない純フィルタ。振る舞いフロー全体像は対象外(誘導は既存構造エッジのみ)。`--view` と `--cluster` は排他(FR-T-10a)。
@@ -368,6 +393,15 @@ view
 
 **ADR-013 — `-Tplain` の継続行を結合してから解析する**
 *Status:* Accepted(0.5.0) / *Context:* `dot`/`neato` の `-Tplain` は長い行を行末 `\` で折り返す。長い node 名(= 長い dot id)やラベルでパーサが破綻していた(欠陥)。/ *Decision:* `-Tplain` を読む全パーサで (1) 継続行を結合し (2) id トークンの両端引用符を除去してから解析する(FR-D-03b)。/ *Alternatives:* node 名長を制限 → 注釈用途等を阻害、却下。/ *Consequences:* 長い名前・ラベルでも安定。出力は不変(NFR-01)。
+
+**ADR-014 — フロー図向けに dot ネイティブ第2エンジン(`dot`)を追加**
+*Status:* Accepted(0.6.0) / *Context:* `cluster-dot`(A2)は宣言 `direction` で子を積み、遷移エッジをレイアウトに使わないため、状態機械・アクティビティが縦長で窮屈になる(同図を Mermaid で描く方が読みやすかった)。PoC(`poc/state-machine-dot/`)で dot ネイティブ(全体1 run・native `subgraph cluster_*`・遷移=edge・端点=`lhead`/`ltail`)が Mermaid 同等以上にクリーンで、`-Tjson` から `bb`/`pos`/spline を抽出して `.drawio` 再構築可能と実証した。/ *Decision:* `options.engine`(`dot`|`cluster-dot`、既定 `cluster-dot`)を追加。`dot` は全体を1 dot run でレイアウトし `-Tjson` 幾何を取り込む(FR-D-18/19)。構造図(class/component/ER)は帯・順序の明示制御が要るため `cluster-dot` のまま。/ *Alternatives:* (a) A1=単一 run + `rank=same` で兄弟順序強制 → dot 13.x が segfault(ADR-009)、却下。(b) 既定を `dot` に切替 → 構造図の順序制御を失い後方互換も壊す、却下。(c) `engine:"auto"` 自動判定 → 0.6.0 は明示 opt-in 優先で将来送り。/ *Consequences:* フロー図がエッジ駆動でクリーンに。**両エンジンとも箱を描く**。dot エンジンは self-loop 描画・neato/fdp 不要。エンジン2系統の保守コストが生じる。
+
+**ADR-015 — `direction` を `TB`/`LR` に統一(語彙の対称化)**
+*Status:* Accepted(0.6.0) / *Context:* 旧語彙は flat/cluster と dot の `rankdir`、per-cluster と outermost で表記が割れていた。「向き」は1概念で対称に表したい。/ *Decision:* 全レベルで `direction:"TB"|"LR"`(既定 `TB`=縦)に統一。`TB`/`LR` 以外は fail-fast(FR-D-20)。まだ単独利用のため旧語彙の別名・移行期間は設けず、リポジトリ内(samples/tests/docs)を一括で新語彙へ移す。/ *Alternatives:* (a) 旧語彙を deprecated 別名として残す → クリーンブレイク可能な今は不要な複雑さ、却下。(b) `direction` とは別に `rankdir` キーを新設 → キーが二重化し対称性を損なう、却下。/ *Consequences:* 値が dot `rankdir` と一致し対称。既定 `TB` はオーナーの縦表示志向(縦スクロール前提)に合致。移行は同一 `rankdir` への写像のため flat/cluster 出力はバイト不変(NFR-01)。
+
+**ADR-016 — `dot` エンジンは dot 自身の spline で箱回避し、outermost `direction` のみ honour する**
+*Status:* Accepted(0.6.0) / *Context:* dot に per-subgraph `rankdir` は無く、兄弟順序を `rank=same` で強制すると ADR-009 の segfault に逆戻りする。一方 dot の layered 配置は spline がノード/クラスタ境界を避ける。/ *Decision:* `dot` エンジンは `options.direction`(outermost)のみを `rankdir` に使い、per-cluster `direction` は無視+1回警告(FR-D-20/LM-6)。box-avoiding は dot の spline ルーティングに委ね(各エッジ経路上の箱を避ける)、pinned routing(neato/fdp)を用いない(端点は `lhead`/`ltail` で境界クリップ)。全 box 非貫通(GL-1)は厳密保証せず目視で担保する(LM-7)。/ *Alternatives:* (a) per-subgraph 順序を強制 → segfault、却下。(b) dot エンジンにも pinned neato を追加 → 二重レイアウトで spline と不整合・不要、却下。/ *Consequences:* dot エンジンは `dot` のみで完結(neato/fdp 不要)。順序制御は dot のランカに委ねる(フロー図では望ましい)。GL-1 は目視検証(box 貫通なし)で担保する。
 
 ---
 
@@ -400,8 +434,8 @@ Feature: draw — モデルから .drawio を生成
     When  draw.py で .drawio を生成する
     Then  図の下に outermost labelled cluster の swatch(色で重複排除)とエッジ種別グリフの凡例が描かれる
 
-  Scenario: SC-005 行/列ツリー配置 (traces: FR-D-03)
-    Given layout = column[ row[a, b], c ](a,b,c は葉クラスタ)
+  Scenario: SC-005 TB/LR ツリー配置 (traces: FR-D-03)
+    Given layout = TB[ LR[a, b], c ](a,b,c は葉クラスタ)
     When  draw.py で .drawio を生成する
     Then  a,b が上段に左→右、c が下段全幅に配置される
 
@@ -467,7 +501,7 @@ Feature: draw — モデルから .drawio を生成
     And   子クラスタは親の direction 順に配置される
 
   Scenario: SC-018 内部エッジ無しの葉は direction 方向に並ぶ (traces: FR-D-04)
-    Given 内部エッジを持たない複数メンバの葉クラスタ(direction=column)
+    Given 内部エッジを持たない複数メンバの葉クラスタ(direction=TB)
     When  draw.py で .drawio を生成する
     Then  メンバは列挙順に縦に並ぶ(陰線整列)
 
@@ -514,6 +548,39 @@ Feature: draw — モデルから .drawio を生成
     Given クラスタ端点エッジを持ち、片方のクラスタが剪定で消えるビュー
     When  draw.py --view で生成する
     Then  当該 edge は両端クラスタが生存する時のみ残る
+
+  Scenario: SC-027 engine 省略は cluster-dot(回帰) (traces: FR-D-18)
+    Given options.engine を持たない layout 付きモデル
+    When  draw.py で .drawio を生成する
+    Then  従来の clustered path(入れ子箱・pinned routing)で描かれる
+
+  Scenario: SC-028 engine:dot は複合状態機械を native cluster で描く (traces: FR-D-18, FR-D-19)
+    Given options.engine="dot" の複合状態機械モデル(labelled cluster + 遷移 + クラスタ端点遷移)
+    When  draw.py で .drawio を生成する
+    Then  複合状態は dot の bb から破線箱、状態は pos、遷移は spline の waypoint で描かれる(両エンジンとも箱を描く)
+    And   目視で非端点ノードのボックス貫通が無い(GL-1 は dot エンジンでは目視確認;LM-7)
+    And   クラスタ端点遷移は当該クラスタの箱 mxCell に接続される
+
+  Scenario: SC-029 不正な engine 値は異常終了 (traces: FR-D-18)
+    Given options.engine がカタログ外の値を持つモデル
+    When  draw.py を実行する
+    Then  エラーを報告して非ゼロ終了する
+
+  Scenario: SC-030 不正な direction 値は異常終了 (traces: FR-D-20)
+    Given direction が TB/LR 以外の値を持つモデル
+    When  draw.py を実行する
+    Then  エラーを報告して非ゼロ終了する
+
+  Scenario: SC-031 engine:dot は per-cluster direction を無視し警告 (traces: FR-D-20)
+    Given options.engine="dot" かつ子クラスタに direction を宣言したモデル
+    When  draw.py で .drawio を生成する
+    Then  当該 direction は無視され flow は options.direction に従う
+    And   per-cluster direction を無視した旨の警告が標準エラーに出る
+
+  Scenario: SC-032 engine:dot は self-loop を描く (traces: FR-D-15, FR-D-19)
+    Given options.engine="dot" かつ source==target の node 自己遷移を持つモデル
+    When  draw.py で .drawio を生成する
+    Then  当該自己遷移が経路(waypoint)付きで描かれる
 ```
 
 ```gherkin
@@ -590,7 +657,7 @@ Feature: table — モデルから .md を生成
     And   flat モデルでは `## Clusters` 節を出力しない
 ```
 
-**Result:** PASS(0.5.0)。`tests/test_draw.py` 30件(SC-001〜026・SC-012 skip・無名箱 id 衝突回帰)/ `tests/test_table.py` 25件(SC-101〜113・layout 整合検証)で検証。spec / source の2フェーズで敵対的レビューを各1巡反映済み。SC-011 は欠番。SC-012(整形式でない XML)は `esc()` により通常到達不能のため skip。`table` の基準 `.md`(`samples/*.model.md`)は `## Clusters` を含む 0.5.0 形式へ再生成予定(NFR-01)。
+**Result(0.6.0 フェーズ):** 0.6.0 は本仕様の追加フェーズ(dot エンジン + `direction` の `TB`/`LR` 化)。SC-027〜032 を追加。source/tests フェーズで samples/tests を `TB`/`LR` へ移行し、state-machine デモを `engine:dot` で再生成のうえ緑化する(テスト実数は緑化時に本欄を更新)。直近の緑(0.5.0): PASS(0.5.0)。`tests/test_draw.py` 30件(SC-001〜026・SC-012 skip・無名箱 id 衝突回帰)/ `tests/test_table.py` 25件(SC-101〜113・layout 整合検証)で検証。spec / source の2フェーズで敵対的レビューを各1巡反映済み。SC-011 は欠番。SC-012(整形式でない XML)は `esc()` により通常到達不能のため skip。`table` の基準 `.md`(`samples/*.model.md`)は `## Clusters` を含む 0.5.0 形式へ再生成予定(NFR-01)。
 
 ### 4.2 CLI Definition(コマンド定義)
 
@@ -639,6 +706,8 @@ Feature: table — モデルから .md を生成
 | FR-D-14 | SC-019 | FR-T-11 / 11a | SC-110 / SC-111 / SC-112 |
 | FR-D-03b | SC-025 | FR-D-17 | SC-021 / 022 / 023 / 024 / 026 |
 | FR-T-12 | SC-113 |  |  |
+| FR-D-18 | SC-027 / SC-028 / SC-029 | FR-D-20 | SC-030 / SC-031 |
+| FR-D-19 | SC-028 / SC-032 |  |  |
 
 個別テストケースの詳細は実装フェーズで AI が生成する。
 
@@ -649,7 +718,7 @@ Feature: table — モデルから .md を生成
 | カテゴリ | 原則 | 確認観点と本スイートでの準拠 |
 | --- | --- | --- |
 | 命名 | Naming | `draw` / `table` は動詞で対称。`description` / `remark` は C4/UML 慣習に沿う(用語集 1.8 と一致)。 |
-| 簡潔性 | KISS | レイアウトは単一の再帰ツリー(`direction` row/column)で表現。順序は Python 合成が保証し、dot には葉1群のみ任せる(A2)。 |
+| 簡潔性 | KISS | レイアウトは単一の再帰ツリー(`direction` `TB`/`LR`)で表現。順序は Python 合成が保証し、dot には葉1群のみ任せる(`cluster-dot`)。`dot` エンジンは全体を1 run に委ねる。 |
 | 簡潔性 | YAGNI | per-cluster の寸法上書き・ビュー単位 layout 上書き等は需要が出るまで作らない(0.3.0 は global の `options` 寸法のみ)。 |
 | 簡潔性 | DRY | 構造・責務を JSON に一元化(IS-4/IS-5 解消)。再現性記述を NFR-01 に一元化。`_node_cells`/`_edge_cell` を両 path で共有。 |
 | 責務分離 | SRP / SoC | `draw`=図、`table`=表で分割。レイアウト(dot)とレンダリング(XML)を分離。 |
@@ -678,6 +747,7 @@ Feature: table — モデルから .md を生成
 | 0.2.0 | 2026-06-13 | 敵対的レビュー(R1–R6)15件を反映。FR-D-07a/12/13/14/15・FR-T-06a 追加、ADR-008 追加、GL/IS の操作的定義化、原点座標・degrade・トレース表を明記、再現性記述を NFR-01 に一元化。 |
 | 0.2.1 | 2026-06-13 | 再レビューの新規 Low 3件を反映。FR-D-07a に degrade 警告 SHOULD(未実装)、FR-D-09 を例外非捕捉の表現に、SC-014(rows 余分キー無視)追加、SC-012 到達性を Remark 明記。 |
 | 0.2.2 | 2026-06-13 | 後方互換エイリアス(classes/kind)を全廃(FR-D-11・SC-011 削除;FR-D-11 は欠番)。命名整理:w/h→width/height・attrs→attributes・col_w/nodesep/ranksep→column_width/node_separation/rank_separation・cluster の color/tint→stroke/fill。arrow を UML 正式名(generalization/realization/composition/aggregation/directed_association/dependency/transition/association;未指定は association)、shape の node→box。description=責務(主)/remark=補足(従)を用語集で明確化。レビュー指摘を反映:配置を `docs/` に修正、FR-D-11 欠番マーカー追記、`italic` を用語集に定義、FR-T-03 に未指定 `arrow` の出力規定、FR-D-13/14 の色×位置の直交を明記、SC-015/016(未知 shape→box・未指定 arrow→association)追加。 |
-| 0.3.0 | 2026-06-13 | **後方互換を破棄**し、モデル形式を全面刷新。`layout` を**再帰 cluster ツリー**(`direction` row/column・`label` で箱・`clusters`⊻`nodes`・`color`/`fill` を子孫へ cascade)に、`views`(関心事フィルタ・誘導部分グラフ)を追加。`node.cluster`・`options.clusters`・`options.layout.rows` を廃止、`options.rankdir`→`options.direction`。`draw` が入れ子クラスタを描く(ADR-005 撤回→ADR-009;A1=単一 dot run の `rank=same` は segfault で棄却)。views=ADR-010。LM-1 を可読性上限に書換。FR-D-02/03/03a/04/12/13/14/16/16a・FR-T-04/06/10/10a 改訂・追加、§3.4 ドメインモデル刷新、SC-003/004/005/007 改訂(SC-014 は「rows 余分キー無視」→ FR-D-03a「全 node 1回配置」へ**転用**)・SC-017〜020/108〜109 追加。スキーマ(`schema/model.schema.json`)は2巡の敵対的レビュー反映済み。設計ブリーフ=`poc/cluster-layout/schema-0.3.0-design-ja.md`。 |
+| 0.3.0 | 2026-06-13 | **後方互換を破棄**し、モデル形式を全面刷新。`layout` を**再帰 cluster ツリー**(`direction` `TB`/`LR`・`label` で箱・`clusters`⊻`nodes`・`color`/`fill` を子孫へ cascade)に、`views`(関心事フィルタ・誘導部分グラフ)を追加。`node.cluster`・`options.clusters`・`options.layout.rows` を廃止、`options.rankdir`→`options.direction`。`draw` が入れ子クラスタを描く(ADR-005 撤回→ADR-009;A1=単一 dot run の `rank=same` は segfault で棄却)。views=ADR-010。LM-1 を可読性上限に書換。FR-D-02/03/03a/04/12/13/14/16/16a・FR-T-04/06/10/10a 改訂・追加、§3.4 ドメインモデル刷新、SC-003/004/005/007 改訂(SC-014 は「rows 余分キー無視」→ FR-D-03a「全 node 1回配置」へ**転用**)・SC-017〜020/108〜109 追加。スキーマ(`schema/model.schema.json`)は2巡の敵対的レビュー反映済み。設計ブリーフ=`poc/cluster-layout/schema-0.3.0-design-ja.md`。 |
 | 0.4.0 | 2026-06-14 | **breaking**:`table` をスタンドアロン文書化。top-level `title` を**必須**化し、`table` は常に `# <H1>` + `## Nodes` / `## Edges`(H1+H2)を出力(0.3.x の H4 埋め込みモードを廃止)。H1 は全体=モデル `title` / `--view`=当該ビューの `label`。`title` 欠落は table が fail-fast(FR-T-11a)。`draw` は `title` を無視。schema は top-level `title` を required 化。既存モデルは `title` 追加が必要(samples / ARC v009 等)。`table` の全基準 `.md`(tests/samples)も 0.4.0 形式へ再生成。FR-T-11/11a・SC-110〜112 追加。StrictDoc 等「先頭 H1 必須」ツールに `.md` を直接渡せる。要望 = `docs/improvement-request-table-h1-ja.md`。 |
 | 0.5.0 | 2026-06-14 | **feature**:(1) edge 端点に cluster を許可(クラスタ端点エッジ;`source`/`target` が labelled+named cluster を指す → node 優先→cluster 解決、`cid` の箱 mxCell へ接続)。pinned routing にクラスタの箱を固定ノードとして加える**堅牢な箱回避**(ADR-012、FR-D-07/17、LM-5)。(2) cluster に `description`/`remark` を追加し `table` が `## Clusters` 表(`\| cluster \| label \| description \| remark \|`)を出力(ADR-011、FR-T-12)。(3) `-Tplain` 継続行の結合で長い名前/ラベルの解析破綻を修正(ADR-013、FR-D-03b)。FR-D-08/16 改訂、IS-6・LM-5・SC-021〜026/113・ADR-011〜013 追加、トレース表更新。schema(`cluster.description`/`remark`、edge 端点 node\|cluster)更新済み。`scripts/`(draw/table)実装 + `tests/`(SC-021〜026・SC-113・無名箱衝突回帰・layout 検証)追加で全テスト緑。基準 `.md`(samples)は `## Clusters` を含む 0.5.0 形式へ再生成予定。 |
+| 0.6.0 | 2026-06-14 | **feature**:`options.engine`(`dot`\|`cluster-dot`、既定 `cluster-dot`)でフロー図向け dot ネイティブエンジンを追加(全体1 dot run・native `subgraph cluster_*`・遷移=edge・クラスタ端点=`lhead`/`ltail`・`-Tjson` 幾何取込;ADR-014/016、FR-D-18/19)。`direction` を `TB`/`LR` に統一(既定 `TB`=縦、それ以外は fail-fast;ADR-015、FR-D-20)。dot エンジンは self-loop 描画・outermost `direction` のみ honour(per-cluster は無視+警告)・neato/fdp 不要。FR-D-02/03/04/07a/15 改訂・FR-D-18/19/20 を敵対的レビューで精緻化(座標単位・GL-1 目視確認・per-cluster 警告条件・anon subgraph id 衝突回避)、LM-2/6/7・ADR-014〜016・SC-027〜032 追加、トレース表更新。schema(`options.engine`、`direction` を `TB`/`LR`)更新。samples/tests/docs の direction を `TB`/`LR` へ一括移行、state-machine デモを `engine:dot` で再生成。要望 = `docs/improvement-request-dot-engine-ja.md`。 |

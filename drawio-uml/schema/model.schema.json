@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "drawio-uml model (0.5.0)",
-  "description": "Single JSON input for the drawio-uml suite, consumed by draw (model -> .drawio) and table (model -> .md). 0.3.0 redesign (backward-incompatible with 0.2.x): `layout` is a recursive cluster tree (row/column) that holds arrangement + boxes + node membership in ONE place; `nodes` are flat definitions referenced elsewhere by name; `views` are named node subsets. The 0.2.x keys node.cluster, options.clusters and options.layout.rows are removed. This file performs STRUCTURAL validation only; referential integrity (node-name uniqueness, every node placed exactly once in the layout, view/edge/cluster references resolve (an edge endpoint resolves to exactly one node, or one named+labelled cluster), cluster-name uniqueness) is enforced by draw/table at run time, NOT by this schema. 0.5.0 adds optional cluster description/remark (table-only, surfaced in a ## Clusters section) and lets an edge endpoint name a named+labelled cluster (a cluster-endpoint edge).",
+  "title": "drawio-uml model (0.6.0)",
+  "description": "Single JSON input for the drawio-uml suite, consumed by draw (model -> .drawio) and table (model -> .md). 0.3.0 redesign (backward-incompatible with 0.2.x): `layout` is a recursive cluster tree (TB/LR) that holds arrangement + boxes + node membership in ONE place; `nodes` are flat definitions referenced elsewhere by name; `views` are named node subsets. The 0.2.x keys node.cluster, options.clusters and options.layout.rows are removed. This file performs STRUCTURAL validation only; referential integrity (node-name uniqueness, every node placed exactly once in the layout, view/edge/cluster references resolve (an edge endpoint resolves to exactly one node, or one named+labelled cluster), cluster-name uniqueness) is enforced by draw/table at run time, NOT by this schema. 0.5.0 adds optional cluster description/remark (table-only, surfaced in a ## Clusters section) and lets an edge endpoint name a named+labelled cluster (a cluster-endpoint edge). 0.6.0 adds options.engine (dot | cluster-dot; default cluster-dot) for a dot-native flow engine, and unifies direction to TB/LR (default TB; values other than TB/LR fail fast at run time).",
   "type": "object",
   "additionalProperties": false,
   "required": ["nodes", "title"],
@@ -71,7 +71,7 @@
     "cluster": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One element of the layout tree. Arranges its contents along `direction`. Draws a dashed labelled box IFF it has a `label`; without a label it is an invisible arrangement-only container (used for unlabelled bands/rows). Holds EXACTLY ONE of `clusters` (child clusters -> internal node) or `nodes` (member node names -> leaf). A cluster may carry a `label` AND `clusters` (e.g. `consider`: a labelled box that itself contains sub-clusters).",
+      "description": "One element of the layout tree. Arranges its contents along `direction`. Draws a dashed labelled box IFF it has a `label`; without a label it is an invisible arrangement-only container (used for unlabelled bands). Holds EXACTLY ONE of `clusters` (child clusters -> internal node) or `nodes` (member node names -> leaf). A cluster may carry a `label` AND `clusters` (e.g. `consider`: a labelled box that itself contains sub-clusters).",
       "oneOf": [
         { "required": ["clusters"] },
         { "required": ["nodes"] }
@@ -79,8 +79,8 @@
       "properties": {
         "direction": {
           "type": "string",
-          "enum": ["row", "column"],
-          "description": "Lay contents out left-to-right (row) or top-to-bottom (column). Resolution order: this cluster's `direction`, else `options.direction`, else column. (Deliberately NO JSON-Schema `default` here, so a validator/IDE does not inject `column` and bypass `options.direction`.) For a leaf this also sets the dot rank flow (column=TB, row=LR), and drives invisible-edge stacking ONLY when the leaf's members have no edges among them (see `nodes`)."
+          "enum": ["TB", "LR"],
+          "description": "Lay contents out top-to-bottom (TB) or left-to-right (LR). Resolution order: this cluster's `direction`, else `options.direction`, else TB. (Deliberately NO JSON-Schema `default` here, so a validator/IDE does not inject `TB` and bypass `options.direction`.) For a leaf this also sets the dot rank flow (the value IS the dot rankdir), and drives invisible-edge stacking ONLY when the leaf's members have no edges among them (see `nodes`). Under options.engine=\"dot\" a per-cluster `direction` is ignored (dot has no per-subgraph rankdir) with a one-time stderr warning; only options.direction applies. Values other than TB/LR fail fast at run time."
         },
         "label": { "type": "string", "description": "Box title. Presence => a dashed labelled box is drawn around this cluster. Absence => no box (arrangement only)." },
         "name": { "type": "string", "description": "Short identifier for referencing this cluster from views (view.clusters) and table --cluster. Optional; needed only if referenced. Run-time rules: names are unique across all clusters (duplicate => fail-fast); an UNNAMED cluster cannot be targeted by a view or --cluster. PATH: a node's cluster path (used by table's cluster column and --cluster) = the chain of NAMED ancestor clusters from root to the node's leaf, skipping nameless levels, joined with '/'. A `name` MUST NOT contain '/' (run-time fail-fast). --cluster matches on '/'-segment boundaries (KEY matches KEY and KEY/*). A node whose deepest named ancestor is an INTERNAL cluster takes that cluster's path (e.g. the header node directly under `consider` has path `consider`, while a node under `consider`->`world` has path `consider/world`)." },
@@ -92,7 +92,7 @@
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/definitions/cluster" },
-          "description": "Child clusters (objects) -> makes this an internal node. Order = arrangement order along `direction`. Nesting depth is unbounded by this schema. The readability guideline counts LABELLED levels on a root->leaf path (nameless arrangement wrappers -- the root, bands, rows -- do NOT count): recommended <=3 labelled levels (band / cluster / sub-cluster), run-time warning beyond 4. (The ARC example's deepest path is consider->world = 2 labelled levels.)"
+          "description": "Child clusters (objects) -> makes this an internal node. Order = arrangement order along `direction`. Nesting depth is unbounded by this schema. The readability guideline counts LABELLED levels on a root->leaf path (nameless arrangement wrappers -- the root, bands -- do NOT count): recommended <=3 labelled levels (band / cluster / sub-cluster), run-time warning beyond 4. (The ARC example's deepest path is consider->world = 2 labelled levels.)"
         },
         "nodes": {
           "type": "array",
@@ -120,11 +120,17 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "engine": {
+          "type": "string",
+          "enum": ["dot", "cluster-dot"],
+          "default": "cluster-dot",
+          "description": "Layout engine. cluster-dot (default) = the A2 compose path (independent leaf dot runs + Python stacking by direction + a pinned neato/fdp routing pass); best for STRUCTURE diagrams (class/component/package/ER) where bands and order are controlled explicitly. dot = a single-run dot-native FLOW engine for state-machine/activity diagrams: the whole model goes through ONE dot run (composite states become native subgraph cluster_*, transitions become edges, cluster-endpoint transitions use lhead/ltail with compound=true), then node positions + cluster bounding boxes + edge splines are read back from dot -Tjson and rebuilt as draw.io shapes/boxes/waypoints. dot honours only options.direction (per-cluster direction is ignored with a warning), draws self-loops, and needs only `dot` (no neato/fdp). BOTH engines draw labelled cluster boxes. Unknown values fail fast at run time."
+        },
         "direction": {
           "type": "string",
-          "enum": ["row", "column"],
-          "default": "column",
-          "description": "Global default arrangement direction: used by the flat path (no layout) and as the default for any cluster that omits its own `direction`. column = top-to-bottom (dot TB)."
+          "enum": ["TB", "LR"],
+          "default": "TB",
+          "description": "Global default arrangement direction: used by the flat path (no layout), as the default for any cluster that omits its own `direction`, and as the dot rankdir under options.engine=\"dot\". TB = top-to-bottom (vertical; the default), LR = left-to-right (horizontal). Values other than TB/LR fail fast at run time."
         },
         "column_width": { "type": "number", "description": "Compartment column width hint (px) for class/entity/object boxes." },
         "node_separation": { "type": "number", "description": "Maps to dot nodesep (inches)." },
