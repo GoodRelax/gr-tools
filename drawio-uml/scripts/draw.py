@@ -84,6 +84,20 @@ def esc(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _unwrap(out):
+    """Graphviz -Tplain wraps long physical lines with a trailing backslash; rejoin
+    continuation lines on the RAW text before splitting, so long node ids / labels
+    (= long node names) don't break parsing (FR-D-03b)."""
+    return re.sub(r"\\\r?\n", "", out)
+
+
+def _unq(tok):
+    """Strip the surrounding double-quotes Graphviz adds around long ids/labels in
+    -Tplain output, so a quoted node id matches its unquoted nid/cid key (FR-D-03b).
+    (Generated ids are alnum/underscore, so they never contain spaces or quotes.)"""
+    return tok[1:-1] if len(tok) >= 2 and tok[0] == '"' and tok[-1] == '"' else tok
+
+
 def is_compartment(node):
     if "style" in node:
         return False
@@ -176,9 +190,9 @@ def _node_cells(node, nid, pos, opt, rs, eff):
     return out
 
 
-def _edge_cell(i, e, nid, routes):
+def _edge_cell(i, e, ref, routes):
     a = arrow_of(e)
-    si, ti = nid[e["source"]], nid[e["target"]]
+    si, ti = ref[e["source"]], ref[e["target"]]
     key, rev = ((ti, si), True) if a in ("generalization", "realization") else ((si, ti), False)
     pts = routes.get(key, [])
     if rev:
@@ -250,6 +264,7 @@ def dot_layout(nodes, edges, nid, opt):
     g.append("}")
     out = subprocess.run(["dot", "-Tplain"], input="\n".join(g),
                          capture_output=True, text=True, check=True, encoding="utf-8").stdout
+    out = _unwrap(out)
     H = None
     pos, routes = {}, {}
     for ln in out.splitlines():
@@ -260,9 +275,9 @@ def dot_layout(nodes, edges, nid, opt):
             H = float(p[3])
         elif p[0] == "node":
             cx, cy, w, h = (float(v) for v in p[2:6])
-            pos[p[1]] = ((cx - w / 2) * 72, (H - cy - h / 2) * 72)
+            pos[_unq(p[1])] = ((cx - w / 2) * 72, (H - cy - h / 2) * 72)
         elif p[0] == "edge":
-            t, hd, k = p[1], p[2], int(p[3])
+            t, hd, k = _unq(p[1]), _unq(p[2]), int(p[3])
             c = p[4:4 + 2 * k]
             routes[(t, hd)] = [(float(c[2 * i]) * 72, (H - float(c[2 * i + 1])) * 72)
                                for i in range(k)]
@@ -308,6 +323,7 @@ def resolve_direction(cluster, opt):
 
 
 def _parse_plain(out, off_x, off_y, re_origin):
+    out = _unwrap(out)
     H = None
     raw_pos, raw_size = {}, {}
     for ln in out.splitlines():
@@ -318,8 +334,9 @@ def _parse_plain(out, off_x, off_y, re_origin):
             H = float(p[3])
         elif p[0] == "node":
             cx, cy, w, h = (float(v) for v in p[2:6])
-            raw_pos[p[1]] = ((cx - w / 2) * 72, (H - cy - h / 2) * 72)
-            raw_size[p[1]] = (w * 72, h * 72)
+            i = _unq(p[1])
+            raw_pos[i] = ((cx - w / 2) * 72, (H - cy - h / 2) * 72)
+            raw_size[i] = (w * 72, h * 72)
     if re_origin and raw_pos:
         mnx = min(x for x, _ in raw_pos.values())
         mny = min(y for _, y in raw_pos.values())
@@ -415,41 +432,49 @@ def compose(cluster, edges, nid, opt, nodemap):
 
 
 def _parse_plain_raw(out):
+    out = _unwrap(out)
     centres, polylines = {}, {}
     for ln in out.splitlines():
         p = ln.split()
         if not p:
             continue
         if p[0] == "node":
-            centres[p[1]] = (float(p[2]) * 72.0, float(p[3]) * 72.0)
+            centres[_unq(p[1])] = (float(p[2]) * 72.0, float(p[3]) * 72.0)
         elif p[0] == "edge":
-            t, hd, k = p[1], p[2], int(p[3])
+            t, hd, k = _unq(p[1]), _unq(p[2]), int(p[3])
             c = p[4:4 + 2 * k]
             polylines[(t, hd)] = [(float(c[2 * i]) * 72.0, float(c[2 * i + 1]) * 72.0)
                                   for i in range(k)]
     return centres, polylines
 
 
-def _route_pinned(nodes, edges, nid, opt, pos):
-    """FINAL box-avoiding routing over the WHOLE graph: pin every node at its
-    placed centre and let neato/fdp (-n2) route the edges with splines=ortho."""
-    if not pos:
+def _route_pinned(nodes, edges, ref, opt, pos, cl_pins=None, skip=None):
+    """FINAL box-avoiding routing over the WHOLE graph: pin every node AND every
+    cluster-endpoint box at its placed centre, then let neato/fdp (-n2) route the
+    edges with splines=ortho. `ref` maps an endpoint name -> its mxCell id (node
+    `nid` or cluster `cid`); `cl_pins` maps a cluster `cid` -> (x, y, w, h) box
+    geometry; `skip` is a set of frozenset({id, id}) pairs left unrouted (FR-D-17)."""
+    cl_pins = cl_pins or {}
+    skip = skip or set()
+    if not pos and not cl_pins:
         return {}
-    size = {nid[n["name"]]: node_size(n, opt) for n in nodes}
+    size, cpos = {}, {}
+    for n in nodes:                                          # nodes: id == ref[name] == nid
+        i = ref[n["name"]]
+        size[i] = node_size(n, opt)
+        cpos[i] = pos[i]
+    for bid, (x, y, w, h) in cl_pins.items():                # cluster boxes (boxes order = deterministic)
+        size[bid] = (w, h)
+        cpos[bid] = (x, y)
     lines = ["graph G {", "  splines=ortho;", "  node [shape=box, fixedsize=true];"]
-    for n in nodes:
-        i = nid[n["name"]]
+    for i, (px, py) in cpos.items():
         w, h = size[i]
-        cx = pos[i][0] + w / 2.0
-        cy = -(pos[i][1] + h / 2.0)
         lines.append('  %s [width=%.4f, height=%.4f, pos="%.3f,%.3f!"];'
-                     % (i, w / 72.0, h / 72.0, cx, cy))
+                     % (i, w / 72.0, h / 72.0, px + w / 2.0, -(py + h / 2.0)))
     seen = set()
     for e in edges:
-        if e["source"] == e["target"]:
-            continue
-        s, t = nid[e["source"]], nid[e["target"]]
-        if (s, t) in seen or (t, s) in seen:
+        s, t = ref[e["source"]], ref[e["target"]]
+        if s == t or frozenset((s, t)) in skip or (s, t) in seen or (t, s) in seen:
             continue
         seen.add((s, t))
         lines.append("  %s -- %s;" % (s, t))
@@ -470,7 +495,7 @@ def _route_pinned(nodes, edges, nid, opt, pos):
         return {}
     centres, polylines = _parse_plain_raw(out)
     oxs, oys = [], []
-    for i, (px, py) in pos.items():
+    for i, (px, py) in cpos.items():
         if i not in centres:
             continue
         w, h = size[i]
@@ -491,10 +516,10 @@ def _route_pinned(nodes, edges, nid, opt, pos):
         table[(b, a)] = conv[::-1]
     routes = {}
     for e in edges:
-        if e["source"] == e["target"]:
+        s, t = ref[e["source"]], ref[e["target"]]
+        if s == t or frozenset((s, t)) in skip:
             continue
-        si, ti = nid[e["source"]], nid[e["target"]]
-        key = (ti, si) if arrow_of(e) in ("generalization", "realization") else (si, ti)
+        key = (t, s) if arrow_of(e) in ("generalization", "realization") else (s, t)
         if key in table:
             routes[key] = table[key]
     return routes
@@ -594,7 +619,40 @@ def render_clustered(model, nodes, edges, layout):
     pos = {k: (x + MARGIN, y + MARGIN) for k, (x, y) in pos.items()}
     boxes = [(c, x0 + MARGIN, y0 + MARGIN, x1 + MARGIN, y1 + MARGIN)
              for (c, x0, y0, x1, y1) in boxes]
-    routes = _route_pinned(nodes, edges, nid, opt, pos)
+    # endpoint resolution: ref maps node name -> nid, named+labelled cluster -> cid (FR-D-17)
+    node_names = set(nid)
+    clusters = collect_clusters(layout)
+    ref = dict(nid)
+    for cname, cl in clusters.items():
+        if "label" in cl:
+            ref[cname] = cid(cname)
+    # cluster-endpoint boxes to pin during routing, cid -> (x, y, w, h), in boxes order
+    cluster_eps = {x for e in edges for x in (e["source"], e["target"])
+                   if x in clusters and "label" in clusters[x]}
+    cl_pins = OrderedDict()
+    for (c, x0, y0, x1, y1) in boxes:
+        nm = c.get("name")
+        if nm in cluster_eps:
+            cl_pins[cid(nm)] = (x0, y0, x1 - x0, y1 - y0)
+    # degenerate (containment) endpoint pairs left unrouted, like self-loops (FR-D-17)
+    skip = set()
+    for e in edges:
+        a = _endpoint_membership(e["source"], node_names, clusters)
+        b = _endpoint_membership(e["target"], node_names, clusters)
+        if a and b and (a <= b or b <= a):
+            skip.add(frozenset((ref[e["source"]], ref[e["target"]])))
+
+    routes = _route_pinned(nodes, edges, ref, opt, pos, cl_pins, skip)
+    if cl_pins:                                              # clip routes to endpoint box boundaries (FR-D-07)
+        def _inside(pt, rect):
+            x, y, w, h = rect
+            return x <= pt[0] <= x + w and y <= pt[1] <= y + h
+        for key, pts in list(routes.items()):
+            rects = [cl_pins[k] for k in key if k in cl_pins]
+            if rects and len(pts) > 2:
+                routes[key] = ([pts[0]]
+                               + [p for p in pts[1:-1] if not any(_inside(p, r) for r in rects)]
+                               + [pts[-1]])
     eff = resolve_styles(nodes, layout)
     rs = rs_style()
 
@@ -604,7 +662,7 @@ def render_clustered(model, nodes, edges, layout):
     for node in nodes:
         cells += _node_cells(node, nid, pos, opt, rs, eff)
     for i, e in enumerate(edges):
-        cells.append(_edge_cell(i, e, nid, routes))
+        cells.append(_edge_cell(i, e, ref, routes))
 
     outer = outermost_labelled(layout)
     if outer:
@@ -629,6 +687,23 @@ def node_names_under(cluster):
     out = set()
     for ch in cluster["clusters"]:
         out |= node_names_under(ch)
+    return out
+
+
+def collect_clusters(layout):
+    """name -> cluster object, for every NAMED cluster in the tree (FR-D-17)."""
+    out = {}
+
+    def walk(c):
+        nm = c.get("name")
+        if nm is not None:
+            out[nm] = c
+        if not is_leaf(c):
+            for ch in c["clusters"]:
+                walk(ch)
+
+    if layout:
+        walk(layout)
     return out
 
 
@@ -683,24 +758,66 @@ def apply_view(model, key):
     if not selected:
         sys.exit("draw: view %r selects no node" % key)
     fnodes = [n for n in nodes if n["name"] in selected]
-    fedges = [e for e in (model.get("edges") or [])
-              if e.get("source") in selected and e.get("target") in selected]
     flayout = prune(layout, selected) if layout else None
+
+    def _survives(x):                                       # FR-D-16: a node selected, or a cluster still drawn
+        if x in selected:
+            return True
+        return flayout is not None and find_cluster(flayout, x) is not None
+
+    fedges = [e for e in (model.get("edges") or [])
+              if _survives(e.get("source")) and _survives(e.get("target"))]
     return fnodes, fedges, flayout
 
 
 # ----------------------------------------------------------------- dispatch
+def _endpoint_membership(name, node_names, clusters):
+    """Nodes 'covered' by an endpoint: a node -> {itself}; a cluster -> its
+    descendant node set. Drives the containment-degeneracy test (FR-D-17)."""
+    if name in node_names:
+        return frozenset((name,))
+    cl = clusters.get(name)
+    return frozenset(node_names_under(cl)) if cl is not None else frozenset()
+
+
+def _validate_endpoints(edges, node_names, clusters):
+    """FR-D-17: every edge endpoint resolves to exactly one node OR one
+    named+labelled cluster. Ambiguous / unknown / unnamed-or-label-less -> fail-fast."""
+    amb, unk, badcl = set(), set(), set()
+    for e in edges:
+        for x in (e.get("source"), e.get("target")):
+            cl = clusters.get(x)
+            in_node = x in node_names
+            if in_node and cl is not None:
+                amb.add(str(x))
+            elif in_node:
+                continue
+            elif cl is not None:
+                if "label" not in cl:
+                    badcl.add(str(x))
+            else:
+                unk.add("(missing)" if x is None else str(x))
+    msgs = []
+    if amb:
+        msgs.append("ambiguous (node and cluster share the name): %s" % ", ".join(sorted(amb)))
+    if unk:
+        msgs.append("unknown (no such node or cluster): %s" % ", ".join(sorted(unk)))
+    if badcl:
+        msgs.append("cluster endpoint has no label (no box to anchor): %s" % ", ".join(sorted(badcl)))
+    if msgs:
+        sys.exit("draw: invalid edge endpoint(s): " + "; ".join(msgs))
+
+
 def render_model(model, view_key=None):
     """Resolve (optionally a --view) and render. Returns (xml, nodes, edges) where
     nodes/edges are the ones actually drawn. Fails fast (§3.4 referential integrity)
     when an edge references an undefined node."""
     nodes = model.get("nodes") or []
     edges = model.get("edges") or []
-    known = {n["name"] for n in nodes}
-    bad = sorted({x for e in edges for x in (e.get("source"), e.get("target")) if x not in known})
-    if bad:
-        sys.exit("draw: edge references unknown node(s): %s" % ", ".join(bad))
     layout = model.get("layout")
+    node_names = {n["name"] for n in nodes}
+    clusters = collect_clusters(layout)
+    _validate_endpoints(edges, node_names, clusters)        # FR-D-17: node -> cluster resolution
     if view_key is not None:
         nodes, edges, layout = apply_view(model, view_key)
     xml = render_clustered(model, nodes, edges, layout) if layout else render_flat(model, nodes, edges)

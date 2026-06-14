@@ -101,6 +101,26 @@ def node_names_under(cluster):
     return out
 
 
+def cluster_rows(layout):
+    """(path, cluster) for every cluster with a `name` or `label`, in pre-order
+    (FR-T-12). `path` = the chain of NAMED ancestors INCLUDING self when named,
+    joined by '/'; an unnamed-but-labelled cluster takes its nearest named path."""
+    rows = []
+
+    def walk(cluster, chain):
+        nm = cluster.get("name")
+        chain2 = chain + [nm] if nm else chain
+        if nm is not None or "label" in cluster:
+            rows.append(("/".join(chain2), cluster))
+        if "nodes" not in cluster:
+            for child in cluster.get("clusters", []):
+                walk(child, chain2)
+
+    if layout:
+        walk(layout, [])
+    return rows
+
+
 # ----------------------------------------------------------------- selection
 def select_cluster(nodes, paths, key):
     """--cluster KEY: nodes whose derived path is in KEY's subtree. Nodes with no
@@ -182,6 +202,22 @@ def edge_table(edges):
     return "\n".join(lines)
 
 
+def cluster_table(rows):
+    """Render the ## Clusters table (FR-T-12). Columns cluster|label|description|
+    remark. `cluster` is the cluster's OWN named-ancestor path (no common-prefix
+    removal), displayed with ' / '."""
+    columns = ["cluster", "label", "description", "remark"]
+    lines = ["| " + " | ".join(columns) + " |",
+             "| " + " | ".join("---" for _ in columns) + " |"]
+    for path, cl in rows:
+        cells = [escape_cell(" / ".join(path.split("/")) if path else ""),
+                 escape_cell(cl.get("label", "")),
+                 escape_cell(cl.get("description", "")),
+                 escape_cell(cl.get("remark", ""))]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
 # ------------------------------------------------------------- assembly + IO
 def validate(nodes, edges):
     """Fail fast on a missing required field (FR-T-09)."""
@@ -223,12 +259,21 @@ def render(model, cluster_key, view_key):
         h1 = title
     scope_names = {n["name"] for n in scope_nodes}
     scope_edges = select_edges(edges, scope_names, mode)
+    # ## Clusters (FR-T-12): clusters with a name/label, scoped per mode
+    crows = cluster_rows(model.get("layout"))
+    if mode == "view":
+        crows = [(p, c) for (p, c) in crows if node_names_under(c) & scope_names]
+    elif mode == "cluster":
+        crows = [(p, c) for (p, c) in crows if p and in_subtree(p, cluster_key)]
     h1_line = " ".join(str(h1).splitlines())              # raw, but force a single line
-    return "\n".join([
+    parts = [
         "# " + h1_line, "",
         "## Nodes", "", node_table(scope_nodes, paths), "",
         "## Edges", "", edge_table(scope_edges), "",
-    ])
+    ]
+    if crows:
+        parts += ["## Clusters", "", cluster_table(crows), ""]
+    return "\n".join(parts)
 
 
 def main():
