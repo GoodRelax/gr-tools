@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>車線維持支援システム (LKAS) ソフトウェア仕様検討書</title>
+<style>
+body { font-family: "Segoe UI", "Hiragino Sans", "Meiryo", sans-serif; line-height: 1.7;
+       max-width: 980px; margin: 24px auto; padding: 0 16px; color: #1b2330; }
+h1 { border-bottom: 3px solid #33415c; padding-bottom: 6px; }
+h2 { border-left: 6px solid #33415c; padding-left: 10px; margin-top: 32px; }
+.meta { color: #5a6675; font-size: 0.9em; }
+.abstract { background: #f3f6fb; border: 1px solid #d8e0ec; padding: 10px 14px; border-radius: 6px; }
+figure { margin: 18px 0; }
+figcaption { font-weight: bold; color: #33415c; margin-bottom: 6px; }
+table { border-collapse: collapse; margin: 10px 0; font-size: 0.9em; }
+th, td { border: 1px solid #b8c2d4; padding: 4px 8px; text-align: left; }
+th { background: #e8f0fe; }
+svg { border: 1px solid #e0e6f0; background: #fff; max-width: 100%; height: auto; }
+img { border: 1px solid #c8d0de; max-width: 100%; }
+</style>
+</head>
+<body>
+<h1>車線維持支援システム (LKAS) ソフトウェア仕様検討書</h1>
+<p class="meta">文書番号: LKAS-SWSPEC-001 / 版数: 0.1 / 発行日: 2026-06-19 / 作成: 車両制御ソフトウェア開発部</p>
+<p class="abstract">本書は、車線維持支援システム LKAS の車載ソフトウェアに関する仕様検討書である。システム概要、機能要求、状態遷移、主要シーケンス、1制御周期の処理フロー、機能安全に関する考慮、主要パラメータおよび外部インタフェースを示す。</p>
+<h2>1 システム概要と前提</h2>
+<p>本書は、車線維持支援システム(LKAS: Lane Keeping Assist System)の車載ソフトウェアに関する仕様検討書である。LKASは、前方単眼カメラによって自車前方の車線境界線を認識し、自車が車線中央付近を走行し続けるために必要な補助操舵トルクを電動パワーステアリング(EPS)へ指令する運転支援機能である。本機能はSAEレベル2相当の運転支援であり、運転の主体および最終責任は常にドライバにある。ドライバは操舵に手を添えた状態(ハンズオン)での使用を前提とし、システムは自動運転を提供するものではない。</p>
+<p>対象車種は、Cセグメントクラスの乗用車を想定する。動作速度域は65km/hから180km/hとし、これを下回る低速域では操舵介入を行わず、車線逸脱のおそれがある場合は警報のみを行う。直線路および緩やかな曲線路を主たる対象とし、車線曲率が上限を超える急カーブでは作動を制限する。</p>
+<p>センサ構成は、前方単眼カメラ、操舵角センサ、ヨーレートセンサ、車輪速センサ(車速)、および操舵トルクセンサからなる。前方カメラは車線境界線の横位置、自車のヨー角偏差、車線曲率、ならびに認識信頼度を周期的に出力する。アクチュエータとしてEPSを用い、ドライバへの情報提示手段としてメータ内表示(HMI)および警報ブザーを用いる。本システムは車両ネットワークを介して車速や方向指示器状態などの車両情報を取得する。</p>
+<p>前提条件として、本システムの性能は区画線が明瞭に認識できる環境において保証される。悪天候、夜間、逆光、区画線のかすれや欠落、工事区間などの環境ではカメラの認識性能が低下し得るため、これらの状況では作動を制限または中断し、必要に応じてドライバへ通知する。本書に示す数値は検討段階の代表値であり、実車適合により確定する。</p>
+<p>システム構成の概要を図1に示す。前方カメラおよび各車両センサから得られる情報はLKAS ECUに集約され、ECU内で車線推定、逸脱判定、制御演算が行われる。演算結果はEPSへの補助操舵トルク指令として出力されるとともに、メータおよび警報ブザーを介してドライバへ提示される。各信号は車載ネットワークを介して授受され、その詳細は表2に示すインタフェースに従う。</p>
+<figure>
+<figcaption>図1 システム構成図</figcaption>
+<svg viewBox="0 0 790 360" width="790" height="360" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<defs><marker id="arr" markerWidth="10" markerHeight="8" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L8,3 L0,6 Z" fill="#33415c"/></marker></defs>
+<rect x="0" y="0" width="790" height="360" fill="#ffffff"/>
+<polyline points="190.0,52.0 300.0,143.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="190.0,116.0 300.0,143.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="190.0,180.0 300.0,180.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="190.0,244.0 300.0,217.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="190.0,308.0 300.0,217.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="480.0,143.0 590.0,106.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="480.0,180.0 590.0,180.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="480.0,217.0 590.0,254.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="20" y="30" width="170" height="44" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="105.0" y="52.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">前方カメラ</text>
+<rect x="20" y="94" width="170" height="44" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="105.0" y="116.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">操舵角センサ</text>
+<rect x="20" y="158" width="170" height="44" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="105.0" y="180.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">ヨーレートセンサ</text>
+<rect x="20" y="222" width="170" height="44" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="105.0" y="244.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">車速センサ</text>
+<rect x="20" y="286" width="170" height="44" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="105.0" y="308.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">操舵トルクセンサ</text>
+<rect x="300" y="135" width="180" height="90" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="390.0" y="180.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">LKAS ECU</text>
+<rect x="590" y="84" width="170" height="44" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="675.0" y="106.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">EPS(操舵)</text>
+<rect x="590" y="158" width="170" height="44" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="675.0" y="180.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">メータ/HMI</text>
+<rect x="590" y="232" width="170" height="44" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="675.0" y="254.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">警報ブザー</text>
+<rect x="214.0" y="89.5" width="62" height="16" fill="#ffffff" opacity="0.85"/><text x="245.0" y="97.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">車線情報</text>
+<rect x="221.0" y="121.5" width="48" height="16" fill="#ffffff" opacity="0.85"/><text x="245.0" y="129.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">操舵角</text>
+<rect x="207.0" y="172.0" width="76" height="16" fill="#ffffff" opacity="0.85"/><text x="245.0" y="180.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">ヨーレート</text>
+<rect x="228.0" y="222.5" width="34" height="16" fill="#ffffff" opacity="0.85"/><text x="245.0" y="230.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">車速</text>
+<rect x="207.0" y="254.5" width="76" height="16" fill="#ffffff" opacity="0.85"/><text x="245.0" y="262.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">操舵トルク</text>
+<rect x="483.0" y="116.5" width="104" height="16" fill="#ffffff" opacity="0.85"/><text x="535.0" y="124.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">補助トルク指令</text>
+<rect x="504.0" y="172.0" width="62" height="16" fill="#ffffff" opacity="0.85"/><text x="535.0" y="180.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">状態表示</text>
+<rect x="518.0" y="227.5" width="34" height="16" fill="#ffffff" opacity="0.85"/><text x="535.0" y="235.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">警報</text>
+</svg>
+</figure>
+<h2>2 機能要求</h2>
+<p>LKASソフトウェアに対する主要な機能要求を以下に示す。各機能要求には要求識別子(REQ-LKAS-xxx)を付与し、後段の設計項目および試験項目と双方向に追跡可能とする。</p>
+<p>(1) 車線検出 [REQ-LKAS-010]: 前方カメラから取得した車線情報に基づき、左右の車線境界線および車線中心線を推定する。少なくとも片側の境界線が認識信頼度の閾値以上で得られる場合に車線検出成立とみなす。</p>
+<p>(2) 逸脱判定 [REQ-LKAS-020]: 自車の車線内横偏差、ヨー角偏差、および車線逸脱予測時間(TLC: Time to Lane Crossing)を算出し、逸脱傾向の有無を判定する。TLCが閾値TLCthを下回る場合、または横偏差が警報閾値Ywarnを超える場合に逸脱傾向ありと判定する。</p>
+<p>(3) 操舵トルク介入 [REQ-LKAS-030]: 車線中央へ復帰させるための目標補助操舵トルクを横偏差およびヨー角偏差から算出し、EPSへ指令する。補助トルクは最大値Tmaxで制限し、急変を避けるため立上り勾配を制限する。</p>
+<p>(4) ドライバオーバーライド [REQ-LKAS-040]: ドライバの操舵トルクが判定閾値Tovrを超えた場合、ドライバの操舵意図を優先し、補助トルクを漸減して介入を中断する。方向指示器が操作された場合も同様に介入を抑制する。</p>
+<p>(5) 警報 [REQ-LKAS-050]: 車線逸脱のおそれがある場合に視覚(メータ表示)および聴覚(ブザー)により警報する。あわせてシステムの作動状態およびフォールト発生をドライバへ表示する。</p>
+<p>警報は逸脱のおそれの度合いに応じて表示と音で段階的に行い、操舵介入と警報は協調して動作する。操舵介入は連続的かつ滑らかに行い、ドライバに過度な違和感を与えないことを要求する。システムの作動・非作動および現在の作動状態は、ドライバが容易に認識できるようHMIへ常時表示する。</p>
+<p>上記に加え、すべての制御演算は1制御周期内に完了すること、および安全関連機能は故障時に安全側へ作用することを非機能要求として課す。</p>
+<h2>3 状態遷移</h2>
+<p>LKASの作動状態は、OFF、STANDBY、ACTIVE、OVERRIDE、FAULTの5状態で管理する。初期状態はOFFである。</p>
+<p>OFFはシステムが停止している状態であり、ドライバがシステムスイッチをONにするとSTANDBYへ遷移する。STANDBYは電源が投入されているが作動条件が未成立の状態であり、車速が作動速度域内であり、かつ車線が検出された場合にACTIVEへ遷移する。</p>
+<p>ACTIVEは車線維持制御を実行している状態である。ACTIVE中にドライバの操舵トルクが閾値Tovrを超えるとOVERRIDEへ遷移し、補助トルクを抑制してドライバ操舵を優先する。ドライバの操舵が解除されると、OVERRIDEからACTIVEへ復帰する。作動条件が不成立となった場合(速度域外、車線ロスト等)はACTIVEからSTANDBYへ戻る。</p>
+<p>いずれの作動状態(STANDBY/ACTIVE/OVERRIDE)においても、自己診断により故障が確定した場合はFAULTへ遷移し、フェールセーフ処理を実行する。FAULT遷移は他のすべての遷移に優先する。FAULTからは、イグニッションの再投入または故障要因の解消とリセットによりOFFへ遷移する。また、いずれの作動状態からもシステムスイッチOFFによりOFFへ遷移する。</p>
+<figure>
+<figcaption>図2 状態遷移図</figcaption>
+<svg viewBox="0 0 650 370" width="650" height="370" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<defs><marker id="arr" markerWidth="10" markerHeight="8" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L8,3 L0,6 Z" fill="#33415c"/></marker></defs>
+<rect x="0" y="0" width="650" height="370" fill="#ffffff"/>
+<polyline points="91.0,86.0 91.0,150.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="91.0,150.0 91.0,86.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="170.0,187.0 250.0,187.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="250.0,187.0 170.0,187.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="390.0,187.0 470.0,187.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="470.0,187.0 390.0,187.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="320.0,206.0 320.0,280.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="147.4,206.0 272.6,280.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="492.6,206.0 367.4,280.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="295.4,280.0 124.6,86.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="30" y="30" width="140" height="56" rx="12" fill="#e6f4ea" stroke="#1e7e34" stroke-width="1.5"/>
+<text x="100.0" y="58.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">OFF</text>
+<rect x="30" y="150" width="140" height="56" rx="12" fill="#e6f4ea" stroke="#1e7e34" stroke-width="1.5"/>
+<text x="100.0" y="178.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">STANDBY</text>
+<rect x="250" y="150" width="140" height="56" rx="12" fill="#e6f4ea" stroke="#1e7e34" stroke-width="1.5"/>
+<text x="320.0" y="178.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">ACTIVE</text>
+<rect x="470" y="150" width="140" height="56" rx="12" fill="#e6f4ea" stroke="#1e7e34" stroke-width="1.5"/>
+<text x="540.0" y="178.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">OVERRIDE</text>
+<rect x="250" y="280" width="140" height="56" rx="12" fill="#e6f4ea" stroke="#1e7e34" stroke-width="1.5"/>
+<text x="320.0" y="308.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">FAULT</text>
+<rect x="53.0" y="110.0" width="76" height="16" fill="#ffffff" opacity="0.85"/><text x="91.0" y="118.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">システムON</text>
+<rect x="49.5" y="110.0" width="83" height="16" fill="#ffffff" opacity="0.85"/><text x="91.0" y="118.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">システムOFF</text>
+<rect x="165.0" y="179.0" width="90" height="16" fill="#ffffff" opacity="0.85"/><text x="210.0" y="187.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">作動条件成立</text>
+<rect x="158.0" y="179.0" width="104" height="16" fill="#ffffff" opacity="0.85"/><text x="210.0" y="187.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">作動条件不成立</text>
+<rect x="367.5" y="179.0" width="125" height="16" fill="#ffffff" opacity="0.85"/><text x="430.0" y="187.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">ドライバ操舵&gt;Tovr</text>
+<rect x="371.0" y="179.0" width="118" height="16" fill="#ffffff" opacity="0.85"/><text x="430.0" y="187.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">ドライバ操舵解除</text>
+<rect x="289.0" y="235.0" width="62" height="16" fill="#ffffff" opacity="0.85"/><text x="320.0" y="243.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">故障検出</text>
+<rect x="179.0" y="235.0" width="62" height="16" fill="#ffffff" opacity="0.85"/><text x="210.0" y="243.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">故障検出</text>
+<rect x="399.0" y="235.0" width="62" height="16" fill="#ffffff" opacity="0.85"/><text x="430.0" y="243.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">故障検出</text>
+<rect x="154.5" y="175.0" width="111" height="16" fill="#ffffff" opacity="0.85"/><text x="210.0" y="183.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">リセット/IG OFF</text>
+</svg>
+</figure>
+<h2>4 主要シーケンス(車線逸脱検知から操舵介入)</h2>
+<p>車線逸脱の検知から操舵介入に至る主要なシーケンスを示す。まず前方カメラが一定周期で車線情報(横偏差、ヨー角偏差、曲率、信頼度)をLKAS ECUへ送信する。</p>
+<p>LKAS ECUは受信した車線情報と車両運動情報(車速、ヨーレート、操舵角)から自車の車線内位置を推定し、横偏差およびTLCを算出する。算出結果に基づいて逸脱判定を行い、逸脱傾向ありと判定した場合はHMIへ逸脱警報要求を送信する。</p>
+<p>続いて車線中央復帰のための目標補助操舵トルクを算出し、トルク制限および勾配制限を適用したうえでEPSへ補助操舵トルク指令を送信する。EPSは指令に応じて操舵系へトルクを付与し、自車を車線中央方向へ誘導する。</p>
+<p>介入中もLKAS ECUはドライバ操舵トルクを監視し、オーバーライド条件が成立した場合は補助トルクを漸減して介入を中断し、制御の主体をドライバへ委ねる。一連の処理は制御周期ごとに繰り返し実行される。</p>
+<p>本シーケンスにおける各処理は制御周期Tcに同期して実行される。カメラからの車線情報は制御周期より長い周期で更新されるため、ECU内で最新値を保持して用いる。車線逸脱検知から操舵介入の確立までの応答遅れは、安全性および違和感の観点から管理対象とする。</p>
+<figure>
+<figcaption>図3 主要シーケンス図(車線逸脱検知から操舵介入)</figcaption>
+<svg viewBox="0 0 800 500" width="800" height="500" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<defs><marker id="arr" markerWidth="10" markerHeight="8" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L8,3 L0,6 Z" fill="#33415c"/></marker></defs>
+<rect x="0" y="0" width="800" height="500" fill="#ffffff"/>
+<polyline points="70.0,58.0 70.0,460.0" fill="none" stroke="#33415c" stroke-width="1.5" stroke-dasharray="5,4"/>
+<polyline points="240.0,58.0 240.0,460.0" fill="none" stroke="#33415c" stroke-width="1.5" stroke-dasharray="5,4"/>
+<polyline points="410.0,58.0 410.0,460.0" fill="none" stroke="#33415c" stroke-width="1.5" stroke-dasharray="5,4"/>
+<polyline points="560.0,58.0 560.0,460.0" fill="none" stroke="#33415c" stroke-width="1.5" stroke-dasharray="5,4"/>
+<polyline points="710.0,58.0 710.0,460.0" fill="none" stroke="#33415c" stroke-width="1.5" stroke-dasharray="5,4"/>
+<polyline points="70.0,92.0 240.0,92.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="240.0,218.0 560.0,218.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="240.0,302.0 410.0,302.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="410.0,344.0 710.0,344.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="710.0,386.0 240.0,386.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="240.0,428.0 410.0,428.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="10" y="18" width="120" height="40" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="70.0" y="38.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">前方カメラ</text>
+<rect x="180" y="18" width="120" height="40" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="240.0" y="38.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">LKAS ECU</text>
+<rect x="350" y="18" width="120" height="40" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="410.0" y="38.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">EPS</text>
+<rect x="500" y="18" width="120" height="40" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="560.0" y="38.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">メータ/ブザー</text>
+<rect x="650" y="18" width="120" height="40" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="710.0" y="38.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">ドライバ</text>
+<rect x="246" y="122" width="160" height="24" rx="2" fill="#fff7e6" stroke="#b8860b" stroke-width="1.2"/>
+<text x="326.0" y="134.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">横偏差/TLC算出</text>
+<rect x="246" y="164" width="160" height="24" rx="2" fill="#fff7e6" stroke="#b8860b" stroke-width="1.2"/>
+<text x="326.0" y="176.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">逸脱判定(TLC&lt;TLCth)</text>
+<rect x="246" y="248" width="160" height="24" rx="2" fill="#fff7e6" stroke="#b8860b" stroke-width="1.2"/>
+<text x="326.0" y="260.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">目標補助トルク算出</text>
+<rect x="54.0" y="84.0" width="202" height="16" fill="#ffffff" opacity="0.85"/><text x="155.0" y="92.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">車線情報(横偏差,曲率,信頼度)</text>
+<rect x="355.0" y="210.0" width="90" height="16" fill="#ffffff" opacity="0.85"/><text x="400.0" y="218.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">逸脱警報要求</text>
+<rect x="259.0" y="294.0" width="132" height="16" fill="#ffffff" opacity="0.85"/><text x="325.0" y="302.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">補助操舵トルク指令</text>
+<rect x="508.0" y="336.0" width="104" height="16" fill="#ffffff" opacity="0.85"/><text x="560.0" y="344.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">操舵トルク付与</text>
+<rect x="367.0" y="378.0" width="216" height="16" fill="#ffffff" opacity="0.85"/><text x="475.0" y="386.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">ドライバ操舵(オーバーライド時)</text>
+<rect x="255.5" y="420.0" width="139" height="16" fill="#ffffff" opacity="0.85"/><text x="325.0" y="428.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">トルク漸減/介入中断</text>
+</svg>
+</figure>
+<h2>5 処理フロー(1制御周期)</h2>
+<p>LKAS ECUは制御周期Tc(20ミリ秒)ごとに一連の処理を実行する。1制御周期内の処理は次の順序で行う。</p>
+<p>まずセンサおよびカメラからの入力信号を取得し、各信号に対して妥当性診断(レンジチェック、タイムアウト監視、整合性チェック)を実施する。診断により故障が検出された場合は、補助トルクを漸減してフェールセーフへ移行し、FAULT状態として当該周期の制御演算を打ち切る。</p>
+<p>故障が無い場合は車線推定を行い、横偏差、ヨー角偏差、曲率を更新する。次に作動条件(速度域、車線検出、ドライバ状態)を評価し、条件不成立であれば制御出力を停止してSTANDBY相当の出力とする。</p>
+<p>条件成立時は逸脱判定および目標補助トルク算出を行い、ドライバオーバーライドの有無を確認する。オーバーライド時は補助トルクを抑制し、非オーバーライド時はトルク指令を確定する。最後にEPSへの補助トルク指令とHMI表示を更新し、周期内の自己診断結果を反映し、ウォッチドッグを更新して当該周期を終了する。</p>
+<p>1制御周期内の各処理は、入力取得から出力更新までを制御周期内に確実に完了させる必要がある。このため、処理時間の最悪値(WCET)を見積もり、周期内に十分な時間的余裕を確保する。周期超過(オーバーラン)が発生した場合は異常として扱い、安全側の処理へ移行する。</p>
+<figure>
+<figcaption>図4 処理フローチャート(1制御周期)</figcaption>
+<svg viewBox="0 0 760 970" width="760" height="970" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+<defs><marker id="arr" markerWidth="10" markerHeight="8" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L8,3 L0,6 Z" fill="#33415c"/></marker></defs>
+<rect x="0" y="0" width="760" height="970" fill="#ffffff"/>
+<polyline points="200.0,62.0 200.0,87.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,133.0 200.0,157.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,203.0 200.0,222.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="290.0,265.0 375.0,265.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,308.0 200.0,337.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,383.0 200.0,402.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="290.0,445.0 375.0,445.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,488.0 200.0,517.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,563.0 200.0,582.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="290.0,625.0 375.0,625.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,668.0 200.0,697.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,743.0 200.0,767.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,813.0 200.0,837.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="200.0,883.0 200.0,903.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="625.0,265.0 690.0,265.0 690.0,778.0 325.0,778.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="625.0,445.0 665.0,445.0 665.0,790.0 325.0,790.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<polyline points="625.0,625.0 640.0,625.0 640.0,802.0 325.0,802.0" fill="none" stroke="#33415c" stroke-width="1.5" marker-end="url(#arr)"/>
+<rect x="110" y="18" width="180" height="44" rx="22" fill="#fde7e9" stroke="#b02a37" stroke-width="1.5"/>
+<text x="200.0" y="40.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">周期開始 (Tc=20ms)</text>
+<rect x="75" y="87" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="200.0" y="110.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">入力取得(センサ/カメラ)</text>
+<rect x="75" y="157" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="200.0" y="180.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">信号妥当性診断</text>
+<polygon points="200,222 290,265 200,308 110,265" fill="#fff3cd" stroke="#b8860b" stroke-width="1.5"/>
+<text x="200.0" y="265.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">故障あり?</text>
+<rect x="375" y="242" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="500.0" y="265.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">フェールセーフ(トルク漸減/FAULT)</text>
+<rect x="75" y="337" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="200.0" y="360.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">車線推定(横偏差/ヨー角/曲率)</text>
+<polygon points="200,402 290,445 200,488 110,445" fill="#fff3cd" stroke="#b8860b" stroke-width="1.5"/>
+<text x="200.0" y="445.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">作動条件成立?</text>
+<rect x="375" y="422" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="500.0" y="445.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">制御停止(STANDBY出力)</text>
+<rect x="75" y="517" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="200.0" y="540.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">逸脱判定/目標トルク算出</text>
+<polygon points="200,582 290,625 200,668 110,625" fill="#fff3cd" stroke="#b8860b" stroke-width="1.5"/>
+<text x="200.0" y="625.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">オーバーライド?</text>
+<rect x="375" y="602" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="500.0" y="625.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">介入抑制(OVERRIDE)</text>
+<rect x="75" y="697" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="200.0" y="720.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">補助トルク指令確定</text>
+<rect x="75" y="767" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="200.0" y="790.0" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#1b2330">出力更新(EPS/HMI)</text>
+<rect x="75" y="837" width="250" height="46" rx="3" fill="#e8f0fe" stroke="#33415c" stroke-width="1.5"/>
+<text x="200.0" y="860.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">自己診断/WDT更新</text>
+<rect x="110" y="903" width="180" height="44" rx="22" fill="#fde7e9" stroke="#b02a37" stroke-width="1.5"/>
+<text x="200.0" y="925.0" text-anchor="middle" dominant-baseline="central" font-size="13" fill="#1b2330">周期終了</text>
+<rect x="319.0" y="257.0" width="27" height="16" fill="#ffffff" opacity="0.85"/><text x="332.5" y="265.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">Yes</text>
+<rect x="190.0" y="314.5" width="20" height="16" fill="#ffffff" opacity="0.85"/><text x="200.0" y="322.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">No</text>
+<rect x="322.5" y="437.0" width="20" height="16" fill="#ffffff" opacity="0.85"/><text x="332.5" y="445.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">No</text>
+<rect x="186.5" y="494.5" width="27" height="16" fill="#ffffff" opacity="0.85"/><text x="200.0" y="502.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">Yes</text>
+<rect x="319.0" y="617.0" width="27" height="16" fill="#ffffff" opacity="0.85"/><text x="332.5" y="625.0" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">Yes</text>
+<rect x="190.0" y="674.5" width="20" height="16" fill="#ffffff" opacity="0.85"/><text x="200.0" y="682.5" text-anchor="middle" dominant-baseline="central" font-size="11" fill="#5a6675">No</text>
+</svg>
+</figure>
+<h2>6 機能安全に関する考慮</h2>
+<p>本システムは、機能安全規格ISO 26262の考え方を踏まえて設計する。ここでは規格条文の引用は行わず、一般的な設計方針を述べる。意図しない操舵トルクの付与、および必要な介入の喪失や遅延は危険事象となり得るため、これらを抑止するための安全機構を設ける。</p>
+<p>フォールト検出としては、各入力信号のレンジチェックおよび更新タイムアウト監視、通信フレームのチェックサム/CRC検証、複数センサ間の整合性によるクロスチェック、ならびに制御演算の妥当性監視(出力トルクの上限・勾配監視)を行う。カメラ認識信頼度の低下や車線ロストも作動継続可否の判断に用いる。</p>
+<p>フェールセーフとしては、故障確定時に補助操舵トルクを急変させず漸減(ランプダウン)させたうえで介入を停止し、安全状態として操舵をドライバに委ねる。あわせてFAULT状態へ遷移し、ドライバへ警報および状態表示を行い、故障コード(DTC)を記録する。</p>
+<p>演算の健全性はウォッチドッグおよび周期監視により担保し、想定外の処理停止やオーバーランを検出した場合も安全状態へ移行する。安全要求のうち重要度の高いものには相応のASILを割り当て、要求から設計・検証までの追跡性を確保する。独立した監視機能により、主機能の誤りを検出する多重化構成を基本方針とする。</p>
+<p>アーキテクチャ上は、主たる制御演算とは独立した監視機能を設け、出力トルクの妥当性や演算結果の整合性を監視する。これにより、単一の故障が直ちに危険な操舵介入につながらないようにする。診断結果および故障履歴は不揮発メモリに記録し、サービス時の解析に供する。</p>
+<h2>7 主要パラメータ表とインタフェース表</h2>
+<p>本章では、LKASソフトウェアの主要な調整パラメータおよび外部インタフェースを示す。パラメータ表(表1)は制御周期や作動速度域、各種閾値・ゲインなどの代表値を示すものであり、実車適合により最終値を決定する。</p>
+<p>インタフェース表(表2)はLKAS ECUが授受する主要信号の方向、接続先、データ型、範囲、更新周期を示す。なお本書に示す数値は検討段階の代表値であり、確定値ではない。詳細な信号定義およびタイミング制約は別途インタフェース設計書で規定する。</p>
+<figure><figcaption>表1 主要パラメータ</figcaption>
+<table>
+<thead><tr>
+<th>ID</th><th>パラメータ名</th><th>記号</th><th>代表値</th><th>単位</th><th>説明</th>
+</tr></thead>
+<tbody>
+<tr><td>P01</td><td>制御周期</td><td>Tc</td><td>20</td><td>ms</td><td>制御演算を実行する周期</td></tr>
+<tr><td>P02</td><td>作動下限車速</td><td>Vmin</td><td>65</td><td>km/h</td><td>操舵介入を許可する下限車速</td></tr>
+<tr><td>P03</td><td>作動上限車速</td><td>Vmax</td><td>180</td><td>km/h</td><td>操舵介入を許可する上限車速</td></tr>
+<tr><td>P04</td><td>最大補助操舵トルク</td><td>Tmax</td><td>3.0</td><td>N*m</td><td>EPSへ指令する補助トルクの上限</td></tr>
+<tr><td>P05</td><td>トルク立上り勾配</td><td>dTdt</td><td>8.0</td><td>N*m/s</td><td>補助トルクの単位時間あたり変化上限</td></tr>
+<tr><td>P06</td><td>オーバーライド判定トルク</td><td>Tovr</td><td>2.0</td><td>N*m</td><td>ドライバ操舵と判定する閾値</td></tr>
+<tr><td>P07</td><td>横偏差警報閾値</td><td>Ywarn</td><td>0.40</td><td>m</td><td>逸脱警報を発する横偏差閾値</td></tr>
+<tr><td>P08</td><td>逸脱予測時間閾値</td><td>TLCth</td><td>0.80</td><td>s</td><td>逸脱傾向ありと判定するTLC閾値</td></tr>
+<tr><td>P09</td><td>車線曲率上限</td><td>Kmax</td><td>0.0125</td><td>1/m</td><td>作動を許可する曲率上限(R=80m)</td></tr>
+<tr><td>P10</td><td>カメラ有効認識距離</td><td>Lcam</td><td>60</td><td>m</td><td>車線認識を有効とする前方距離</td></tr>
+<tr><td>P11</td><td>横偏差制御ゲイン</td><td>Ky</td><td>0.60</td><td>-</td><td>横偏差に対する制御ゲイン</td></tr>
+<tr><td>P12</td><td>ヨー角制御ゲイン</td><td>Kpsi</td><td>1.20</td><td>-</td><td>ヨー角偏差に対する制御ゲイン</td></tr>
+<tr><td>P13</td><td>フォールト確定時間</td><td>Tfault</td><td>100</td><td>ms</td><td>故障を確定するまでの継続時間</td></tr>
+<tr><td>P14</td><td>警報音圧</td><td>Lwarn</td><td>70</td><td>dB(A)</td><td>聴覚警報の音圧レベル</td></tr>
+</tbody></table></figure>
+<figure><figcaption>表2 外部インタフェース</figcaption>
+<table>
+<thead><tr>
+<th>ID</th><th>信号名</th><th>方向</th><th>接続先</th><th>データ型</th><th>範囲/分解能</th><th>更新周期</th><th>説明</th>
+</tr></thead>
+<tbody>
+<tr><td>I01</td><td>VehicleSpeed</td><td>In</td><td>車輪速/ABS</td><td>uint16</td><td>0..250 km/h</td><td>10 ms</td><td>自車速度</td></tr>
+<tr><td>I02</td><td>SteeringAngle</td><td>In</td><td>操舵角センサ</td><td>int16</td><td>-720..720 deg</td><td>10 ms</td><td>操舵角</td></tr>
+<tr><td>I03</td><td>YawRate</td><td>In</td><td>ヨーレートセンサ</td><td>int16</td><td>-100..100 deg/s</td><td>10 ms</td><td>ヨーレート</td></tr>
+<tr><td>I04</td><td>DriverTorque</td><td>In</td><td>操舵トルクセンサ</td><td>int16</td><td>-10..10 N*m</td><td>10 ms</td><td>ドライバ操舵トルク</td></tr>
+<tr><td>I05</td><td>LaneInfo</td><td>In</td><td>前方カメラ</td><td>struct</td><td>横偏差/ヨー角/曲率/信頼度</td><td>33 ms</td><td>車線情報</td></tr>
+<tr><td>I06</td><td>TurnSignal</td><td>In</td><td>ボデーECU</td><td>enum</td><td>Off/Left/Right</td><td>50 ms</td><td>方向指示器状態</td></tr>
+<tr><td>I07</td><td>SwitchInput</td><td>In</td><td>システムスイッチ</td><td>bool</td><td>0/1</td><td>50 ms</td><td>システムON/OFF入力</td></tr>
+<tr><td>I08</td><td>AssistTorqueCmd</td><td>Out</td><td>EPS</td><td>int16</td><td>-3.0..3.0 N*m</td><td>20 ms</td><td>補助操舵トルク指令</td></tr>
+<tr><td>I09</td><td>EnableStatus</td><td>Out</td><td>EPS</td><td>bool</td><td>0/1</td><td>20 ms</td><td>操舵介入許可</td></tr>
+<tr><td>I10</td><td>LkasState</td><td>Out</td><td>メータ</td><td>enum</td><td>OFF/STANDBY/ACTIVE/OVERRIDE/FAULT</td><td>100 ms</td><td>作動状態表示</td></tr>
+<tr><td>I11</td><td>WarnRequest</td><td>Out</td><td>メータ/ブザー</td><td>bool</td><td>0/1</td><td>100 ms</td><td>逸脱警報要求</td></tr>
+<tr><td>I12</td><td>DTC</td><td>Out</td><td>診断</td><td>uint16</td><td>故障コード</td><td>イベント時</td><td>故障コード記録</td></tr>
+</tbody></table></figure>
+<figure><figcaption>図5 LKAS作動状態表示画面(ACTIVE)</figcaption><img src="capture1.png" alt="図5 LKAS作動状態表示画面(ACTIVE)"></figure>
+<figure><figcaption>図6 車線逸脱警報表示画面</figcaption><img src="capture2.png" alt="図6 車線逸脱警報表示画面"></figure>
+</body></html>

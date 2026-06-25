@@ -1,0 +1,94 @@
+{
+  "meta": {
+    "session": "write (書き込みコンテキスト計測). 読み込み計測は別セッションの責務。",
+    "tokenizer": "tiktoken",
+    "encoding": "cl100k_base",
+    "approximation_note": "全トークン値は tiktoken cl100k_base による近似値。Anthropic本番トークナイザとは数え方が異なるため絶対値は近似。主目的は .txt を基準(1.00)とした相対倍率の比較。",
+    "image_token_formula": "(width*height)/750",
+    "captures": {
+      "capture1.png": [
+        1280,
+        720
+      ],
+      "capture2.png": [
+        1280,
+        720
+      ]
+    },
+    "office_image_tokens_explained": "xlsx/docx/pptx は capture1/2 を画像実体として埋め込むため (1280*720)/750 * 2 = 2457.6 を加算。txt/md/sdoc/drawio/html はパス参照のみで0。",
+    "office_metrics_explained": "office の text_tokens は (a)論理内容ベース(セル/段落/図形のテキスト値の合計)。code_tokens は (b)生成コード参考値(各形式固有の生成モジュール gen_xlsx/gen_docx/gen_pptx のソーストークン。共有モジュール content/common/layout/figdata は含めない)。total と ratio は (a)+image_tokens に基づく主指標。",
+    "baseline": "txt total = 1.00",
+    "library_versions": {
+      "tiktoken": "0.13.0",
+      "openpyxl": "3.1.5",
+      "python-docx": "1.2.0",
+      "python-pptx": "1.0.2",
+      "Pillow": "12.2.0",
+      "strictdoc": "0.23.1"
+    },
+    "generated_at": "2026-06-19T07:36:02",
+    "format_order": [
+      "txt",
+      "md",
+      "sdoc",
+      "drawio",
+      "html",
+      "xlsx",
+      "docx",
+      "pptx"
+    ]
+  },
+  "formats": {
+    "txt": {
+      "text_tokens": 7827,
+      "image_tokens": 0,
+      "total": 7827,
+      "ratio": 1.0
+    },
+    "md": {
+      "text_tokens": 7691,
+      "image_tokens": 0,
+      "total": 7691,
+      "ratio": 0.983
+    },
+    "sdoc": {
+      "text_tokens": 8457,
+      "image_tokens": 0,
+      "total": 8457,
+      "ratio": 1.08
+    },
+    "drawio": {
+      "text_tokens": 31474,
+      "image_tokens": 0,
+      "total": 31474,
+      "ratio": 4.021
+    },
+    "html": {
+      "text_tokens": 16419,
+      "image_tokens": 0,
+      "total": 16419,
+      "ratio": 2.098
+    },
+    "xlsx": {
+      "text_tokens": 7452,
+      "image_tokens": 2457.6,
+      "total": 9909.6,
+      "code_tokens": 1197,
+      "ratio": 1.266
+    },
+    "docx": {
+      "text_tokens": 7452,
+      "image_tokens": 2457.6,
+      "total": 9909.6,
+      "code_tokens": 872,
+      "ratio": 1.266
+    },
+    "pptx": {
+      "text_tokens": 6993,
+      "image_tokens": 2457.6,
+      "total": 9450.6,
+      "code_tokens": 2180,
+      "ratio": 1.207
+    }
+  }
+}
