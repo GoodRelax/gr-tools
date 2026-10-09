@@ -1,4 +1,4 @@
-# CONF -- functional correctness
+# conformance-check -- functional correctness
 
 Lens code: `CNF`. Characteristic: `functional-suitability`.
 Inputs: `REPORT_DIR/requirements.jsonl`, `REPORT_DIR/map.md`, and in EXTRA your requirement group (mode A) or region (mode B).

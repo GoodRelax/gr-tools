@@ -1,4 +1,4 @@
-# SURVEY -- map, profile, partition, tool runs
+# survey -- map, profile, partition, tool runs
 
 You run first and alone. Every later agent starts from what you write, so be accurate rather than fast.
 
@@ -28,11 +28,17 @@ Mode A: derive from the specification (read its overview, scope and quality requ
 - Mode A: **external standards the specification names** (any standard, regulation or coding guideline). List each with the spec location. These start overlay agents; do not list standards the spec does not name. Classify each before listing it:
   - `external standard` -- a document outside the specification that the product must comply with. **Only these start overlay agents.**
   - `own rule` -- a rule the specification writes out itself (naming rules, design principles, a language or character-set rule), even when it cites a well-known principle by name. It is a requirement: it goes to `requirements.jsonl` and is checked by conformance, not by an overlay.
-  - `spec notation` -- a syntax used to write the specification (a requirement template, a scenario language). The SPEC agent checks that the specification follows it.
-  - `withdrawn` -- named but stated elsewhere in the specification to be dropped. No overlay; the SPEC agent reports the contradiction if both statements stand.
+  - `spec notation` -- a syntax used to write the specification (a requirement template, a scenario language). The `spec-review` agent checks that the specification follows it.
+  - `withdrawn` -- named but stated elsewhere in the specification to be dropped. No overlay; the `spec-review` agent reports the contradiction if both statements stand.
 
 **Weights.** Give each of the nine ISO/IEC 25010:2023 characteristics a weight -- `high`, `medium`, `low` or `n/a` -- with a one-line reason tied to the profile:
 functional suitability, performance efficiency, compatibility, interaction capability, reliability, security, maintainability, flexibility, safety.
+
+Also write the weights to `REPORT_DIR/profile.json` for the scoring script, using the axis ids of `axes.json`:
+
+```json
+{"weights": {"functional-suitability": "high", "performance-efficiency": "low", "compatibility": "medium", "interaction-capability": "medium", "reliability": "high", "security": "medium", "maintainability": "medium", "flexibility": "low", "safety": "n/a"}}
+```
 
 ## 3. Partition -- `REPORT_DIR/partition.json`
 

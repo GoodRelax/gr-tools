@@ -1,4 +1,4 @@
-# XREG -- follow defects across region borders
+# cross-region-followup -- follow defects across region borders
 
 Lens code: as the lens you follow (EXTRA names it: `NAM`, `BND`, `CCH`, `ORD`, `ROB`, `STR` or `EFF`), with region `X`.
 

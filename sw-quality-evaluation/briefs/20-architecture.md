@@ -1,4 +1,4 @@
-# ARCH -- architecture, quality scenarios and change scenarios
+# architecture-review -- architecture, quality scenarios and change scenarios
 
 Lens code: `ARC`. Characteristic: as each scenario dictates; `maintainability` for change scenarios.
 Region: ALL. You do not read every line: work from `map.md`, `profile.md`, `tools/deps.*` and targeted reading.
@@ -32,18 +32,21 @@ A change that must be made in many unconnected places, or that a maintainer woul
 
 | Item | Check |
 |---|---|
-| ARC-1 | Dependencies point towards the most stable, central code; the centre does not depend on frameworks, storage, transport or UI |
-| ARC-2 | No dependency cycles between components (`tools/deps.*`) |
-| ARC-3 | Components are used through their public surface, not their internals |
-| ARC-4 | The layer or module boundaries put each concept on the right side: what is essential to the product's purpose is in the centre, mere means are at the edge; edge adapters are neither so thin that external details leak inward nor so thick that business rules live in them |
-| ARC-5 | Each quality scenario in section 1 is supported by the structure, or its risk is stated |
-| ARC-6 | Each change scenario in section 2 touches a small, discoverable set of places |
-| ARC-7 | **Minimal configuration**: compared with the simplest structure that would meet the requirements, every extra layer, component, abstraction or technology has a reason visible in the code or spec; abstractions with a single implementation and no stated reason are flagged |
-| ARC-8 | The structure reflects the product (a reader can tell from the top-level layout what the product does), not only the frameworks it uses |
+| ARC-1 | **Layering**: the code is divided into layers (or rings) with clear roles; what is essential to the product's purpose sits in the centre and mere means (UI, storage, transport, frameworks) at the edge; edge adapters are neither so thin that external details leak inward nor so thick that business rules live in them. The number of layers is not judged -- their roles are |
+| ARC-2 | **Dependency direction**: dependencies point towards the stable centre and towards abstractions; the centre does not depend on frameworks, storage, transport or UI |
+| ARC-3 | **No dependency cycles** between components (`tools/deps.*`) |
+| ARC-4 | **Boundaries are respected**: components are used through their public surface; nothing reaches into another component's internals |
+| ARC-5 | **One job, one place, system-wide**: each decision, calculation or conversion has one implementation across the whole code; duplicates found by region agents are confirmed or cleared here |
+| ARC-6 | **Computation is separated from side effects** across the system, so that rules can be tested with fixed values |
+| ARC-7 | **Cross-cutting conventions are consistent**: error handling, logging, configuration, state management and time handling each follow one approach throughout |
+| ARC-8 | **Risky behaviour is guarded by tests**: the behaviours that the profile and the findings show to be risky have automated tests that would fail if they broke |
+| ARC-9 | **Change scenarios touch few, discoverable places** (section 2) |
+| ARC-10 | **Minimal configuration**: compared with the simplest structure that would meet the requirements, every extra layer, component, abstraction or technology has a reason visible in the code or spec; abstractions with a single implementation and no stated reason are flagged |
+| ARC-11 | **Quality scenarios are supported** by the structure, or their risk is stated (section 1) |
 
 ## 4. Scope of your findings
 
-File only **structural** findings: dependencies, boundaries, responsibilities, the fit of the structure to a scenario. A code-level defect you meet while tracing (a wrong index, a missing escape, a swallowed error) goes to `REPORT_DIR/handoffs/ARCH.jsonl` (format in the common brief), not to your findings -- the lens agents own it. When the structure *causes* a class of code-level defects (two copies of one rule that already disagree), file the structural cause and cite the example.
+File only **structural** findings: dependencies, boundaries, responsibilities, the fit of the structure to a scenario. A code-level defect you meet while tracing (a wrong index, a missing escape, a swallowed error) goes to `REPORT_DIR/handoffs/architecture-review.jsonl` (format in the common brief), not to your findings -- the lens agents own it. When the structure *causes* a class of code-level defects (two copies of one rule that already disagree), file the structural cause and cite the example.
 
 ## 5. Output
 

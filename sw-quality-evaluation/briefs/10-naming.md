@@ -4,6 +4,8 @@ Lens code: `NAM`. Characteristic: `maintainability` (and `functional-suitability
 
 **A name is the main interface of the code. "The name tells what it denotes" is a MUST, not a style preference.**
 
+**Naming is a mandatory axis of the report: it must always be scored.** Read every file of your region that declares identifiers -- source and tests; stylesheets and data files are not in scope. If you cannot cover them all, say exactly which files you missed in your return message, so the coordinator can have them read; never leave the axis to "cannot judge".
+
 ## 1. The four steps
 
 | Step | Question | Judged? | Example |

@@ -1,4 +1,4 @@
-# SPEC -- evaluate the specification (mode A) or reconstruct it (mode B)
+# spec-review -- evaluate the specification (mode A) or reconstruct it (mode B)
 
 Lens code: `SPC`. Characteristic for findings: `specification` (mode A) or `maintainability` (mode B).
 

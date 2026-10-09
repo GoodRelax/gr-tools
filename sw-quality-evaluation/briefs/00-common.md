@@ -13,7 +13,7 @@
 
 1. Never modify, create or delete anything inside CODE_DIR or SPEC_DIR. Write only inside REPORT_DIR.
 2. Never build or run the evaluated code, never run its tests, never install its dependencies, never run a tool in a mode that fixes files.
-3. Never install anything. Use tools that are present; the tool outputs SURVEY produced are in `REPORT_DIR/tools/`.
+3. Never install anything. Use tools that are present; the tool outputs the `survey` agent produced are in `REPORT_DIR/tools/`.
 4. No network access for the evaluation itself.
    **Evidence outside CODE_DIR, read-only.** To settle how a library, the runtime or the build behaves, you may READ files that already exist on the machine -- installed dependencies or the shipped build next to CODE_DIR, a package cache. Cite them as `outside-scope evidence: <path relative to its root>`. Never evaluate them, and never fetch anything.
    **Probes.** You may write your own small scripts in `REPORT_DIR/tools/<AGENT_ID>/` and run them on synthetic input, on an expression or regular expression copied out of the code, or with the libraries the coordinator installed. Never import, require or execute a file from CODE_DIR, and never start the product.
@@ -23,25 +23,29 @@
 
 ## 3. Verdicts, severity, confidence
 
-**Checklist verdicts** (one per checklist item of your brief, per region):
+**Checklist verdicts** (one per checklist item of your brief, per region). Scores are computed from these by a script, so judge each item on its own merits -- not to reach a score:
 
-| Verdict | Meaning | Required |
-|---|---|---|
-| `PASS` | Honoured | `evidence`: the file:line that honours it (one or more representative places) |
-| `FAIL` | Violated | At least one finding row that cites this item |
-| `NA` | Does not apply (e.g. no cache exists) | `remark`: why |
-| `UNDETERMINED` | Cannot be judged statically, or not inspected, or no baseline to judge against | `remark`: what would settle it |
+| Verdict | Meaning | Points | Required |
+|---|---|---|---|
+| `PASS` | Honoured | 2 | `evidence`: the file:line that honours it (one or more representative places) |
+| `MOSTLY` | Honoured, with minor and local exceptions | 1.5 | `evidence` for the rule and the finding id(s) of the exceptions |
+| `PARTIAL` | Honoured in some places, violated in others | 1 | `evidence` for both sides and the finding id(s) |
+| `FAIL` | Violated broadly, or violated in a way that causes harm | 0 | At least one finding that cites this item |
+| `NA` | Does not apply (e.g. no cache exists) | -- | `remark`: why |
+| `UNDETERMINED` | Cannot be judged statically, or not inspected, or no baseline to judge against | -- | `remark`: what would settle it |
+
+**Be fair in both directions.** A single local slip is `MOSTLY`, not `FAIL`. A rule the code ignores everywhere is `FAIL`, even if no single instance looks dramatic. Code that honours an item everywhere earns `PASS` -- a perfect score must be reachable, and the worst score must be given when it is deserved.
 
 **Severity** of a finding:
 
-| Severity | Meaning |
-|---|---|
-| `critical` | In a reachable scenario, causes the kind of harm the product profile (`REPORT_DIR/profile.md`) rates worst -- for example loss or corruption of data, a security breach, physical harm, or total loss of service |
-| `major` | A wrong result or a failure in a reachable scenario; or a defect that makes a likely change unsafe (a maintainer following the obvious path would introduce a bug) |
-| `minor` | Raises the cost or risk of change without producing a wrong result now |
-| `info` | Worth knowing; no action needed |
+| Severity | Meaning | Examples |
+|---|---|---|
+| `critical` | Leads to an outage, data corruption or a security incident -- including **a main function that silently produces wrong results** (fees, records, calculations) | A double booking accepted; a total that differs between two screens; untrusted input executed as code |
+| `major` | Leads to a defect (a failure, or a wrong result the user notices), or to a large maintenance burden | A crash on an edge input; an error the user cannot understand; a name that does not tell what it denotes and so invites misuse; one rule implemented twice that a change will likely update in one place only |
+| `minor` | No real harm to behaviour or maintenance | Inconsistent notation or naming convention; a missing unit in a local name; a stale comment |
+| `info` | Worth knowing; no action needed | |
 
-**Confidence**: `confirmed` -- you traced a concrete path from an entry point and can state the inputs or event sequence that trigger it; `plausible` -- the pattern is present but you did not trace the full path. A `critical` or `major` finding must state its scenario either way.
+**Confidence**: `confirmed` -- you traced a concrete path from an entry point and can state the inputs or event sequence that trigger it; `plausible` -- the pattern is present but you did not trace the full path. A `critical` or `major` finding must state its scenario either way. In scoring, a `plausible` finding counts one severity lower.
 
 ## 4. Output files
 

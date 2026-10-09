@@ -12,7 +12,8 @@ import json
 import pathlib
 import sys
 
-PRIORITY_LENS_PREFIXES = ("NAM-", "BND-", "CCH-", "ORD-", "EFF-")
+# Items that feed the hard-spot axes of axes.json; their PASS verdicts are refuted.
+PRIORITY_LENS_PREFIXES = ("NAM-", "BND-", "CCH-", "ORD-", "EFF-", "ROB-")
 
 
 def read_jsonl(path):

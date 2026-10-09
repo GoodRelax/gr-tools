@@ -1,6 +1,8 @@
-# CCH -- caches and copies that must stay in sync (priority lens)
+# CCH -- caches, copies, and shared mutable data (priority lens)
 
 Lens code: `CCH`. Characteristic: `reliability` (a stale copy gives a **different** answer, not just a slower one); `performance-efficiency` for bounds.
+
+Two sides of one problem: a **copy** that should have been kept in sync goes stale (CCH-1 to CCH-8); a **shared reference** that should have been a copy is changed from somewhere unexpected (CCH-9, CCH-10).
 
 ## What counts as a cache
 
@@ -27,6 +29,8 @@ Lens code: `CCH`. Characteristic: `reliability` (a stale copy gives a **differen
 | CCH-6 | **Concurrent invalidation is safe**: no window where a reader sees half-updated copies; many readers missing at once do not stampede the source |
 | CCH-7 | **Bounded**: caches that grow with input have a size or time limit and an eviction rule |
 | CCH-8 | **Fewer copies where possible**: a copy without a stated reason (performance, isolation) that could be computed on demand is flagged `minor` -- every copy is a future inconsistency |
+| CCH-9 | **Shared where a copy was meant (aliasing)**: a value handed to another part -- an argument, a returned collection, a configuration object, a cached result -- is not mutated behind the receiver's back, and the receiver does not mutate what it was lent. Look for in-place changes to arguments, returned internal collections, shallow copies of nested data, and default values shared between calls |
+| CCH-10 | **Mutability is deliberate**: data meant to be shared is immutable (or only exposed read-only); data meant to be changed has one owner. Mark which it is for each shared structure in your notes |
 
 ## Method
 

@@ -1,6 +1,6 @@
-# MERGE -- group findings by root cause before refutation
+# merge -- group findings by root cause before refutation
 
-Lens code: `MRG`. Region: ALL. You run after every agent that writes findings (waves 1-3) and before REFUTE.
+Lens code: `MRG`. Region: ALL. You run after every agent that writes findings (waves 1-3) and before refutation.
 
 Several lenses look at the same code from different sides, so one defect is often reported by several agents -- under different titles, severities and characteristics. That cross-confirmation is useful, but refuting and reporting each copy is waste and inflates the counts. You collapse them.
 

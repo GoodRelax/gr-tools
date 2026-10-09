@@ -1,4 +1,4 @@
-# OVL -- an external standard the specification names (mode A only)
+# standard-check -- an external standard the specification names (mode A only)
 
 Lens code: `OVL`. EXTRA names one standard, regulation or coding guideline and the spec location that names it.
 

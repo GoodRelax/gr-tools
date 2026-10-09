@@ -1,0 +1,88 @@
+{
+  "about": "Scoring definitions read by scripts/score_axes.py. Items are checklist item ids; an entry ending in '*' matches every id with that prefix. Labels are English; the synthesis agent supplies translations in REPORT_DIR/labels.json.",
+  "scale": [
+    {"score": 10, "ja": "卓越", "en": "Outstanding",  "guide_en": "A model to learn from. No findings."},
+    {"score": 9,  "ja": "優秀", "en": "Excellent",    "guide_en": "A few minor findings."},
+    {"score": 8,  "ja": "優良", "en": "Great",        "guide_en": "Several minor findings."},
+    {"score": 7,  "ja": "良好", "en": "Good",         "guide_en": "Many minor findings."},
+    {"score": 6,  "ja": "標準", "en": "Standard",     "guide_en": "Works and reads well. No confirmed major defect."},
+    {"score": 5,  "ja": "許容", "en": "Tolerable",    "guide_en": "A few major defects. Good and bad parts in equal measure."},
+    {"score": 4,  "ja": "不足", "en": "Inadequate",   "guide_en": "Many major defects. Departures from principles stand out."},
+    {"score": 3,  "ja": "粗悪", "en": "Poor",         "guide_en": "One critical defect, or most of it departs from principles."},
+    {"score": 2,  "ja": "劣悪", "en": "Bad",          "guide_en": "Several critical defects."},
+    {"score": 1,  "ja": "不可", "en": "Unacceptable", "guide_en": "The concern is not addressed at all."}
+  ],
+  "counting": {
+    "lines_per_unit": 5000,
+    "a_few": [1, 3],
+    "several": [4, 9],
+    "many_from": 10,
+    "minor_many_upper": 19,
+    "plausible_counts_one_level_lower": true
+  },
+  "checklist_points": {"PASS": 2, "MOSTLY": 1.5, "PARTIAL": 1, "FAIL": 0},
+  "checklist_levels": [
+    {"min_rate": 95, "no_fail": true, "score": 10},
+    {"min_rate": 88, "score": 9},
+    {"min_rate": 80, "score": 8},
+    {"min_rate": 70, "score": 7},
+    {"min_rate": 60, "score": 6},
+    {"min_rate": 50, "score": 5},
+    {"min_rate": 40, "score": 4},
+    {"min_rate": 30, "score": 3},
+    {"min_rate": 20, "score": 2},
+    {"min_rate": 0,  "score": 1}
+  ],
+  "charts": [
+    {
+      "id": "product",
+      "title": "Product quality: can it be used?",
+      "subtitle": "The nine characteristics of ISO/IEC 25010:2023",
+      "findings_by": "characteristic",
+      "axes": [
+        {"id": "functional-suitability", "label": "Functional suitability", "question": "Does it do what it should?", "items": ["CNF-*"]},
+        {"id": "performance-efficiency", "label": "Performance efficiency", "question": "Does it stay fast and light?", "items": ["EFF-*", "CCH-7"]},
+        {"id": "compatibility", "label": "Compatibility", "question": "Does it coexist and exchange data with others?", "items": ["STR-13"]},
+        {"id": "interaction-capability", "label": "Interaction capability", "question": "Can people use it without confusion?", "items": ["STR-15"]},
+        {"id": "reliability", "label": "Reliability", "question": "Does it hold up when things go wrong?", "items": ["BND-*", "CCH-1", "CCH-2", "CCH-3", "CCH-4", "CCH-5", "CCH-6", "CCH-9", "CCH-10", "ORD-*", "ROB-1", "ROB-2", "ROB-3", "ROB-4", "ROB-5", "ROB-6", "ROB-7", "ROB-8", "ROB-9"]},
+        {"id": "security", "label": "Security", "question": "Does it protect information?", "items": ["ROB-10", "ROB-11", "ROB-13"]},
+        {"id": "maintainability", "label": "Maintainability", "question": "Is it easy to change?", "items": ["NAM-*", "STR-1", "STR-2", "STR-3", "STR-4", "STR-5", "STR-6", "STR-7", "STR-8", "STR-9", "STR-10", "STR-11", "STR-12", "CMP-*", "ARC-*"]},
+        {"id": "flexibility", "label": "Flexibility", "question": "Does it adapt to other environments and scales?", "items": ["STR-14"]},
+        {"id": "safety", "label": "Safety", "question": "Can it harm people or property?", "items": ["ROB-12"]}
+      ]
+    },
+    {
+      "id": "design",
+      "title": "Design and construction: is it well engineered?",
+      "subtitle": "Seven design viewpoints; the design score is computed from all their items",
+      "findings_by": "items",
+      "axes": [
+        {"id": "responsibility", "label": "Responsibility", "question": "One job per part, and does the name say it?", "items": ["CMP-1", "CMP-2", "CMP-3", "STR-4", "STR-5"]},
+        {"id": "api-and-boundaries", "label": "API and boundaries", "question": "Can each part be used from its interface alone?", "items": ["CMP-4", "CMP-5", "CMP-6", "ARC-4"]},
+        {"id": "layers-and-dependencies", "label": "Layers and dependencies", "question": "Are layers and dependency directions right?", "items": ["ARC-1", "ARC-2", "ARC-3", "STR-7"]},
+        {"id": "no-duplication", "label": "No duplication", "question": "Is each job done in one place?", "items": ["ARC-5", "STR-2", "STR-3"]},
+        {"id": "state-handling", "label": "State handling", "question": "Is state held in one place and robust to event order?", "items": ["CMP-7", "ORD-2", "ORD-3"]},
+        {"id": "tests", "label": "Tests", "question": "Is risky behaviour guarded by tests?", "items": ["ARC-6", "ARC-8", "STR-6", "STR-11", "STR-12", "CNF-4"]},
+        {"id": "simplicity", "label": "Simplicity", "question": "No needless layers, abstractions or complexity?", "items": ["ARC-10", "STR-1", "STR-9", "STR-10"]}
+      ]
+    },
+    {
+      "id": "hard-spots",
+      "title": "Hard spots: are the error-prone parts right?",
+      "subtitle": "Ten places where code most often goes wrong",
+      "findings_by": "items",
+      "axes": [
+        {"id": "naming", "label": "Naming", "question": "Does every name tell what it denotes?", "items": ["NAM-*"], "mandatory": true},
+        {"id": "boundaries", "label": "Boundaries (off-by-one)", "question": "Are ranges, indexes and edge values right?", "items": ["BND-*"]},
+        {"id": "caches-and-copies", "label": "Caches and copies", "question": "Do copies stay in sync with their source?", "items": ["CCH-1", "CCH-2", "CCH-3", "CCH-4", "CCH-5", "CCH-6", "CCH-7", "CCH-8"]},
+        {"id": "ordering", "label": "Ordering", "question": "Is it right when events come in another order?", "items": ["ORD-1", "ORD-4", "ORD-5", "ORD-6", "ORD-7", "ORD-8", "ORD-9"]},
+        {"id": "efficiency", "label": "Efficiency", "question": "Is heavy work done in the right complexity class?", "items": ["EFF-*"]},
+        {"id": "error-paths", "label": "Error paths and clean-up", "question": "Does it stop, report and clean up when something fails?", "items": ["ROB-1", "ROB-2", "ROB-3", "ROB-4", "ROB-5", "ROB-6", "ROB-7"]},
+        {"id": "string-boundaries", "label": "String boundaries", "question": "Is text encoded where it enters another language?", "items": ["ROB-10", "ROB-11", "ROB-13"]},
+        {"id": "numbers-and-units", "label": "Numbers and units", "question": "Overflow, rounding, floating point, units?", "items": ["ROB-9", "NAM-7"]},
+        {"id": "time-and-dates", "label": "Time and dates", "question": "Clocks, time zones, daylight saving, calendars?", "items": ["ROB-8"]},
+        {"id": "sharing-and-mutability", "label": "Sharing and mutability", "question": "Is shared data protected from unexpected changes?", "items": ["CCH-9", "CCH-10"]}
+      ]
+    }
+  ]
+}

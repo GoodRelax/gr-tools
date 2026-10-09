@@ -16,7 +16,7 @@ Lens code: `STR`. Characteristics: `maintainability`, `compatibility`, `flexibil
 | STR-8 | **Comments say why, not what**; no commented-out code; no stale comments |
 | STR-9 | **Dead code**: unused functions, parameters, flags, configuration and branches (use a dead-code tool if present; confirm by search) |
 | STR-10 | **Nesting and control flow**: deep nesting is flattened where early returns would do; no long `if` / `switch` chains that every new variant must extend in several places |
-| STR-11 | **Tests -- presence**: the region's behaviour is covered by automated tests. If the whole code has none, SYNTH reports that once; in your region report only which risky behaviour has no test |
+| STR-11 | **Tests -- presence**: the region's behaviour is covered by automated tests. If the whole code has none, the synthesis reports that once; in your region report only which risky behaviour has no test |
 | STR-12 | **Tests -- quality**: tests are independent of each other and of execution order; no timing- or randomness-dependent assertions; boundary and error cases are tested, not only the main path; mocks do not replace the very behaviour under test; test names state the condition and the expected result |
 | STR-13 | **Compatibility**: stored and exchanged formats and protocols carry a version or are otherwise evolvable; reading older data is handled where the profile implies it |
 | STR-14 | **Flexibility**: environment specifics (paths, hosts, devices, sizes) are isolated in configuration or one adapter, not spread through the logic |

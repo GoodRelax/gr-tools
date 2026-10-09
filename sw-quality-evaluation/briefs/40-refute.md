@@ -1,4 +1,4 @@
-# REFUTE -- try to break each finding and each PASS
+# refutation -- try to break each finding and each PASS
 
 Lens code: `REF`. EXTRA names your batch file: `REPORT_DIR/refute/batch-<NN>.jsonl` -- clusters from `clusters.jsonl` (each groups findings with one root cause; read the member findings in `findings/` for their detail) and PASS verdicts written by other agents.
 

@@ -2,6 +2,8 @@
 
 Lens code: `ROB`. Characteristics: `reliability`, `security`, `safety`.
 
+This lens also feeds four of the hard-spot axes of the report: error paths and clean-up (ROB-1 to ROB-7), time and dates (ROB-8), numbers and units (ROB-9), and string boundaries (ROB-10, ROB-11, ROB-13). Judge each of these items on its own.
+
 Error paths and resource release are where code that works in every demo fails in the field: they run only when something goes wrong, so they are rarely exercised. Read them as carefully as the main path.
 
 ## Checklist
@@ -20,6 +22,7 @@ Error paths and resource release are where code that works in every demo fails i
 | ROB-10 | **External input is validated at the trust boundary**: type, range, length, format, encoding; nothing from outside reaches a query, command, path, template, deserialiser or memory operation unchecked |
 | ROB-11 | **Security weaknesses**: injection (query, command, path traversal, template), unsafe deserialisation, hard-coded secrets, missing authentication or authorisation checks on a privileged operation, weak or misused cryptography, sensitive data written to logs. Use `REPORT_DIR/tools/secrets.*` and `tools/lint-*` outputs |
 | ROB-12 | **Fail-safe behaviour** (only if the profile's harm class includes physical harm, data loss or loss of a critical service; otherwise `NA`): on an internal fault the system moves to a defined safe state; hazards are detected and signalled; watchdogs or time-outs guard every wait that could block forever |
+| ROB-13 | **String boundaries**: wherever text crosses into another language or format -- HTML, SQL, shell, regular expressions, JSON, CSV, URLs, file paths, log lines -- it is encoded for that target (escaping, parameter binding, quoting) and decoded on the way back (entities, percent-encoding); character encodings are explicit at every input and output; nothing is built by concatenating untrusted text into code or markup |
 
 ## Method
 
