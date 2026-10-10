@@ -53,6 +53,31 @@ Behind them: functional correctness (requirement by requirement in mode A; the c
 - Page one is checked for consistency: it cannot say "usable" above a risk that users meet in ordinary use.
 - The report judges the code, never the people who wrote it, and lists strengths as well as risks.
 
+## Reference projects for calibration
+
+Before trusting the scores on your own code, run the evaluation on a few well-known projects of a similar size and compare. The projects below are widely used, actively maintained and backed by tests; they are listed as **reference points, not as known scores** -- the evaluation decides their scores like any other code.
+
+| Size | Project | Language | Approx. lines | What it exercises well |
+|---|---|---|---|---|
+| ~1,000 | [pallets/itsdangerous](https://github.com/pallets/itsdangerous) | Python | 1,700 | Signing and time-limited tokens: time and dates, string boundaries (encoding), security |
+| ~1,000 | [ai/nanoid](https://github.com/ai/nanoid) | JavaScript | 1,000 | Random ID generation: numbers and units, security, a minimal public API |
+| ~1,000 | [google/uuid](https://github.com/google/uuid) | Go | 2,200 | UUID parsing and formatting: boundaries, string boundaries, API design |
+| ~10,000 | [pallets/flask](https://github.com/pallets/flask) | Python | 16,000 | A web framework core: layers and dependencies, error paths, state handling |
+| ~10,000 | [expressjs/express](https://github.com/expressjs/express) | JavaScript | 14,000 | Request routing and middleware: ordering, error paths, API design |
+| ~10,000 | [spf13/cobra](https://github.com/spf13/cobra) | Go | 13,000 | A command-line framework: API usable on its own, responsibility, naming |
+| ~50,000 | [Textualize/rich](https://github.com/Textualize/rich) | Python | 49,000 | Terminal rendering: string boundaries, efficiency, many components |
+| ~50,000 | [BurntSushi/ripgrep](https://github.com/BurntSushi/ripgrep) | Rust | 57,000 | A fast search tool: efficiency, boundaries, layers across several crates |
+| ~50,000 | [lua/lua](https://github.com/lua/lua) | C | 43,000 | A language interpreter: numbers, memory and error paths, a compact design |
+| ~100,000 | [pytest-dev/pytest](https://github.com/pytest-dev/pytest) | Python | 111,000 | A plugin-based test framework: component design, dependencies, tests of tests |
+| ~100,000 | [vuejs/core](https://github.com/vuejs/core) | TypeScript | 131,000 | A reactive UI framework: caches and copies, ordering, state handling |
+| ~100,000 | [date-fns/date-fns](https://github.com/date-fns/date-fns) | TypeScript | 92,000 | Date utilities: time and dates, boundaries, a large but uniform API |
+
+**How the sizes were measured.** Total bytes of all source languages reported by the GitHub API (`GET /repos/{owner}/{repo}/languages`, 2026-10-10), divided by 35 bytes per line. The figure includes tests and examples, so it is an order of magnitude, not a count; the survey step measures the real in-scope lines at run time. Check each project's licence yourself before use.
+
+**Cost grows with size.** About 10 agents at ~1,000 lines, 25-35 at ~10,000, and roughly 8 per 5,000 lines beyond that; above 30 agents the coordinator asks whether to evaluate all regions or only the highest-risk ones.
+
+**A known low reference.** Do not pick a real project as a "bad example". Instead, copy a small reference project into a private scratch folder and seed it with known defects (an off-by-one in an expiry check, a swallowed exception, one rule written in two places, a name that says the opposite of what it holds). Evaluate the original and the copy: the original should score high on most axes, the copy should drop on exactly the axes you damaged, and the findings should name the defects you seeded.
+
 ## Files
 
 | File | Role |
