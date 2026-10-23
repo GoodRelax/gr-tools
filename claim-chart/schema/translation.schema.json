@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim-chart-translation/1",
+  "title": "Machine translation (tr.<lang>.json)",
+  "description": "Shown next to the original as a reference only. build.py checks that each node translation keeps exactly the [label] holes of its children, and that line and paragraph counts match.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "nodes": {
+      "type": "object", "description": "Node label -> translation of its own wording, with [label] holes for its children.",
+      "additionalProperties": { "type": "string" }
+    },
+    "lines": {
+      "type": "object", "description": "Claim number -> one translated line per line of the claim body.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "summary": {
+      "type": "object", "description": "Summary role (problem, solution, effect) -> [heading, paragraph, ...] in the same order as the source file.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    }
+  }
+}

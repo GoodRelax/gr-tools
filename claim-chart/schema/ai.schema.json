@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim-chart-ai/1",
+  "title": "AI provisional checks (ai.json)",
+  "description": "Provisional answers by an AI, shown as their own layer; a person adopts them or not. Every quote must occur in its file (build.py checks, ignoring whitespace, and computes the line). Something the target does not describe is tbd, never false.",
+  "type": "object",
+  "required": ["judgments"],
+  "additionalProperties": false,
+  "properties": {
+    "target": { "type": "string", "description": "What the claims were compared with, including its version (repository, branch, commit)." },
+    "by": { "type": "string" },
+    "date": { "type": "string" },
+    "base": { "type": "string", "description": "Folder that evidence file paths are relative to, relative to this source folder." },
+    "judgments": {
+      "type": "object", "description": "Node label -> judgment. Only leaves and nodes with own wording take a check.",
+      "additionalProperties": {
+        "type": "object", "required": ["check"], "additionalProperties": false,
+        "properties": {
+          "check": { "enum": ["true", "false", "tbd"] },
+          "reason": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "object", "required": ["file", "quote"], "additionalProperties": false,
+                       "properties": { "file": { "type": "string" }, "quote": { "type": "string", "description": "Verbatim excerpt." } } }
+          }
+        }
+      }
+    }
+  }
+}

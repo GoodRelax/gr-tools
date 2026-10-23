@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim-chart-tree/1",
+  "title": "Claim trees (tree.json)",
+  "description": "One tree per claim, in claim order. Joining every string of a tree in order must give the claim body exactly (build.py checks this). Strings are glue; objects are nodes.",
+  "type": "object",
+  "required": ["claims"],
+  "additionalProperties": false,
+  "properties": {
+    "claims": { "type": "array", "items": { "$ref": "#/$defs/part" } }
+  },
+  "$defs": {
+    "part": { "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/node" }] },
+    "parts": { "type": "array", "items": { "$ref": "#/$defs/part" }, "minItems": 1 },
+    "node": {
+      "oneOf": [
+        { "type": "object", "required": ["L"], "additionalProperties": false,
+          "properties": { "L": { "type": "string", "description": "Leaf: a condition checked by a person." } } },
+        { "type": "object", "required": ["P"], "additionalProperties": false,
+          "properties": { "P": { "type": "string", "description": "Optional clause (\"... may ...\", \"〜てもよく\"): always true." } } },
+        { "type": "object", "required": ["R", "t"], "additionalProperties": false,
+          "properties": { "R": { "type": "integer", "minimum": 1, "description": "Cited earlier claim." },
+                          "t": { "type": "string", "description": "The citing words, e.g. \"The method of claim 1\"." } } },
+        { "type": "object", "required": ["A"], "additionalProperties": false,
+          "properties": { "A": { "$ref": "#/$defs/parts" }, "own": { "type": "boolean" }, "alt": { "type": "boolean" } } },
+        { "type": "object", "required": ["O"], "additionalProperties": false,
+          "properties": { "O": { "$ref": "#/$defs/parts" }, "own": { "type": "boolean" }, "alt": { "type": "boolean" } } },
+        { "type": "object", "required": ["N"], "additionalProperties": false,
+          "properties": { "N": { "$ref": "#/$defs/parts", "description": "Negation over exactly one plain A/O list of leaves (De Morgan)." } } }
+      ]
+    }
+  }
+}

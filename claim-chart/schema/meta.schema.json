@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim-chart-meta/1",
+  "title": "Bibliographic data (meta.json)",
+  "type": "object",
+  "required": ["id", "origLang"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "description": "Full patent number used as the tab name, e.g. JP0000000, US5946647." },
+    "country": { "type": "string" },
+    "number": { "type": "string", "description": "As printed, e.g. 特許第0000000号, US 5,946,647." },
+    "title": { "type": "string" },
+    "holder": { "type": "string" },
+    "filed": { "type": "string" },
+    "registered": { "type": "string" },
+    "status": { "type": "string", "description": "Legal status with where and when it was read." },
+    "source": { "type": "string", "description": "URL the text was taken from." },
+    "origLang": { "enum": ["ja", "en"], "description": "Language of the claims; decides how line breaks join words." },
+    "summary": {
+      "type": "array", "description": "Summary sections, each a verbatim text file whose first line is its heading.",
+      "items": { "type": "object", "required": ["file", "role"], "additionalProperties": false,
+                 "properties": { "file": { "type": "string" }, "role": { "enum": ["problem", "solution", "effect"] } } }
+    }
+  }
+}

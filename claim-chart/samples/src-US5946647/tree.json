@@ -1,0 +1,98 @@
+{
+  "claims": [
+    {"A": [
+      {"L": "A computer-based system for detecting structures in data and performing actions on detected structures, comprising:"}, "\n",
+      {"L": "an input device for receiving data;"}, "\n",
+      {"L": "an output device for presenting the data;"}, "\n",
+      {"A": [
+        "a memory storing information including program routines including\n",
+        {"A": [
+          {"A": ["an analyzer server ",
+            {"A": [{"L": "for detecting structures in the data"}, ", and ", {"L": "for linking actions to the detected structures"}]},
+            ";"], "own": true},
+          "\n",
+          {"L": "a user interface enabling the selection of a detected structure and a linked action;"}, " and\n",
+          {"L": "an action processor for performing the selected action linked to the selected structure;"}
+        ]},
+        " and"], "own": true},
+      "\n",
+      {"A": ["a processing unit coupled to ",
+        {"A": [{"L": "the input device"}, ", ", {"L": "the output device"}, ", and ", {"L": "the memory"}]},
+        " for controlling the execution of the program routines."], "own": true}
+    ]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ", {"L": "the analyzer server stores detected structures in the memory."}]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ",
+      {"L": "the input device receives the data from an application running concurrently"}, ", and wherein ",
+      {"L": "the program routines stored in memory further comprise an application program interface for communicating with the application."}]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ",
+      {"A": ["the analyzer server includes ", {"A": [{"L": "grammars"}, " and ", {"L": "a parser"}]}, " for detecting structures in the data."], "own": true}]},
+    {"A": [{"R": 4, "t": "The system recited in claim 4"}, ", wherein ",
+      {"L": "the analyzer server includes actions associated with each of the grammars"}, ", and wherein ",
+      {"L": "the analyzer server links to a detected structure the actions associated with the grammar which detects that structure."}]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ",
+      {"A": ["the analyzer server includes ", {"A": [{"L": "a string library"}, " and ", {"L": "a fast string search function"}]}, " for detecting string structures in the data."], "own": true}]},
+    {"A": [{"R": 6, "t": "The system recited in claim 6"}, ", wherein ",
+      {"L": "the analyzer server includes actions associated with each of the strings"}, ", and wherein ",
+      {"L": "the analyzer server links to a detected structure the actions associated with the grammar which detects that string structure."}]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ", {"L": "the user interface highlights detected structures."}]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ", {"L": "the user interface enables selection of an action by causing the output device to display a pop-up menu of the linked actions."}]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ",
+      {"A": ["the programs stored in the memory further comprise ",
+        {"A": [{"L": "an application running concurrently that causes the output device to present the data received by the input device"}, ", and ",
+          {"L": "an application program interface that provides interrupts and communicates with the application"}]},
+        "."], "own": true}]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ", {"L": "the user interface enables the selection of a detected structure and a linked action using sound activation."}]},
+    {"A": [{"R": 1, "t": "The system recited in claim 1"}, ", wherein ", {"L": "a first one of the actions may invoke a second one of the actions."}]},
+    {"A": [
+      {"L": "A program storage medium storing a computer program for causing a computer to perform the steps of:"}, "\n",
+      {"L": "receiving computer data;"}, "\n",
+      {"L": "detecting a structure in the data;"}, "\n",
+      {"L": "linking at least one action to the detected structure;"}, "\n",
+      {"L": "enabling selection of the structure and a linked action;"}, " and\n",
+      {"L": "executing the selected action linked to the selected structure."}
+    ]},
+    {"A": [
+      {"L": "In a computer having a memory storing actions, a system for causing the computer to perform an action on a structure identified in computer data, comprising:"}, "\n",
+      {"L": "means for receiving computer data;"}, "\n",
+      {"L": "means for detecting a structure in the data;"}, "\n",
+      {"L": "means for linking at least one action to the detected structure;"}, "\n",
+      {"L": "means for selecting the structure and a linked action;"}, " and\n",
+      {"L": "means for executing the selected action linked to the selected structure."}
+    ]},
+    {"A": [
+      {"L": "In a computer having a memory storing actions, a method for causing the computer to perform an action on a structure identified in computer data, comprising the steps of:"}, "\n",
+      {"L": "receiving computer data;"}, "\n",
+      {"L": "detecting a structure in the data;"}, "\n",
+      {"L": "linking at least one action to the detected structure;"}, "\n",
+      {"L": "enabling selection of the structure and a linked action;"}, " and\n",
+      {"L": "executing the selected action linked to the selected structure."}
+    ]},
+    {"A": [{"R": 15, "t": "The method recited in claim 15"}, ", wherein ", {"L": "the computer data is received from the application running concurrently."}]},
+    {"A": [{"R": 15, "t": "The method recited in claim 15"}, ", wherein ",
+      {"L": "the memory contains grammars"}, ", and wherein ",
+      {"A": ["the step of detecting a structure further comprises the steps of ", {"A": [{"L": "retrieving a grammar"}, " and ", {"L": "parsing the data based on the grammar"}]}, "."], "own": true}]},
+    {"A": [{"R": 17, "t": "The method recited in claim 17"}, ", wherein ",
+      {"L": "the grammar is associated with a particular action"}, ", and wherein ",
+      {"L": "the step of linking at least one action to the detected structure includes the step of linking the particular action to the detected structure."}]},
+    {"A": [{"R": 15, "t": "The method recited in claim 15"}, ", wherein ",
+      {"L": "the memory contains strings"}, ", and wherein ",
+      {"A": ["the step of detecting a structure further comprises the steps of ", {"A": [{"L": "retrieving a string from the memory"}, " and ", {"L": "scanning the data to identify the string"}]}, "."], "own": true}]},
+    {"A": [{"R": 15, "t": "The method recited in claim 15"}, ", further comprising ", {"L": "after the step of detecting a structure, the step of highlighting the detected structure."}]},
+    {"A": [{"R": 15, "t": "The method recited in claim 15"}, ", further comprising, ", {"L": "after the step of linking at least one action to the detected structure, the step of displaying and enabling selection of an action for performance on the detected structure."}]},
+    {"A": [
+      {"L": "A computer-based method for causing a computer to identify, select and perform an action on a structure in computer data received from a concurrently running application, said application presenting the computer data to the user, the method comprising the steps of:"}, "\n",
+      {"L": "receiving computer data from the application;"}, "\n",
+      {"L": "detecting a structure in the computer data;"}, "\n",
+      {"L": "linking at least one action to the detected structure;"}, "\n",
+      {"A": ["communicating with the application ",
+        {"A": [{"L": "to determine the location of the detected structure as presented by the application"}, ", ",
+          {"L": "to enable selection of the detected structure and a linked action"}, ", and ",
+          {"L": "to determine if the detected structure and a linked action have been selected"}]},
+        ";"], "own": true},
+      " and\n",
+      {"L": "performing a selected action linked to the detected pattern."}
+    ]},
+    {"A": [{"R": 15, "t": "The method recited in claim 15"}, ", wherein ", {"L": "the step of enabling uses sound activation."}]},
+    {"A": [{"R": 15, "t": "The method recited in claim 15"}, ", wherein ", {"L": "a first one of the actions may invoke a second one of the actions."}]}
+  ]
+}

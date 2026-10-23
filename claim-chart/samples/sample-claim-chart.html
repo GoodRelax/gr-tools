@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claim Chart</title>
+<!--
+  Claim chart page. build.py fills the two placeholders in the cc-data and cc-schema blocks
+  below and writes one self-contained .html. Layout of this file:
+    <style>   1 colour tokens  2 header  3 claim box and panes  4 tree rows  5 overview tables
+    <script>  1 boot and state  2 texts  3 helpers  4 index  5 evaluation  6 rendering
+              7 actions (every control has data-act="name")  8 bars  9 save and JSON  10 start
+  DESIGN.md explains the data model and how to extend it.
+-->
+<style>
+/* ---- 1 colour tokens: T = True (pink), F = False (green), U = TBD (orange), N = No need (grey) */
+:root {
+  --T-bg: #fbd3e0; --T-bd: #d6336c; --F-bg: #cdeed5; --F-bd: #2f9e44;
+  --U-bg: #ffe0b8; --U-bd: #f08c00; --N-bg: #e9ecef; --N-bd: #868e96;
+  --ink: #1f2328; --sub: #57606a; --line: #d0d7de; --paper: #ffffff; --tint: #f6f8fa;
+  --link: #0969da; --mark: #fff3a3; --markbd: #d4a72c; --trc: #0b7285;
+  --and: #6639ba; --or: #0969da; --not: #cf222e; --warn: #9a3412; --memo: #5a3e00;
+  --hdh: 120px; --fs: 14px; --ofs: 14px; --split: 40%;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --T-bg: #5a1f35; --T-bd: #f06595; --F-bg: #1c3f27; --F-bd: #51cf66;
+  --U-bg: #4a3213; --U-bd: #ffa94d; --N-bg: #262b31; --N-bd: #6e7681;
+  --ink: #e6edf3; --sub: #9da7b3; --line: #3d444d; --paper: #0d1117; --tint: #161b22;
+  --link: #58a6ff; --mark: #6b5a00; --markbd: #e3b341; --trc: #66d9e8;
+  --and: #b197fc; --or: #74c0fc; --not: #ff6b6b; --warn: #ffa94d; --memo: #ffd8a8;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: var(--fs)/1.45 system-ui, "Segoe UI", "Yu Gothic UI", "Hiragino Sans", sans-serif; color: var(--ink); background: var(--paper); }
+button, input, select, textarea { font: inherit; color: var(--ink); }
+button { cursor: pointer; background: var(--tint); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
+select, textarea, input[type="number"] { background: var(--paper); border: 1px solid var(--line); }
+input[type="number"] { width: 3.6em; }
+a { color: var(--link); }
+.badge { display: inline-block; padding: 0 8px; border-radius: 10px; border: 1px solid; font-weight: 700; }
+.badge.v-T { background: var(--T-bg); border-color: var(--T-bd); }
+.badge.v-F { background: var(--F-bg); border-color: var(--F-bd); }
+.badge.v-U { background: var(--U-bg); border-color: var(--U-bd); }
+.badge.v-N { background: var(--N-bg); border-color: var(--N-bd); color: var(--sub); }
+.tag { font-size: 0.79em; border: 1px solid var(--sub); border-radius: 3px; padding: 0 3px; color: var(--sub); margin-left: 4px; white-space: nowrap; }
+.tag.diff { border-color: var(--not); color: var(--not); font-weight: 700; }
+.note { color: var(--sub); font-size: 0.86em; }
+.trc { color: var(--trc); }
+
+/* ---- 2 header (sticky) */
+#hd { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 2px solid var(--line); padding: 4px 10px; }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 2px 0; }
+.hrow label { white-space: nowrap; }
+.tab { border-bottom: none; padding: 2px 10px; border-radius: 6px 6px 0 0; }
+.tab.on { background: var(--paper); font-weight: 700; border-color: var(--ink); }
+.sp { flex: 1; }
+.info span + span::before { content: "｜"; color: var(--sub); margin: 0 2px; }
+.grp { border-left: 1px solid var(--line); padding-left: 8px; }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 4px 0 0 4px; }
+.seg button:last-child { border-radius: 0 4px 4px 0; }
+.seg button.on { background: var(--link); color: #fff; border-color: var(--link); }
+.disc { color: var(--warn); font-size: 0.86em; }
+.banner { background: var(--U-bg); border: 1px solid var(--U-bd); border-radius: 4px; padding: 1px 8px; font-weight: 700; }
+#sum { max-height: 45vh; overflow: auto; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+#sum h4 { margin: 4px 0 2px; font-size: 0.93em; }
+#sum pre { margin: 0 0 6px; white-space: pre-wrap; font: inherit; background: var(--tint); padding: 4px 6px; border-radius: 4px; }
+#toast { position: fixed; right: 12px; bottom: 12px; z-index: 30; background: var(--tint); border: 1px solid var(--line); padding: 6px 10px; border-radius: 6px; display: none; white-space: pre-wrap; }
+
+/* ---- 3 claim box: by default it fits its content (the longer pane, no inner scroll, no blank
+   tail) and the claim text stays on screen while a longer tree scrolls past. Dragging the bottom
+   bar fixes the height (--ch) and both panes scroll inside; double-click goes back to fitting. */
+#mn { padding: 6px 10px 40vh; }
+.claim { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 8px; }
+.claim > h3 { margin: 0; padding: 2px 8px; font-size: 1em; background: var(--tint); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.claim.open > h3 { border-bottom: 1px solid var(--line); }
+.claim > h3 .sub { font-weight: 400; color: var(--sub); }
+.cbody { display: grid; grid-template-columns: minmax(0, var(--split)) 6px minmax(0, 1fr); }
+.bar-mid { cursor: col-resize; background: var(--line); }
+.bar-bottom { height: 6px; cursor: row-resize; background: var(--line); border-radius: 0 0 6px 6px; }
+.bar-mid:hover, .bar-bottom:hover, .dragging { background: var(--link); }
+.orig { padding: 4px 0 4px 6px; min-width: 0; min-height: 0; }
+.orig .inner { position: sticky; top: calc(var(--hdh) + 4px); max-height: calc(100vh - var(--hdh) - 16px); overflow: auto; padding-right: 6px; }
+.chart { padding: 2px 0; min-width: 0; min-height: 0; }
+.cbody.fixed { height: var(--ch); grid-template-rows: minmax(0, 1fr); }
+.cbody.fixed .orig .inner { position: relative; top: 0; height: 100%; max-height: none; }
+.cbody.fixed .chart { overflow: auto; }
+body.tb .cbody { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 6px auto; }
+body.tb .bar-mid { cursor: row-resize; }
+body.tb .orig .inner { position: relative; top: 0; max-height: none; }
+body.tb .cbody.ohfix .orig .inner { height: var(--oh); }
+body.tb .cbody.fixed { grid-template-rows: minmax(0, 40%) 6px minmax(0, 1fr); }
+body.tb .cbody.fixed.ohfix { grid-template-rows: minmax(0, var(--oh)) 6px minmax(0, 1fr); }
+.otool { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.86em; margin-bottom: 2px; position: sticky; top: 0; background: var(--paper); }
+.ng { color: var(--not); font-weight: 700; }
+.otext { white-space: pre-wrap; margin: 0; font: var(--ofs)/1.5 system-ui, "Segoe UI", "Yu Gothic UI", "Hiragino Sans", sans-serif; cursor: text; }
+.otext mark { background: var(--mark); color: inherit; outline: 1px solid var(--markbd); }
+.otext .trc { display: inline; }
+textarea.oedit { width: 100%; min-height: 95%; font: var(--ofs)/1.5 system-ui, "Segoe UI", "Yu Gothic UI", "Hiragino Sans", sans-serif; resize: vertical; }
+
+/* ---- 4 tree rows */
+.row { display: flex; align-items: flex-start; gap: 4px; padding: 1px 6px 1px 0; border-left: 4px solid transparent; margin: 1px 0; }
+.row.v-T { background: var(--T-bg); border-left-color: var(--T-bd); }
+.row.v-F { background: var(--F-bg); border-left-color: var(--F-bd); }
+.row.v-U { background: var(--U-bg); border-left-color: var(--U-bd); }
+.row.v-N { background: var(--N-bg); border-left-color: var(--N-bd); color: var(--sub); }
+.row.hl { outline: 2px solid var(--markbd); }
+.row.flash { animation: flash 1.2s; }
+@keyframes flash { 0%, 60% { outline: 3px solid var(--link); } 100% { outline: 0 solid transparent; } }
+.tw { width: 14px; flex: none; text-align: center; color: var(--sub); cursor: pointer; user-select: none; }
+.lb { flex: none; min-width: 3.4em; font-weight: 700; font-size: 0.86em; padding-top: 1px; }
+.g { flex: none; font-size: 0.79em; font-weight: 700; border-radius: 3px; padding: 0 4px; margin-top: 2px; border: 1px solid var(--sub); color: var(--sub); background: var(--paper); }
+.g-and { border-color: var(--and); color: var(--and); }
+.g-or { border-color: var(--or); color: var(--or); }
+.g-not { border-color: var(--not); color: #fff; background: var(--not); }
+.tx { flex: 1; min-width: 0; cursor: pointer; }
+.hole { color: var(--sub); font-size: 0.86em; }
+.sub-line { display: block; font-size: 0.86em; }
+.ie { color: var(--sub); }
+.mtxt { color: var(--memo); white-space: pre-wrap; }
+.ai { display: block; font-size: 0.86em; border-left: 3px solid var(--link); padding-left: 6px; margin-top: 1px; }
+.ai .ev { display: block; color: var(--sub); }
+.ck { flex: none; display: inline-flex; }
+.ck button { border-radius: 0; padding: 0 5px; font-size: 0.86em; line-height: 1.5; margin-left: -1px; background: var(--paper); }
+.ck button:first-child { border-radius: 4px 0 0 4px; }
+.ck button:last-child { border-radius: 0 4px 4px 0; }
+.ck button:disabled { cursor: default; opacity: .85; }
+.ck button.on.b-T { background: var(--T-bd); color: #fff; border-color: var(--T-bd); }
+.ck button.on.b-F { background: var(--F-bd); color: #fff; border-color: var(--F-bd); }
+.ck button.on.b-U { background: var(--U-bd); color: #fff; border-color: var(--U-bd); }
+.ck.alt button.on { background: var(--link); color: #fff; border-color: var(--link); }
+.mm { flex: none; border: none; background: none; padding: 0 2px; opacity: .35; }
+.mm.has { opacity: 1; }
+.memo textarea { width: 100%; min-height: 3em; }
+
+/* ---- 5 overview tables */
+h2 { font-size: 1.14em; margin: 10px 0 4px; }
+table.rep { border-collapse: collapse; margin: 4px 0 12px; width: 100%; }
+table.rep th, table.rep td { border: 1px solid var(--line); padding: 2px 6px; text-align: left; vertical-align: top; }
+table.rep th { background: var(--tint); }
+td[data-act="jump"] { cursor: pointer; }
+td[data-act="jump"]:hover { background: var(--tint); }
+
+@media (max-width: 760px) {
+  .cbody, body.tb .cbody { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 6px auto; }
+  .orig .inner { position: relative; top: 0; max-height: 60vh; }
+}
+</style>
+</head>
+<body>
+<header id="hd"></header>
+<main id="mn"></main>
+<div id="toast"></div>
+<input type="file" id="jsonFile" data-act="jsonFile" accept=".json,application/json" hidden>
+<script type="application/json" id="cc-data">{"uiLang":"ja","generated":"2026-10-23 22:55","patents":[{"id":"US5946647","country":"US","number":"US 5,946,647","title":"System and method for performing an action on a structure in computer-generated data","holder":"Apple Computer Inc","filed":"1996-02-01","registered":"1999-08-31","status":"Expired - Lifetime（Google Patents の表示、2026-10-23 に確認）","source":"https://patents.google.com/patent/US5946647A/en","origLang":"en","summaryList":[{"role":"problem","heading":"BACKGROUND OF THE INVENTION","text":"1. Field of the Invention\nThis invention relates generally to manipulation of structures in computer data. More particularly, the invention relates to a system and method for performing computer-based actions on structures identified in computer data.\n2. Description of the Background Art\nMuch data that appears in a computer user's day-to-day activities contains recognizable structures that have semantic significance such as phone numbers, e-mail addresses, post-office addresses, zip codes and dates. In a typical day, for example, a user may receive extensive files from word-processing programs and e-mail that contain several of these structures. However, visually searching data files or documents to find these structures is laborious and cognitively disruptive, especially if the document is lengthy and hard to follow. Furthermore, missing a structure such as a date may lead to missing an important meeting or missing a deadline.\nTo help facilitate searching a document for these structures, programmers can create or employ pattern analysis units, such as parsers, to automatically identify the structures. For the purposes of the present description, the term \"pattern\" refers to data, such as a grammar, regular expression, string, etc., used by a pattern analysis unit to recognize information in a document, such as dates, addresses, phone numbers, names, etc. The term \"structure\" refers to an instantiation of a pattern in the document. That is, a \"date\" pattern will recognize the structure \"Oct. 31, 1995.\" The application of a pattern to a document is termed \"parsing.\"\nConventional systems that identify structures in computer data do not enable automatic performance of an action on an identified structure. For example, if a long e-mail message is sent to a user, the user may implement a pattern analysis unit to search for particular structures, such as telephone numbers. Upon identification of a structure, the user may want to perform an action on the structure, such as moving the number to an electronic telephone book. This usually involves cutting the structure from the e-mail message, locating and opening the electronic telephone book application program, pasting the structure into the appropriate field, and closing the application program. However, despite the fact that computer systems are getting faster and more efficient, this procedure is still tedious and cognitively disruptive.\nOne type of system that has addressed this problem involves detecting telephone numbers. Such systems enable a user to select a telephone number and request that the application automatically dial the number. However, these systems do not recognize the selected data as a telephone number, and they generally produce an error message if the user selects invalid characters as a phone number. Also, they do not enable the performance of other candidate actions, such as moving the number to an electronic telephone book. That is, if a user wishes to perform a different action on an identified telephone number, such as storing the number in an address book, the user cannot automatically perform the action but must select and transfer the number to the appropriate data base as described above.\nTherefore, a system is needed that identifies structures, associates candidate actions to the structures, enables selection of an action and automatically performs the selected action on the structure.","tr":{"ja":["発明の背景","1. 発明の分野","本発明は、広くはコンピュータのデータの中の構造の操作に関する。より詳しくは、コンピュータのデータの中で見分けた構造に対して、コンピュータによる動作を行うシステムと方法に関する。","2. 背景技術の説明","コンピュータの利用者が日々扱うデータの多くは、電話番号、電子メールのアドレス、郵便の住所、郵便番号、日付のように、意味を持つ見分けられる構造を含む。たとえば利用者は、1 日のうちに、ワープロのプログラムや電子メールから、こうした構造をいくつも含む大量のファイルを受け取る。しかし、データのファイルや文書を目で探してこうした構造を見つけるのは手間がかかり、思考を乱す。文書が長く追いにくいときは特にそうである。さらに、日付のような構造を見落とすと、大事な会議や締め切りを逃すことがある。","文書の中でこうした構造を探すのを助けるため、プログラマーは、構文解析器のようなパターン解析の部品を作ったり使ったりして、構造を自動で見分けることができる。この説明では、「パターン」とは、日付・住所・電話番号・名前などの文書の中の情報を見分けるためにパターン解析の部品が使う、文法・正規表現・文字列などのデータをいう。「構造」とは、文書の中のパターンの実例をいう。つまり、「日付」のパターンは「Oct. 31, 1995.」という構造を見分ける。パターンを文書に当てることを「構文解析（parsing）」という。","コンピュータのデータの中で構造を見分ける従来のシステムは、見分けた構造に対する動作を自動で行えるようにはしていない。たとえば、利用者に長い電子メールが届いたとき、利用者はパターン解析の部品を使って、電話番号のような特定の構造を探すかもしれない。構造が見つかると、利用者はその番号を電子の電話帳に移すといった動作をしたいかもしれない。これにはふつう、電子メールから構造を切り取り、電子の電話帳のアプリケーションを探して開き、構造を適切な欄に貼り付け、アプリケーションを閉じることが要る。コンピュータが速く効率よくなっても、この手順は依然として面倒で、思考を乱す。","この問題に取り組んだシステムの 1 つに、電話番号を検出するものがある。こうしたシステムでは、利用者が電話番号を選び、アプリケーションにその番号へ自動で電話をかけさせることができる。しかし、こうしたシステムは選んだデータを電話番号として認識しておらず、利用者が電話番号として無効な文字を選ぶと、ふつう誤りのメッセージを出す。また、番号を電子の電話帳に移すといった、ほかの候補の動作を行えるようにはしていない。つまり、利用者が見分けた電話番号に、住所録に記憶するといった別の動作をしたいときは、その動作を自動では行えず、上に述べたように番号を選んで適切なデータベースへ移さなければならない。","したがって、構造を見分け、構造に候補の動作を関連付け、動作を選べるようにし、選んだ動作を構造に対して自動で行うシステムが求められている。"]}},{"role":"solution","heading":"SUMMARY OF THE INVENTION","text":"The present invention overcomes the limitations and deficiencies of previous systems with a system that identifies structures in computer data, associates candidate actions with each detected structure, enables the selection of an action, and automatically performs the selected action on the identified structure. It will be appreciated that the system may operate on recognizable patterns for text, pictures, tables, graphs, voice, etc. So long as a pattern is recognizable, the system will operate on it. The present invention has significant advantages over previous systems, in that the present system may incorporate an open-ended number and type of recognizable patterns, an open-ended number and type of pattern analysis units, and further that the system may enable an open-ended number and type (i.e. scripts, macros, code fragments, etc.) of candidate actions to associate with, and thus perform, on each identified structure.\nThe present invention provides a computer system with a central processing unit (CPU), input/output (I/O) means, and a memory that includes a program to identify structures in a document and perform selected computer-based actions on the identified structures. The program includes program subroutines that include an analyzer server, an application program interface, a user interface and an action processor. The analyzer server receives data from a document having recognizable structures, and uses patterns to detect the structures. Upon detection of a structure, the analyzer server links actions to the detected structure. Each action is a computer subroutine that causes the CPU to perform a sequence of operations on the particular structure to which it is linked. An action may specify opening another application, loading the identified structure into an appropriate field, and closing the application. An action may further include internal actions, such as storing phone numbers in an electronic phone book, addresses in an electronic address book, appointments on an electronic calendar, and external actions such as returning phone calls, drafting letters, sending facsimile copies and e-mail, and the like.\nSince the program may be executed during the run-time of another program, i.e. the application which presents the document, such as Microsoft Word, an application program interface provides mechanisms for interprogram communications. The application program interface retrieves and transmits relevant information from the other program to the user interface for identifying, presenting and enabling selection of detected structures. Upon selection of a detected structure, the user interface presents and enables selection of candidate actions. When a candidate action is selected, the action processor performs the selected action on the selected structure.\nIn addition to the computer system, the present invention also provides methods for performing actions on identified structures in a document. In this method, the document is analyzed using a pattern to identify corresponding structures. Identified structures are stored in memory and presented to the user for selection. Upon selection of an identified structure, a menu of candidate actions is presented, each of which may be selected and performed on the selected structure.","tr":{"ja":["発明の概要","本発明は、コンピュータのデータの中の構造を見分け、検出した構造のそれぞれに候補の動作を関連付け、動作を選べるようにし、選んだ動作を見分けた構造に対して自動で行うシステムによって、従来のシステムの限界と欠点を克服する。このシステムは、文字・絵・表・グラフ・音声などの見分けられるパターンに対して働けることが分かるだろう。パターンが見分けられる限り、システムはそれに対して働く。本発明は従来のシステムに比べて大きな利点を持つ。このシステムは、見分けられるパターンの数と種類、パターン解析の部品の数と種類を限りなく取り込め、さらに、見分けた構造のそれぞれに関連付けて行う候補の動作の数と種類（スクリプト・マクロ・コードの断片など）も限りなく扱えるからである。","本発明は、中央処理装置（CPU）、入出力（I/O）の手段、およびメモリを持つコンピュータシステムを提供する。メモリは、文書の中の構造を見分け、見分けた構造に対して選んだコンピュータの動作を行うプログラムを含む。プログラムは、アナライザーサーバー、アプリケーションプログラムインターフェース、ユーザーインターフェース、および動作プロセッサを含むサブルーチンを持つ。アナライザーサーバーは、見分けられる構造を持つ文書からデータを受け取り、パターンを使って構造を検出する。構造を検出すると、アナライザーサーバーはその構造に動作を結び付ける。各動作は、結び付けた構造に対して CPU に一連の操作を行わせるコンピュータのサブルーチンである。動作は、別のアプリケーションを開き、見分けた構造を適切な欄に読み込み、アプリケーションを閉じることを指定できる。動作はさらに、電話番号を電子の電話帳に、住所を電子の住所録に、約束を電子の予定表に記憶するといった内部の動作や、折り返しの電話、手紙の下書き、ファクスや電子メールの送信といった外部の動作を含みうる。","このプログラムは、文書を提示するアプリケーション（たとえば Microsoft Word）のような別のプログラムの実行中に実行されることがあるので、アプリケーションプログラムインターフェースがプログラムどうしの通信の仕組みを提供する。アプリケーションプログラムインターフェースは、検出した構造を見分け、提示し、選べるようにするために、別のプログラムから必要な情報を取り出してユーザーインターフェースへ送る。検出した構造が選ばれると、ユーザーインターフェースは候補の動作を提示して選べるようにする。候補の動作が選ばれると、動作プロセッサは選んだ構造に対して選んだ動作を行う。","コンピュータシステムに加えて、本発明は、文書の中で見分けた構造に対して動作を行う方法も提供する。この方法では、パターンを使って文書を解析し、対応する構造を見分ける。見分けた構造はメモリに記憶し、選べるように利用者に提示する。見分けた構造が選ばれると候補の動作のメニューを提示し、そのそれぞれを選んで、選んだ構造に対して行える。"]}}],"claims":[{"n":1,"header":"1.","body":"A computer-based system for detecting structures in data and performing actions on detected structures, comprising:\nan input device for receiving data;\nan output device for presenting the data;\na memory storing information including program routines including\nan analyzer server for detecting structures in the data, and for linking actions to the detected structures;\na user interface enabling the selection of a detected structure and a linked action; and\nan action processor for performing the selected action linked to the selected structure; and\na processing unit coupled to the input device, the output device, and the memory for controlling the execution of the program routines.","tree":{"k":"and","parts":[{"k":"leaf","parts":["A computer-based system for detecting structures in data and performing actions on detected structures, comprising:"],"id":"1A","label":"1A","s":0,"e":115,"tr":{"ja":"データの中の構造を検出し、検出した構造に対して動作を行う、コンピュータを用いたシステムであって、次を備える:"}},"\n",{"k":"leaf","parts":["an input device for receiving data;"],"id":"1B","label":"1B","s":116,"e":151,"tr":{"ja":"データを受け取る入力装置;"}},"\n",{"k":"leaf","parts":["an output device for presenting the data;"],"id":"1C","label":"1C","s":152,"e":193,"tr":{"ja":"データを提示する出力装置;"}},"\n",{"k":"and","parts":["a memory storing information including program routines including\n",{"k":"and","parts":[{"k":"and","parts":["an analyzer server ",{"k":"and","parts":[{"k":"leaf","parts":["for detecting structures in the data"],"id":"1D.1.1.1.1","label":"1D.1.1.1.1","s":279,"e":315,"tr":{"ja":"データの中の構造を検出するための"}},", and ",{"k":"leaf","parts":["for linking actions to the detected structures"],"id":"1D.1.1.1.2","label":"1D.1.1.1.2","s":321,"e":367,"tr":{"ja":"検出した構造に動作を結び付けるための"}}],"own":false,"alt":false,"id":"1D.1.1.1","label":"1D.1.1.1","s":279,"e":367},";"],"own":true,"alt":false,"id":"1D.1.1","label":"1D.1.1","s":260,"e":368,"tr":{"ja":"アナライザーサーバー（analyzer server） ［1D.1.1.1］;"}},"\n",{"k":"leaf","parts":["a user interface enabling the selection of a detected structure and a linked action;"],"id":"1D.1.2","label":"1D.1.2","s":369,"e":453,"tr":{"ja":"検出した構造と、結び付けた動作とを選べるようにするユーザーインターフェース;"}}," and\n",{"k":"leaf","parts":["an action processor for performing the selected action linked to the selected structure;"],"id":"1D.1.3","label":"1D.1.3","s":458,"e":546,"tr":{"ja":"選んだ構造に結び付けた、選んだ動作を行う動作プロセッサ;"}}],"own":false,"alt":false,"id":"1D.1","label":"1D.1","s":260,"e":546}," and"],"own":true,"alt":false,"id":"1D","label":"1D","s":194,"e":550,"tr":{"ja":"プログラムのルーチンを含む情報を記憶するメモリであって、そのルーチンは次を含む: ［1D.1］ そして"}},"\n",{"k":"and","parts":["a processing unit coupled to ",{"k":"and","parts":[{"k":"leaf","parts":["the input device"],"id":"1E.1.1","label":"1E.1.1","s":580,"e":596,"tr":{"ja":"入力装置"}},", ",{"k":"leaf","parts":["the output device"],"id":"1E.1.2","label":"1E.1.2","s":598,"e":615,"tr":{"ja":"出力装置"}},", and ",{"k":"leaf","parts":["the memory"],"id":"1E.1.3","label":"1E.1.3","s":621,"e":631,"tr":{"ja":"メモリ"}}],"own":false,"alt":false,"id":"1E.1","label":"1E.1","s":580,"e":631}," for controlling the execution of the program routines."],"own":true,"alt":false,"id":"1E","label":"1E","s":551,"e":686,"tr":{"ja":"［1E.1］ につながり、プログラムのルーチンの実行を制御する処理装置。"}}],"own":false,"alt":false,"id":"1","label":"1","s":0,"e":686},"trLines":{"ja":["データの中の構造を検出し、検出した構造に対して動作を行う、コンピュータを用いたシステムであって、次を備える:","データを受け取る入力装置;","データを提示する出力装置;","プログラムのルーチンを含む情報を記憶するメモリであって、そのルーチンは次を含む:","データの中の構造を検出するため、および検出した構造に動作を結び付けるためのアナライザーサーバー;","検出した構造と、結び付けた動作とを選べるようにするユーザーインターフェース; そして","選んだ構造に結び付けた、選んだ動作を行う動作プロセッサ; そして","入力装置、出力装置、およびメモリにつながり、プログラムのルーチンの実行を制御する処理装置。"]}},{"n":2,"header":"2.","body":"The system recited in claim 1, wherein the analyzer server stores detected structures in the memory.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"2A","label":"2A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"leaf","parts":["the analyzer server stores detected structures in the memory."],"id":"2B","label":"2B","s":39,"e":100,"tr":{"ja":"アナライザーサーバーは、検出した構造をメモリに記憶する。"}}],"own":false,"alt":false,"id":"2","label":"2","s":0,"e":100},"trLines":{"ja":["請求項 1 のシステムであって、アナライザーサーバーは、検出した構造をメモリに記憶する。"]}},{"n":3,"header":"3.","body":"The system recited in claim 1, wherein the input device receives the data from an application running concurrently, and wherein the program routines stored in memory further comprise an application program interface for communicating with the application.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"3A","label":"3A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"leaf","parts":["the input device receives the data from an application running concurrently"],"id":"3B","label":"3B","s":39,"e":114,"tr":{"ja":"入力装置は、同時に動いているアプリケーションからデータを受け取る"}},", and wherein ",{"k":"leaf","parts":["the program routines stored in memory further comprise an application program interface for communicating with the application."],"id":"3C","label":"3C","s":128,"e":255,"tr":{"ja":"メモリに記憶したプログラムのルーチンは、そのアプリケーションと通信するためのアプリケーションプログラムインターフェースをさらに含む。"}}],"own":false,"alt":false,"id":"3","label":"3","s":0,"e":255},"trLines":{"ja":["請求項 1 のシステムであって、入力装置は、同時に動いているアプリケーションからデータを受け取り、メモリに記憶したプログラムのルーチンは、そのアプリケーションと通信するためのアプリケーションプログラムインターフェースをさらに含む。"]}},{"n":4,"header":"4.","body":"The system recited in claim 1, wherein the analyzer server includes grammars and a parser for detecting structures in the data.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"4A","label":"4A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"and","parts":["the analyzer server includes ",{"k":"and","parts":[{"k":"leaf","parts":["grammars"],"id":"4B.1.1","label":"4B.1.1","s":68,"e":76,"tr":{"ja":"文法（grammars）"}}," and ",{"k":"leaf","parts":["a parser"],"id":"4B.1.2","label":"4B.1.2","s":81,"e":89,"tr":{"ja":"構文解析器（parser）"}}],"own":false,"alt":false,"id":"4B.1","label":"4B.1","s":68,"e":89}," for detecting structures in the data."],"own":true,"alt":false,"id":"4B","label":"4B","s":39,"e":127,"tr":{"ja":"アナライザーサーバーは、データの中の構造を検出するための ［4B.1］ を含む。"}}],"own":false,"alt":false,"id":"4","label":"4","s":0,"e":127},"trLines":{"ja":["請求項 1 のシステムであって、アナライザーサーバーは、データの中の構造を検出するための文法と構文解析器を含む。"]}},{"n":5,"header":"5.","body":"The system recited in claim 4, wherein the analyzer server includes actions associated with each of the grammars, and wherein the analyzer server links to a detected structure the actions associated with the grammar which detects that structure.","tree":{"k":"and","parts":[{"k":"ref","ref":4,"parts":["The system recited in claim 4"],"id":"5A","label":"5A","s":0,"e":29,"tr":{"ja":"請求項 4 のシステム"}},", wherein ",{"k":"leaf","parts":["the analyzer server includes actions associated with each of the grammars"],"id":"5B","label":"5B","s":39,"e":112,"tr":{"ja":"アナライザーサーバーは、文法のそれぞれに関連付けた動作を含む"}},", and wherein ",{"k":"leaf","parts":["the analyzer server links to a detected structure the actions associated with the grammar which detects that structure."],"id":"5C","label":"5C","s":126,"e":245,"tr":{"ja":"アナライザーサーバーは、検出した構造に、その構造を検出した文法に関連付けた動作を結び付ける。"}}],"own":false,"alt":false,"id":"5","label":"5","s":0,"e":245},"trLines":{"ja":["請求項 4 のシステムであって、アナライザーサーバーは、文法のそれぞれに関連付けた動作を含み、検出した構造に、その構造を検出した文法に関連付けた動作を結び付ける。"]}},{"n":6,"header":"6.","body":"The system recited in claim 1, wherein the analyzer server includes a string library and a fast string search function for detecting string structures in the data.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"6A","label":"6A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"and","parts":["the analyzer server includes ",{"k":"and","parts":[{"k":"leaf","parts":["a string library"],"id":"6B.1.1","label":"6B.1.1","s":68,"e":84,"tr":{"ja":"文字列のライブラリ"}}," and ",{"k":"leaf","parts":["a fast string search function"],"id":"6B.1.2","label":"6B.1.2","s":89,"e":118,"tr":{"ja":"高速な文字列検索の機能"}}],"own":false,"alt":false,"id":"6B.1","label":"6B.1","s":68,"e":118}," for detecting string structures in the data."],"own":true,"alt":false,"id":"6B","label":"6B","s":39,"e":163,"tr":{"ja":"アナライザーサーバーは、データの中の文字列の構造を検出するための ［6B.1］ を含む。"}}],"own":false,"alt":false,"id":"6","label":"6","s":0,"e":163},"trLines":{"ja":["請求項 1 のシステムであって、アナライザーサーバーは、データの中の文字列の構造を検出するための文字列のライブラリと高速な文字列検索の機能を含む。"]}},{"n":7,"header":"7.","body":"The system recited in claim 6, wherein the analyzer server includes actions associated with each of the strings, and wherein the analyzer server links to a detected structure the actions associated with the grammar which detects that string structure.","tree":{"k":"and","parts":[{"k":"ref","ref":6,"parts":["The system recited in claim 6"],"id":"7A","label":"7A","s":0,"e":29,"tr":{"ja":"請求項 6 のシステム"}},", wherein ",{"k":"leaf","parts":["the analyzer server includes actions associated with each of the strings"],"id":"7B","label":"7B","s":39,"e":111,"tr":{"ja":"アナライザーサーバーは、文字列のそれぞれに関連付けた動作を含む"}},", and wherein ",{"k":"leaf","parts":["the analyzer server links to a detected structure the actions associated with the grammar which detects that string structure."],"id":"7C","label":"7C","s":125,"e":251,"tr":{"ja":"アナライザーサーバーは、検出した構造に、その文字列の構造を検出した文法に関連付けた動作を結び付ける。"}}],"own":false,"alt":false,"id":"7","label":"7","s":0,"e":251},"trLines":{"ja":["請求項 6 のシステムであって、アナライザーサーバーは、文字列のそれぞれに関連付けた動作を含み、検出した構造に、その文字列の構造を検出した文法に関連付けた動作を結び付ける。"]}},{"n":8,"header":"8.","body":"The system recited in claim 1, wherein the user interface highlights detected structures.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"8A","label":"8A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"leaf","parts":["the user interface highlights detected structures."],"id":"8B","label":"8B","s":39,"e":89,"tr":{"ja":"ユーザーインターフェースは、検出した構造を強調して表示する。"}}],"own":false,"alt":false,"id":"8","label":"8","s":0,"e":89},"trLines":{"ja":["請求項 1 のシステムであって、ユーザーインターフェースは、検出した構造を強調して表示する。"]}},{"n":9,"header":"9.","body":"The system recited in claim 1, wherein the user interface enables selection of an action by causing the output device to display a pop-up menu of the linked actions.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"9A","label":"9A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"leaf","parts":["the user interface enables selection of an action by causing the output device to display a pop-up menu of the linked actions."],"id":"9B","label":"9B","s":39,"e":165,"tr":{"ja":"ユーザーインターフェースは、結び付けた動作のポップアップメニューを出力装置に表示させて、動作を選べるようにする。"}}],"own":false,"alt":false,"id":"9","label":"9","s":0,"e":165},"trLines":{"ja":["請求項 1 のシステムであって、ユーザーインターフェースは、結び付けた動作のポップアップメニューを出力装置に表示させて、動作を選べるようにする。"]}},{"n":10,"header":"10.","body":"The system recited in claim 1, wherein the programs stored in the memory further comprise an application running concurrently that causes the output device to present the data received by the input device, and an application program interface that provides interrupts and communicates with the application.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"10A","label":"10A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"and","parts":["the programs stored in the memory further comprise ",{"k":"and","parts":[{"k":"leaf","parts":["an application running concurrently that causes the output device to present the data received by the input device"],"id":"10B.1.1","label":"10B.1.1","s":90,"e":204,"tr":{"ja":"入力装置が受け取ったデータを出力装置に提示させる、同時に動いているアプリケーション"}},", and ",{"k":"leaf","parts":["an application program interface that provides interrupts and communicates with the application"],"id":"10B.1.2","label":"10B.1.2","s":210,"e":305,"tr":{"ja":"割り込みを与え、そのアプリケーションと通信するアプリケーションプログラムインターフェース"}}],"own":false,"alt":false,"id":"10B.1","label":"10B.1","s":90,"e":305},"."],"own":true,"alt":false,"id":"10B","label":"10B","s":39,"e":306,"tr":{"ja":"メモリに記憶したプログラムは、［10B.1］ をさらに含む。"}}],"own":false,"alt":false,"id":"10","label":"10","s":0,"e":306},"trLines":{"ja":["請求項 1 のシステムであって、メモリに記憶したプログラムは、入力装置が受け取ったデータを出力装置に提示させる、同時に動いているアプリケーションと、割り込みを与えそのアプリケーションと通信するアプリケーションプログラムインターフェースとをさらに含む。"]}},{"n":11,"header":"11.","body":"The system recited in claim 1, wherein the user interface enables the selection of a detected structure and a linked action using sound activation.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"11A","label":"11A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"leaf","parts":["the user interface enables the selection of a detected structure and a linked action using sound activation."],"id":"11B","label":"11B","s":39,"e":147,"tr":{"ja":"ユーザーインターフェースは、音声の起動で、検出した構造と結び付けた動作とを選べるようにする。"}}],"own":false,"alt":false,"id":"11","label":"11","s":0,"e":147},"trLines":{"ja":["請求項 1 のシステムであって、ユーザーインターフェースは、音声の起動で、検出した構造と結び付けた動作とを選べるようにする。"]}},{"n":12,"header":"12.","body":"The system recited in claim 1, wherein a first one of the actions may invoke a second one of the actions.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The system recited in claim 1"],"id":"12A","label":"12A","s":0,"e":29,"tr":{"ja":"請求項 1 のシステム"}},", wherein ",{"k":"leaf","parts":["a first one of the actions may invoke a second one of the actions."],"id":"12B","label":"12B","s":39,"e":105,"tr":{"ja":"動作の 1 つ目が、動作の 2 つ目を呼び出すことがある。"}}],"own":false,"alt":false,"id":"12","label":"12","s":0,"e":105},"trLines":{"ja":["請求項 1 のシステムであって、動作の 1 つ目が、動作の 2 つ目を呼び出すことがある。"]}},{"n":13,"header":"13.","body":"A program storage medium storing a computer program for causing a computer to perform the steps of:\nreceiving computer data;\ndetecting a structure in the data;\nlinking at least one action to the detected structure;\nenabling selection of the structure and a linked action; and\nexecuting the selected action linked to the selected structure.","tree":{"k":"and","parts":[{"k":"leaf","parts":["A program storage medium storing a computer program for causing a computer to perform the steps of:"],"id":"13A","label":"13A","s":0,"e":99,"tr":{"ja":"コンピュータに次の工程を行わせるコンピュータのプログラムを記憶した、プログラムの記憶媒体:"}},"\n",{"k":"leaf","parts":["receiving computer data;"],"id":"13B","label":"13B","s":100,"e":124,"tr":{"ja":"コンピュータのデータを受け取ること;"}},"\n",{"k":"leaf","parts":["detecting a structure in the data;"],"id":"13C","label":"13C","s":125,"e":159,"tr":{"ja":"データの中の構造を検出すること;"}},"\n",{"k":"leaf","parts":["linking at least one action to the detected structure;"],"id":"13D","label":"13D","s":160,"e":214,"tr":{"ja":"検出した構造に、少なくとも 1 つの動作を結び付けること;"}},"\n",{"k":"leaf","parts":["enabling selection of the structure and a linked action;"],"id":"13E","label":"13E","s":215,"e":271,"tr":{"ja":"構造と、結び付けた動作とを選べるようにすること;"}}," and\n",{"k":"leaf","parts":["executing the selected action linked to the selected structure."],"id":"13F","label":"13F","s":276,"e":339,"tr":{"ja":"選んだ構造に結び付けた、選んだ動作を実行すること。"}}],"own":false,"alt":false,"id":"13","label":"13","s":0,"e":339},"trLines":{"ja":["コンピュータに次の工程を行わせるコンピュータのプログラムを記憶した、プログラムの記憶媒体:","コンピュータのデータを受け取ること;","データの中の構造を検出すること;","検出した構造に、少なくとも 1 つの動作を結び付けること;","構造と、結び付けた動作とを選べるようにすること; そして","選んだ構造に結び付けた、選んだ動作を実行すること。"]}},{"n":14,"header":"14.","body":"In a computer having a memory storing actions, a system for causing the computer to perform an action on a structure identified in computer data, comprising:\nmeans for receiving computer data;\nmeans for detecting a structure in the data;\nmeans for linking at least one action to the detected structure;\nmeans for selecting the structure and a linked action; and\nmeans for executing the selected action linked to the selected structure.","tree":{"k":"and","parts":[{"k":"leaf","parts":["In a computer having a memory storing actions, a system for causing the computer to perform an action on a structure identified in computer data, comprising:"],"id":"14A","label":"14A","s":0,"e":157,"tr":{"ja":"動作を記憶するメモリを持つコンピュータにおいて、コンピュータのデータの中で見分けた構造に対する動作をコンピュータに行わせるシステムであって、次を備える:"}},"\n",{"k":"leaf","parts":["means for receiving computer data;"],"id":"14B","label":"14B","s":158,"e":192,"tr":{"ja":"コンピュータのデータを受け取る手段;"}},"\n",{"k":"leaf","parts":["means for detecting a structure in the data;"],"id":"14C","label":"14C","s":193,"e":237,"tr":{"ja":"データの中の構造を検出する手段;"}},"\n",{"k":"leaf","parts":["means for linking at least one action to the detected structure;"],"id":"14D","label":"14D","s":238,"e":302,"tr":{"ja":"検出した構造に、少なくとも 1 つの動作を結び付ける手段;"}},"\n",{"k":"leaf","parts":["means for selecting the structure and a linked action;"],"id":"14E","label":"14E","s":303,"e":357,"tr":{"ja":"構造と、結び付けた動作とを選ぶ手段;"}}," and\n",{"k":"leaf","parts":["means for executing the selected action linked to the selected structure."],"id":"14F","label":"14F","s":362,"e":435,"tr":{"ja":"選んだ構造に結び付けた、選んだ動作を実行する手段。"}}],"own":false,"alt":false,"id":"14","label":"14","s":0,"e":435},"trLines":{"ja":["動作を記憶するメモリを持つコンピュータにおいて、コンピュータのデータの中で見分けた構造に対する動作をコンピュータに行わせるシステムであって、次を備える:","コンピュータのデータを受け取る手段;","データの中の構造を検出する手段;","検出した構造に、少なくとも 1 つの動作を結び付ける手段;","構造と、結び付けた動作とを選ぶ手段; そして","選んだ構造に結び付けた、選んだ動作を実行する手段。"]}},{"n":15,"header":"15.","body":"In a computer having a memory storing actions, a method for causing the computer to perform an action on a structure identified in computer data, comprising the steps of:\nreceiving computer data;\ndetecting a structure in the data;\nlinking at least one action to the detected structure;\nenabling selection of the structure and a linked action; and\nexecuting the selected action linked to the selected structure.","tree":{"k":"and","parts":[{"k":"leaf","parts":["In a computer having a memory storing actions, a method for causing the computer to perform an action on a structure identified in computer data, comprising the steps of:"],"id":"15A","label":"15A","s":0,"e":170,"tr":{"ja":"動作を記憶するメモリを持つコンピュータにおいて、コンピュータのデータの中で見分けた構造に対する動作をコンピュータに行わせる方法であって、次の工程を含む:"}},"\n",{"k":"leaf","parts":["receiving computer data;"],"id":"15B","label":"15B","s":171,"e":195,"tr":{"ja":"コンピュータのデータを受け取ること;"}},"\n",{"k":"leaf","parts":["detecting a structure in the data;"],"id":"15C","label":"15C","s":196,"e":230,"tr":{"ja":"データの中の構造を検出すること;"}},"\n",{"k":"leaf","parts":["linking at least one action to the detected structure;"],"id":"15D","label":"15D","s":231,"e":285,"tr":{"ja":"検出した構造に、少なくとも 1 つの動作を結び付けること;"}},"\n",{"k":"leaf","parts":["enabling selection of the structure and a linked action;"],"id":"15E","label":"15E","s":286,"e":342,"tr":{"ja":"構造と、結び付けた動作とを選べるようにすること;"}}," and\n",{"k":"leaf","parts":["executing the selected action linked to the selected structure."],"id":"15F","label":"15F","s":347,"e":410,"tr":{"ja":"選んだ構造に結び付けた、選んだ動作を実行すること。"}}],"own":false,"alt":false,"id":"15","label":"15","s":0,"e":410},"trLines":{"ja":["動作を記憶するメモリを持つコンピュータにおいて、コンピュータのデータの中で見分けた構造に対する動作をコンピュータに行わせる方法であって、次の工程を含む:","コンピュータのデータを受け取ること;","データの中の構造を検出すること;","検出した構造に、少なくとも 1 つの動作を結び付けること;","構造と、結び付けた動作とを選べるようにすること; そして","選んだ構造に結び付けた、選んだ動作を実行すること。"]}},{"n":16,"header":"16.","body":"The method recited in claim 15, wherein the computer data is received from the application running concurrently.","tree":{"k":"and","parts":[{"k":"ref","ref":15,"parts":["The method recited in claim 15"],"id":"16A","label":"16A","s":0,"e":30,"tr":{"ja":"請求項 15 の方法"}},", wherein ",{"k":"leaf","parts":["the computer data is received from the application running concurrently."],"id":"16B","label":"16B","s":40,"e":112,"tr":{"ja":"コンピュータのデータは、同時に動いているアプリケーションから受け取る。"}}],"own":false,"alt":false,"id":"16","label":"16","s":0,"e":112},"trLines":{"ja":["請求項 15 の方法であって、コンピュータのデータは、同時に動いているアプリケーションから受け取る。"]}},{"n":17,"header":"17.","body":"The method recited in claim 15, wherein the memory contains grammars, and wherein the step of detecting a structure further comprises the steps of retrieving a grammar and parsing the data based on the grammar.","tree":{"k":"and","parts":[{"k":"ref","ref":15,"parts":["The method recited in claim 15"],"id":"17A","label":"17A","s":0,"e":30,"tr":{"ja":"請求項 15 の方法"}},", wherein ",{"k":"leaf","parts":["the memory contains grammars"],"id":"17B","label":"17B","s":40,"e":68,"tr":{"ja":"メモリは文法を含む"}},", and wherein ",{"k":"and","parts":["the step of detecting a structure further comprises the steps of ",{"k":"and","parts":[{"k":"leaf","parts":["retrieving a grammar"],"id":"17C.1.1","label":"17C.1.1","s":147,"e":167,"tr":{"ja":"文法を取り出すこと"}}," and ",{"k":"leaf","parts":["parsing the data based on the grammar"],"id":"17C.1.2","label":"17C.1.2","s":172,"e":209,"tr":{"ja":"文法に基づいてデータを構文解析すること"}}],"own":false,"alt":false,"id":"17C.1","label":"17C.1","s":147,"e":209},"."],"own":true,"alt":false,"id":"17C","label":"17C","s":82,"e":210,"tr":{"ja":"構造を検出する工程は、［17C.1］ の工程をさらに含む。"}}],"own":false,"alt":false,"id":"17","label":"17","s":0,"e":210},"trLines":{"ja":["請求項 15 の方法であって、メモリは文法を含み、構造を検出する工程は、文法を取り出す工程と、文法に基づいてデータを構文解析する工程とをさらに含む。"]}},{"n":18,"header":"18.","body":"The method recited in claim 17, wherein the grammar is associated with a particular action, and wherein the step of linking at least one action to the detected structure includes the step of linking the particular action to the detected structure.","tree":{"k":"and","parts":[{"k":"ref","ref":17,"parts":["The method recited in claim 17"],"id":"18A","label":"18A","s":0,"e":30,"tr":{"ja":"請求項 17 の方法"}},", wherein ",{"k":"leaf","parts":["the grammar is associated with a particular action"],"id":"18B","label":"18B","s":40,"e":90,"tr":{"ja":"文法は、ある決まった動作に関連付けられている"}},", and wherein ",{"k":"leaf","parts":["the step of linking at least one action to the detected structure includes the step of linking the particular action to the detected structure."],"id":"18C","label":"18C","s":104,"e":247,"tr":{"ja":"検出した構造に少なくとも 1 つの動作を結び付ける工程は、その決まった動作を検出した構造に結び付ける工程を含む。"}}],"own":false,"alt":false,"id":"18","label":"18","s":0,"e":247},"trLines":{"ja":["請求項 17 の方法であって、文法は、ある決まった動作に関連付けられ、検出した構造に少なくとも 1 つの動作を結び付ける工程は、その決まった動作を検出した構造に結び付ける工程を含む。"]}},{"n":19,"header":"19.","body":"The method recited in claim 15, wherein the memory contains strings, and wherein the step of detecting a structure further comprises the steps of retrieving a string from the memory and scanning the data to identify the string.","tree":{"k":"and","parts":[{"k":"ref","ref":15,"parts":["The method recited in claim 15"],"id":"19A","label":"19A","s":0,"e":30,"tr":{"ja":"請求項 15 の方法"}},", wherein ",{"k":"leaf","parts":["the memory contains strings"],"id":"19B","label":"19B","s":40,"e":67,"tr":{"ja":"メモリは文字列を含む"}},", and wherein ",{"k":"and","parts":["the step of detecting a structure further comprises the steps of ",{"k":"and","parts":[{"k":"leaf","parts":["retrieving a string from the memory"],"id":"19C.1.1","label":"19C.1.1","s":146,"e":181,"tr":{"ja":"メモリから文字列を取り出すこと"}}," and ",{"k":"leaf","parts":["scanning the data to identify the string"],"id":"19C.1.2","label":"19C.1.2","s":186,"e":226,"tr":{"ja":"データを走査してその文字列を見分けること"}}],"own":false,"alt":false,"id":"19C.1","label":"19C.1","s":146,"e":226},"."],"own":true,"alt":false,"id":"19C","label":"19C","s":81,"e":227,"tr":{"ja":"構造を検出する工程は、［19C.1］ の工程をさらに含む。"}}],"own":false,"alt":false,"id":"19","label":"19","s":0,"e":227},"trLines":{"ja":["請求項 15 の方法であって、メモリは文字列を含み、構造を検出する工程は、メモリから文字列を取り出す工程と、データを走査してその文字列を見分ける工程とをさらに含む。"]}},{"n":20,"header":"20.","body":"The method recited in claim 15, further comprising after the step of detecting a structure, the step of highlighting the detected structure.","tree":{"k":"and","parts":[{"k":"ref","ref":15,"parts":["The method recited in claim 15"],"id":"20A","label":"20A","s":0,"e":30,"tr":{"ja":"請求項 15 の方法"}},", further comprising ",{"k":"leaf","parts":["after the step of detecting a structure, the step of highlighting the detected structure."],"id":"20B","label":"20B","s":51,"e":140,"tr":{"ja":"構造を検出する工程の後に、検出した構造を強調して表示する工程。"}}],"own":false,"alt":false,"id":"20","label":"20","s":0,"e":140},"trLines":{"ja":["請求項 15 の方法であって、構造を検出する工程の後に、検出した構造を強調して表示する工程をさらに含む。"]}},{"n":21,"header":"21.","body":"The method recited in claim 15, further comprising, after the step of linking at least one action to the detected structure, the step of displaying and enabling selection of an action for performance on the detected structure.","tree":{"k":"and","parts":[{"k":"ref","ref":15,"parts":["The method recited in claim 15"],"id":"21A","label":"21A","s":0,"e":30,"tr":{"ja":"請求項 15 の方法"}},", further comprising, ",{"k":"leaf","parts":["after the step of linking at least one action to the detected structure, the step of displaying and enabling selection of an action for performance on the detected structure."],"id":"21B","label":"21B","s":52,"e":226,"tr":{"ja":"検出した構造に少なくとも 1 つの動作を結び付ける工程の後に、検出した構造に対して行う動作を表示して選べるようにする工程。"}}],"own":false,"alt":false,"id":"21","label":"21","s":0,"e":226},"trLines":{"ja":["請求項 15 の方法であって、検出した構造に少なくとも 1 つの動作を結び付ける工程の後に、検出した構造に対して行う動作を表示して選べるようにする工程をさらに含む。"]}},{"n":22,"header":"22.","body":"A computer-based method for causing a computer to identify, select and perform an action on a structure in computer data received from a concurrently running application, said application presenting the computer data to the user, the method comprising the steps of:\nreceiving computer data from the application;\ndetecting a structure in the computer data;\nlinking at least one action to the detected structure;\ncommunicating with the application to determine the location of the detected structure as presented by the application, to enable selection of the detected structure and a linked action, and to determine if the detected structure and a linked action have been selected; and\nperforming a selected action linked to the detected pattern.","tree":{"k":"and","parts":[{"k":"leaf","parts":["A computer-based method for causing a computer to identify, select and perform an action on a structure in computer data received from a concurrently running application, said application presenting the computer data to the user, the method comprising the steps of:"],"id":"22A","label":"22A","s":0,"e":265,"tr":{"ja":"同時に動いているアプリケーションから受け取ったコンピュータのデータの中の構造を、コンピュータに見分けさせ、選ばせ、それに対する動作を行わせる、コンピュータを用いた方法であって、そのアプリケーションはコンピュータのデータを利用者に提示し、その方法は次の工程を含む:"}},"\n",{"k":"leaf","parts":["receiving computer data from the application;"],"id":"22B","label":"22B","s":266,"e":311,"tr":{"ja":"アプリケーションからコンピュータのデータを受け取ること;"}},"\n",{"k":"leaf","parts":["detecting a structure in the computer data;"],"id":"22C","label":"22C","s":312,"e":355,"tr":{"ja":"コンピュータのデータの中の構造を検出すること;"}},"\n",{"k":"leaf","parts":["linking at least one action to the detected structure;"],"id":"22D","label":"22D","s":356,"e":410,"tr":{"ja":"検出した構造に、少なくとも 1 つの動作を結び付けること;"}},"\n",{"k":"and","parts":["communicating with the application ",{"k":"and","parts":[{"k":"leaf","parts":["to determine the location of the detected structure as presented by the application"],"id":"22E.1.1","label":"22E.1.1","s":446,"e":529,"tr":{"ja":"アプリケーションが提示している、検出した構造の位置を決めるために"}},", ",{"k":"leaf","parts":["to enable selection of the detected structure and a linked action"],"id":"22E.1.2","label":"22E.1.2","s":531,"e":596,"tr":{"ja":"検出した構造と、結び付けた動作とを選べるようにするために"}},", and ",{"k":"leaf","parts":["to determine if the detected structure and a linked action have been selected"],"id":"22E.1.3","label":"22E.1.3","s":602,"e":679,"tr":{"ja":"検出した構造と、結び付けた動作とが選ばれたかを判断するために"}}],"own":false,"alt":false,"id":"22E.1","label":"22E.1","s":446,"e":679},";"],"own":true,"alt":false,"id":"22E","label":"22E","s":411,"e":680,"tr":{"ja":"アプリケーションと通信すること ［22E.1］;"}}," and\n",{"k":"leaf","parts":["performing a selected action linked to the detected pattern."],"id":"22F","label":"22F","s":685,"e":745,"tr":{"ja":"検出したパターンに結び付けた、選ばれた動作を行うこと。"}}],"own":false,"alt":false,"id":"22","label":"22","s":0,"e":745},"trLines":{"ja":["同時に動いているアプリケーションから受け取ったコンピュータのデータの中の構造を、コンピュータに見分けさせ、選ばせ、それに対する動作を行わせる、コンピュータを用いた方法であって、そのアプリケーションはコンピュータのデータを利用者に提示し、その方法は次の工程を含む:","アプリケーションからコンピュータのデータを受け取ること;","コンピュータのデータの中の構造を検出すること;","検出した構造に、少なくとも 1 つの動作を結び付けること;","アプリケーションが提示している検出した構造の位置を決め、検出した構造と結び付けた動作とを選べるようにし、検出した構造と結び付けた動作とが選ばれたかを判断するために、アプリケーションと通信すること; そして","検出したパターンに結び付けた、選ばれた動作を行うこと。"]}},{"n":23,"header":"23.","body":"The method recited in claim 15, wherein the step of enabling uses sound activation.","tree":{"k":"and","parts":[{"k":"ref","ref":15,"parts":["The method recited in claim 15"],"id":"23A","label":"23A","s":0,"e":30,"tr":{"ja":"請求項 15 の方法"}},", wherein ",{"k":"leaf","parts":["the step of enabling uses sound activation."],"id":"23B","label":"23B","s":40,"e":83,"tr":{"ja":"選べるようにする工程は、音声の起動を使う。"}}],"own":false,"alt":false,"id":"23","label":"23","s":0,"e":83},"trLines":{"ja":["請求項 15 の方法であって、選べるようにする工程は、音声の起動を使う。"]}},{"n":24,"header":"24.","body":"The method recited in claim 15, wherein a first one of the actions may invoke a second one of the actions.","tree":{"k":"and","parts":[{"k":"ref","ref":15,"parts":["The method recited in claim 15"],"id":"24A","label":"24A","s":0,"e":30,"tr":{"ja":"請求項 15 の方法"}},", wherein ",{"k":"leaf","parts":["a first one of the actions may invoke a second one of the actions."],"id":"24B","label":"24B","s":40,"e":106,"tr":{"ja":"動作の 1 つ目が、動作の 2 つ目を呼び出すことがある。"}}],"own":false,"alt":false,"id":"24","label":"24","s":0,"e":106},"trLines":{"ja":["請求項 15 の方法であって、動作の 1 つ目が、動作の 2 つ目を呼び出すことがある。"]}}],"trLangs":["ja"],"ai":{"target":"サンプル端末 仕様（架空）target-sample/device-spec.md","by":"Claude（AI の仮判定）","date":"2026-10-23","judgments":{"1A":{"v":"T","reason":"メモの本文から電話番号などを見つけ、選んだ動作を実行する。","evidence":[{"file":"target-sample/device-spec.md","line":17,"quote":"メモの本文から、電話番号・メールアドレス・日付を、正規表現の一覧で見つける。"},{"file":"target-sample/device-spec.md","line":20,"quote":"一覧から選んだ動作を、その文字列に対して実行する。"}]},"1B":{"v":"T","reason":"画面キーボードで文字を入力する。","evidence":[{"file":"target-sample/device-spec.md","line":11,"quote":"文字はタッチ画面の上の画面キーボードで入力する。"}]},"1C":{"v":"T","reason":"タッチ画面に表示する。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"1D":{"v":"T","reason":"メモリにアプリ（プログラム）を持つ。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"1D.1.1":{"v":"F","reason":"決め手。見つける処理はメモ帳アプリの中の関数で、別のプログラムに分けていない。米国の訴訟（Apple v. Motorola、連邦巡回控訴裁判所、2014 年）で「analyzer server」は「クライアントとは別のサーバーの処理」と読まれた（AI の記憶による。判決文は未確認）。","evidence":[{"file":"target-sample/device-spec.md","line":21,"quote":"見つける処理はメモ帳アプリの中の関数で行い、別のプログラムやサーバーには分けない。"}]},"1D.1.1.1.1":{"v":"T","reason":"正規表現の一覧で見つける。","evidence":[{"file":"target-sample/device-spec.md","line":17,"quote":"電話番号・メールアドレス・日付を、正規表現の一覧で見つける。"}]},"1D.1.1.1.2":{"v":"T","reason":"見つけた文字列の種類に動作の一覧を結び付ける。","evidence":[{"file":"target-sample/device-spec.md","line":19,"quote":"その種類に合う動作の一覧（電話をかける・連絡先に足す・予定に足す）をポップアップで出す。"}]},"1D.1.2":{"v":"T","reason":"下線の文字列を押し、動作を選べる。","evidence":[{"file":"target-sample/device-spec.md","line":19,"quote":"下線の文字列を押すと、その種類に合う動作の一覧"}]},"1D.1.3":{"v":"T","reason":"選んだ動作を実行する。","evidence":[{"file":"target-sample/device-spec.md","line":20,"quote":"一覧から選んだ動作を、その文字列に対して実行する。"}]},"1E":{"v":"T","reason":"プロセッサを持つ。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"13A":{"v":"T","reason":"メモ帳アプリ（プログラム）をメモリに持つ。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"13B":{"v":"T","reason":"メモの本文を受け取る。","evidence":[{"file":"target-sample/device-spec.md","line":11,"quote":"文字はタッチ画面の上の画面キーボードで入力する。"}]},"13C":{"v":"T","reason":"本文から電話番号などを見つける。","evidence":[{"file":"target-sample/device-spec.md","line":17,"quote":"電話番号・メールアドレス・日付を、正規表現の一覧で見つける。"}]},"13D":{"v":"T","reason":"種類に合う動作を結び付ける。","evidence":[{"file":"target-sample/device-spec.md","line":19,"quote":"その種類に合う動作の一覧（電話をかける・連絡先に足す・予定に足す）をポップアップで出す。"}]},"13E":{"v":"T","reason":"文字列を押して動作を選べる。","evidence":[{"file":"target-sample/device-spec.md","line":19,"quote":"下線の文字列を押すと、その種類に合う動作の一覧"}]},"13F":{"v":"T","reason":"選んだ動作を実行する。","evidence":[{"file":"target-sample/device-spec.md","line":20,"quote":"一覧から選んだ動作を、その文字列に対して実行する。"}]},"14B":{"v":"U","reason":"「means for ...」は、明細書に書かれた構造とその均等物に限って読む（米国特許法 112 条 (f)）。明細書の構造と照らす必要があり、仕様だけでは決められない。","evidence":[]},"15A":{"v":"T","reason":"動作の一覧を持つ。","evidence":[{"file":"target-sample/device-spec.md","line":19,"quote":"その種類に合う動作の一覧（電話をかける・連絡先に足す・予定に足す）をポップアップで出す。"}]},"15B":{"v":"T","reason":"メモの本文を受け取る。","evidence":[{"file":"target-sample/device-spec.md","line":11,"quote":"文字はタッチ画面の上の画面キーボードで入力する。"}]},"15C":{"v":"T","reason":"本文から電話番号などを見つける。","evidence":[{"file":"target-sample/device-spec.md","line":17,"quote":"電話番号・メールアドレス・日付を、正規表現の一覧で見つける。"}]},"15D":{"v":"T","reason":"種類に合う動作を結び付ける。","evidence":[{"file":"target-sample/device-spec.md","line":19,"quote":"その種類に合う動作の一覧（電話をかける・連絡先に足す・予定に足す）をポップアップで出す。"}]},"15E":{"v":"T","reason":"文字列を押して動作を選べる。","evidence":[{"file":"target-sample/device-spec.md","line":19,"quote":"下線の文字列を押すと、その種類に合う動作の一覧"}]},"15F":{"v":"T","reason":"選んだ動作を実行する。","evidence":[{"file":"target-sample/device-spec.md","line":20,"quote":"一覧から選んだ動作を、その文字列に対して実行する。"}]},"16B":{"v":"U","reason":"本文はメモ帳アプリ自身のもので、別に動いているアプリから受け取るとは書いていない。「the application」の指す先も解釈しだい。","evidence":[{"file":"target-sample/device-spec.md","line":21,"quote":"見つける処理はメモ帳アプリの中の関数で行い、別のプログラムやサーバーには分けない。"}]},"17B":{"v":"U","reason":"正規表現の一覧が「grammars」に当たるかは解釈しだい。","evidence":[{"file":"target-sample/device-spec.md","line":17,"quote":"正規表現の一覧で見つける。"}]},"20B":{"v":"T","reason":"見つけた文字列に下線を引く（強調表示）。","evidence":[{"file":"target-sample/device-spec.md","line":18,"quote":"見つけた文字列に下線を引く。"}]},"21B":{"v":"T","reason":"動作の一覧をポップアップで出し、選ばせる。","evidence":[{"file":"target-sample/device-spec.md","line":19,"quote":"その種類に合う動作の一覧（電話をかける・連絡先に足す・予定に足す）をポップアップで出す。"}]},"22E":{"v":"F","reason":"決め手。メモ帳アプリが自分の中で見つけて表示するので、別に動いているアプリと通信しない。","evidence":[{"file":"target-sample/device-spec.md","line":21,"quote":"見つける処理はメモ帳アプリの中の関数で行い、別のプログラムやサーバーには分けない。"}]},"23B":{"v":"F","reason":"決め手。音声では操作しない。","evidence":[{"file":"target-sample/device-spec.md","line":22,"quote":"音声では操作しない。"}]},"24B":{"v":"U","reason":"動作が別の動作を呼ぶかは仕様に記述なし（記述が無いことは「無い」ことではない）。","evidence":[]}}}},{"id":"US8046721","country":"US","number":"US 8,046,721","title":"Unlocking a device by performing gestures on an unlock image","holder":"Apple Inc","filed":"2009-06-02","registered":"2011-10-25","status":"Expired - Lifetime（Google Patents の表示、2026-10-23 に確認）","source":"https://patents.google.com/patent/US8046721B2/en","origLang":"en","summaryList":[{"role":"problem","heading":"BACKGROUND","text":"Touch-sensitive displays (also known as “touch screens” or “touchscreens”) are well known in the art. Touch screens are used in many electronic devices to display graphics and text, and to provide a user interface through which a user may interact with the devices. A touch screen detects and responds to contact on the touch screen. A device may display one or more soft keys, menus, and other user-interface objects on the touch screen. A user may interact with the device by contacting the touch screen at locations corresponding to the user-interface objects with which she wishes to interact.\nTouch screens are becoming more popular for use as displays and as user input devices on portable devices, such as mobile telephones and personal digital assistants (PDAs). One problem associated with using touch screens on portable devices is the unintentional activation or deactivation of functions due to unintentional contact with the touch screen. Thus, portable devices, touch screens on such devices, and/or applications running on such devices may be locked upon satisfaction of predefined lock conditions, such as upon entering an active call, after a predetermined time of idleness has elapsed, or upon manual locking by a user.\nDevices with touch screens and/or applications running on such devices may be unlocked by any of several well-known unlocking procedures, such as pressing a predefined set of buttons (simultaneously or sequentially) or entering a code or password. These unlock procedures, however, have drawbacks. The button combinations may be hard to perform. Creating, memorizing, and recalling passwords, codes, and the like can be quite burdensome. These drawbacks may reduce the ease of use of the unlocking process and, as a consequence, the ease of use of the device in general.\nAccordingly, there is a need for more efficient, user-friendly procedures for unlocking such devices, touch screens, and/or applications. More generally, there is a need for more efficient, user-friendly procedures for transitioning such devices, touch screens, and/or applications between user interface states (e.g., from a user interface state for a first application to a user interface state for a second application, between user interface states in the same application, or between locked and unlocked states). In addition, there is a need for sensory feedback to the user regarding progress towards satisfaction of a user input condition that is required for the transition to occur.","tr":{"ja":["背景","タッチ画面（「touch screens」「touchscreens」とも呼ぶ）はよく知られている。タッチ画面は多くの電子機器で、図形や文字を表示し、利用者が機器を操作するユーザーインターフェースとして使われる。タッチ画面は、画面への接触を検出して応じる。機器は、ソフトキー・メニューなどのユーザーインターフェースの部品をタッチ画面に表示できる。利用者は、操作したい部品の位置で画面に触れて、機器を操作する。","タッチ画面は、携帯電話や PDA などの携帯機器の表示と入力に広く使われるようになっている。携帯機器でタッチ画面を使うときの問題は、意図しない接触で機能が入ったり切れたりすることである。そのため、携帯機器・その画面・その上のアプリは、通話中になったとき、決めた時間操作がなかったとき、利用者が手で鍵をかけたときなど、決めたロックの条件を満たすとロックされることがある。","タッチ画面を持つ機器やその上のアプリのロックは、決めたボタンの組を（同時に、または順に）押す、コードやパスワードを入れるなど、よく知られたいくつかの手順で外せる。しかしこれらの手順には欠点がある。ボタンの組み合わせは押しにくいことがある。パスワードやコードを作り、覚え、思い出すのはかなりの負担になる。こうした欠点は、ロック解除の使いやすさを下げ、ひいては機器全体の使いやすさを下げる。","したがって、こうした機器・タッチ画面・アプリのロックを外す、より効率がよく使いやすい手順が求められている。より広くは、こうした機器・タッチ画面・アプリを、ユーザーインターフェースの状態のあいだで移す（たとえば、第 1 のアプリの状態から第 2 のアプリの状態へ、同じアプリの中の状態のあいだで、またはロック状態とロック解除状態のあいだで）、より効率がよく使いやすい手順が求められている。さらに、移るために必要な入力の条件をどこまで満たしたかを、感覚で利用者に返すことも求められている。"]}},{"role":"solution","heading":"SUMMARY","text":"In some embodiments, a method of controlling an electronic device with a touch-sensitive display includes: detecting contact with the touch-sensitive display while the device is in a user-interface lock state; moving an image corresponding to a user-interface unlock state of the device in accordance with the contact; transitioning the device to the user-interface unlock state if the detected contact corresponds to a predefined gesture; and maintaining the device in the user-interface lock state if the detected contact does not correspond to the predefined gesture.\nIn some embodiments, a method of controlling a device with a touch-sensitive display includes: displaying an image on the touch-sensitive display while the device is in a user-interface lock state; detecting contact with the touch-sensitive display; transitioning the device to a user-interface unlock state if the detected contact corresponds to moving the image to a predefined location on the touch-sensitive display; and maintaining the device in the user-interface lock state if the detected contact does not correspond to moving the image to the predefined location.\nIn some embodiments, a method of controlling a device with a touch-sensitive display includes: displaying an image on the touch-sensitive display while the device is in a user-interface lock state; detecting contact with the touch-sensitive display; and transitioning the device to a user-interface unlock state if the detected contact corresponds to moving the image on the touch-sensitive display according to a predefined path on the touch-sensitive display; and maintaining the device in the user-interface lock state if the detected contact does not correspond to moving the image according to the predefined path.\nIn some embodiments, a method of controlling a device with a touch-sensitive display includes: displaying first and second images on the touch-sensitive display while the device is in a user-interface lock state; detecting contact with the touch-sensitive display; transitioning the device to a first active state corresponding to the first image if the detected contact corresponds to a predefined gesture with respect to the first image; and transitioning the device to a second active state distinct from the first active state if the detected contact corresponds to a predefined gesture with respect to the second image.\nThe aforementioned methods may be performed by a portable electronic device having a touch-sensitive display with a graphical user interface (GUI), one or more processors, memory and one or more modules, programs or sets of instructions stored in the memory for performing these methods. In some embodiments, the portable electronic device provides a plurality of functions, including wireless communication.\nInstructions for performing the aforementioned methods may be included in a computer program product configured for execution by one or more processors. In some embodiments, the executable computer program product includes a computer readable storage medium (e.g., one or more magnetic disk storage devices, flash memory devices, or other non-volatile solid state memory devices) and an executable computer program mechanism embedded therein.","tr":{"ja":["概要","いくつかの実施形態では、タッチ画面を持つ電子機器を制御する方法は次を含む: 機器がユーザーインターフェースのロック状態にあるあいだに、タッチ画面への接触を検出する; 機器のユーザーインターフェースのロック解除状態に対応する絵を、接触に合わせて動かす; 検出した接触が決めたジェスチャーに当たれば、機器をロック解除状態へ移す; 当たらなければ、機器をロック状態のままにする。","いくつかの実施形態では、タッチ画面を持つ機器を制御する方法は次を含む: 機器がロック状態にあるあいだ、タッチ画面に絵を表示する; タッチ画面への接触を検出する; 検出した接触が、絵をタッチ画面の上の決めた位置へ動かすことに当たれば、機器をロック解除状態へ移す; 当たらなければ、ロック状態のままにする。","いくつかの実施形態では、タッチ画面を持つ機器を制御する方法は次を含む: 機器がロック状態にあるあいだ、タッチ画面に絵を表示する; タッチ画面への接触を検出する; 検出した接触が、タッチ画面の上の決めた道筋に沿って絵を動かすことに当たれば、機器をロック解除状態へ移す; 当たらなければ、ロック状態のままにする。","いくつかの実施形態では、タッチ画面を持つ機器を制御する方法は次を含む: 機器がロック状態にあるあいだ、タッチ画面に第 1 と第 2 の絵を表示する; タッチ画面への接触を検出する; 検出した接触が第 1 の絵に対する決めたジェスチャーに当たれば、機器を第 1 の絵に対応する第 1 の動作状態へ移す; 第 2 の絵に対する決めたジェスチャーに当たれば、第 1 とは別の第 2 の動作状態へ移す。","上の方法は、グラフィカルユーザーインターフェース（GUI）を持つタッチ画面と、1 つ以上のプロセッサと、メモリと、メモリに置かれ、これらの方法を行う 1 つ以上のモジュール・プログラム・命令の組を持つ携帯型の電子機器で行える。いくつかの実施形態では、その携帯型の電子機器は、無線通信を含む複数の機能を持つ。","上の方法を行う命令は、1 つ以上のプロセッサで実行されるように構成されたコンピュータのプログラム製品に含められる。いくつかの実施形態では、その実行できるプログラム製品は、コンピュータで読める記憶媒体（たとえば、1 つ以上の磁気ディスク記憶装置、フラッシュメモリ、またはほかの不揮発性の固体メモリ）と、その中に組み込まれた実行できるプログラムの仕組みを含む。"]}}],"claims":[{"n":1,"header":"1.","body":"A method of unlocking a hand-held electronic device, the device including a touch-sensitive display, the method comprising:\ndetecting a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;\ncontinuously moving the unlock image on the touch-sensitive display in accordance with movement of the contact while continuous contact with the touch screen is maintained, wherein the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device; and\nunlocking the hand-held electronic device if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display.","tree":{"k":"and","parts":[{"k":"leaf","parts":["A method of unlocking a hand-held electronic device, the device including a touch-sensitive display, the method comprising:"],"id":"1A","label":"1A","s":0,"e":123,"tr":{"ja":"携帯型の電子機器のロックを外す方法であって、その機器はタッチ画面を備え、その方法は次を含む:"}},"\n",{"k":"leaf","parts":["detecting a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;"],"id":"1B","label":"1B","s":124,"e":241,"tr":{"ja":"ロック解除の絵に対応する第 1 の決めた位置で、タッチ画面への接触を検出すること;"}},"\n",{"k":"and","parts":[{"k":"leaf","parts":["continuously moving the unlock image on the touch-sensitive display in accordance with movement of the contact while continuous contact with the touch screen is maintained"],"id":"1C.1","label":"1C.1","s":242,"e":413,"tr":{"ja":"タッチ画面への接触が続いているあいだ、接触の動きに合わせて、ロック解除の絵をタッチ画面の上で連続して動かすこと"}},", wherein ",{"k":"leaf","parts":["the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device"],"id":"1C.2","label":"1C.2","s":423,"e":547,"tr":{"ja":"ロック解除の絵は、利用者が機器のロックを外すために操作する、図形の対話型のユーザーインターフェースの部品である"}},";"],"own":false,"alt":false,"id":"1C","label":"1C","s":242,"e":548}," and\n",{"k":"leaf","parts":["unlocking the hand-held electronic device if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display."],"id":"1D","label":"1D","s":553,"e":793,"tr":{"ja":"タッチ画面の上でロック解除の絵を動かした結果、その絵が第 1 の決めた位置からタッチ画面の上の決めたロック解除の領域まで動いたなら、携帯型の電子機器のロックを外すこと。"}}],"own":false,"alt":false,"id":"1","label":"1","s":0,"e":793},"trLines":{"ja":["携帯型の電子機器のロックを外す方法であって、その機器はタッチ画面を備え、その方法は次を含む:","ロック解除の絵に対応する第 1 の決めた位置で、タッチ画面への接触を検出すること;","タッチ画面への接触が続いているあいだ、接触の動きに合わせて、ロック解除の絵をタッチ画面の上で連続して動かすこと。ここで、ロック解除の絵は、利用者が機器のロックを外すために操作する、図形の対話型のユーザーインターフェースの部品である; そして","タッチ画面の上でロック解除の絵を動かした結果、その絵が第 1 の決めた位置からタッチ画面の上の決めたロック解除の領域まで動いたなら、携帯型の電子機器のロックを外すこと。"]}},{"n":2,"header":"2.","body":"The method of claim 1, wherein the moving comprises movement along any desired path.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The method of claim 1"],"id":"2A","label":"2A","s":0,"e":21,"tr":{"ja":"請求項 1 の方法"}},", wherein ",{"k":"leaf","parts":["the moving comprises movement along any desired path."],"id":"2B","label":"2B","s":31,"e":84,"tr":{"ja":"動かすことは、望む任意の道筋に沿った動きを含む。"}}],"own":false,"alt":false,"id":"2","label":"2","s":0,"e":84},"trLines":{"ja":["請求項 1 の方法であって、動かすことは、望む任意の道筋に沿った動きを含む。"]}},{"n":3,"header":"3.","body":"The method of claim 1, wherein the moving comprises movement along a predefined channel from the first predefined location to the predefined unlock region.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The method of claim 1"],"id":"3A","label":"3A","s":0,"e":21,"tr":{"ja":"請求項 1 の方法"}},", wherein ",{"k":"leaf","parts":["the moving comprises movement along a predefined channel from the first predefined location to the predefined unlock region."],"id":"3B","label":"3B","s":31,"e":155,"tr":{"ja":"動かすことは、第 1 の決めた位置から決めたロック解除の領域までの、決めた溝に沿った動きを含む。"}}],"own":false,"alt":false,"id":"3","label":"3","s":0,"e":155},"trLines":{"ja":["請求項 1 の方法であって、動かすことは、第 1 の決めた位置から決めたロック解除の領域までの、決めた溝に沿った動きを含む。"]}},{"n":4,"header":"4.","body":"The method of claim 1, further comprising displaying visual cues to communicate a direction of movement of the unlock image required to unlock the device.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The method of claim 1"],"id":"4A","label":"4A","s":0,"e":21,"tr":{"ja":"請求項 1 の方法"}},", further comprising ",{"k":"leaf","parts":["displaying visual cues to communicate a direction of movement of the unlock image required to unlock the device."],"id":"4B","label":"4B","s":42,"e":154,"tr":{"ja":"機器のロックを外すのに要る、ロック解除の絵の動きの向きを伝える目印を表示すること。"}}],"own":false,"alt":false,"id":"4","label":"4","s":0,"e":154},"trLines":{"ja":["請求項 1 の方法であって、機器のロックを外すのに要る、ロック解除の絵の動きの向きを伝える目印を表示することをさらに含む。"]}},{"n":5,"header":"5.","body":"The method of claim 4, wherein the visual cues comprise text.","tree":{"k":"and","parts":[{"k":"ref","ref":4,"parts":["The method of claim 4"],"id":"5A","label":"5A","s":0,"e":21,"tr":{"ja":"請求項 4 の方法"}},", wherein ",{"k":"leaf","parts":["the visual cues comprise text."],"id":"5B","label":"5B","s":31,"e":61,"tr":{"ja":"目印は文字を含む。"}}],"own":false,"alt":false,"id":"5","label":"5","s":0,"e":61},"trLines":{"ja":["請求項 4 の方法であって、目印は文字を含む。"]}},{"n":6,"header":"6.","body":"The method of claim 4, wherein said visual cues comprise an arrow indicating a general direction of movement.","tree":{"k":"and","parts":[{"k":"ref","ref":4,"parts":["The method of claim 4"],"id":"6A","label":"6A","s":0,"e":21,"tr":{"ja":"請求項 4 の方法"}},", wherein ",{"k":"leaf","parts":["said visual cues comprise an arrow indicating a general direction of movement."],"id":"6B","label":"6B","s":31,"e":109,"tr":{"ja":"目印は、おおよその動きの向きを示す矢印を含む。"}}],"own":false,"alt":false,"id":"6","label":"6","s":0,"e":109},"trLines":{"ja":["請求項 4 の方法であって、目印は、おおよその動きの向きを示す矢印を含む。"]}},{"n":7,"header":"7.","body":"A portable electronic device, comprising:\na touch-sensitive display;\nmemory;\none or more processors; and\none or more modules stored in the memory and configured for execution by the one or more processors, the one or more modules including instructions:\nto detect a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;\nto continuously move the unlock image on the touch-sensitive display in accordance with movement of the detected contact while continuous contact with the touch-sensitive display is maintained, wherein the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device; and\nto unlock the hand-held electronic device if the unlock image is moved from the first predefined location on the touch screen to a predefined unlock region on the touch-sensitive display.","tree":{"k":"and","parts":[{"k":"leaf","parts":["A portable electronic device, comprising:"],"id":"7A","label":"7A","s":0,"e":41,"tr":{"ja":"携帯型の電子機器であって、次を備える:"}},"\n",{"k":"leaf","parts":["a touch-sensitive display;"],"id":"7B","label":"7B","s":42,"e":68,"tr":{"ja":"タッチ画面;"}},"\n",{"k":"leaf","parts":["memory;"],"id":"7C","label":"7C","s":69,"e":76,"tr":{"ja":"メモリ;"}},"\n",{"k":"leaf","parts":["one or more processors;"],"id":"7D","label":"7D","s":77,"e":100,"tr":{"ja":"1 つ以上のプロセッサ;"}}," and\n",{"k":"and","parts":["one or more modules stored in the memory and configured for execution by the one or more processors, the one or more modules including instructions:\n",{"k":"and","parts":[{"k":"leaf","parts":["to detect a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;"],"id":"7E.1.1","label":"7E.1.1","s":254,"e":371,"tr":{"ja":"ロック解除の絵に対応する第 1 の決めた位置で、タッチ画面への接触を検出する命令;"}},"\n",{"k":"and","parts":[{"k":"leaf","parts":["to continuously move the unlock image on the touch-sensitive display in accordance with movement of the detected contact while continuous contact with the touch-sensitive display is maintained"],"id":"7E.1.2.1","label":"7E.1.2.1","s":372,"e":564,"tr":{"ja":"タッチ画面への接触が続いているあいだ、検出した接触の動きに合わせて、ロック解除の絵をタッチ画面の上で連続して動かす命令"}},", wherein ",{"k":"leaf","parts":["the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device"],"id":"7E.1.2.2","label":"7E.1.2.2","s":574,"e":698,"tr":{"ja":"ロック解除の絵は、利用者が機器のロックを外すために操作する、図形の対話型のユーザーインターフェースの部品である"}},";"],"own":false,"alt":false,"id":"7E.1.2","label":"7E.1.2","s":372,"e":699}," and\n",{"k":"leaf","parts":["to unlock the hand-held electronic device if the unlock image is moved from the first predefined location on the touch screen to a predefined unlock region on the touch-sensitive display."],"id":"7E.1.3","label":"7E.1.3","s":704,"e":891,"tr":{"ja":"ロック解除の絵が、タッチ画面の上の第 1 の決めた位置から、タッチ画面の上の決めたロック解除の領域まで動かされたなら、携帯型の電子機器のロックを外す命令。"}}],"own":false,"alt":false,"id":"7E.1","label":"7E.1","s":254,"e":891}],"own":true,"alt":false,"id":"7E","label":"7E","s":105,"e":891,"tr":{"ja":"メモリに置かれ、1 つ以上のプロセッサで実行されるように構成された 1 つ以上のモジュールであって、次の命令を含む: ［7E.1］"}}],"own":false,"alt":false,"id":"7","label":"7","s":0,"e":891},"trLines":{"ja":["携帯型の電子機器であって、次を備える:","タッチ画面;","メモリ;","1 つ以上のプロセッサ; そして","メモリに置かれ、1 つ以上のプロセッサで実行されるように構成された 1 つ以上のモジュールであって、次の命令を含む:","ロック解除の絵に対応する第 1 の決めた位置で、タッチ画面への接触を検出する命令;","タッチ画面への接触が続いているあいだ、検出した接触の動きに合わせて、ロック解除の絵をタッチ画面の上で連続して動かす命令。ここで、ロック解除の絵は、利用者が機器のロックを外すために操作する、図形の対話型のユーザーインターフェースの部品である; そして","ロック解除の絵が、タッチ画面の上の第 1 の決めた位置から、タッチ画面の上の決めたロック解除の領域まで動かされたなら、携帯型の電子機器のロックを外す命令。"]}},{"n":8,"header":"8.","body":"The device of claim 7, further comprising instructions to display visual cues to communicate a direction of movement of the unlock image required to unlock the device.","tree":{"k":"and","parts":[{"k":"ref","ref":7,"parts":["The device of claim 7"],"id":"8A","label":"8A","s":0,"e":21,"tr":{"ja":"請求項 7 の機器"}},", further comprising ",{"k":"leaf","parts":["instructions to display visual cues to communicate a direction of movement of the unlock image required to unlock the device."],"id":"8B","label":"8B","s":42,"e":167,"tr":{"ja":"機器のロックを外すのに要る、ロック解除の絵の動きの向きを伝える目印を表示する命令。"}}],"own":false,"alt":false,"id":"8","label":"8","s":0,"e":167},"trLines":{"ja":["請求項 7 の機器であって、機器のロックを外すのに要る、ロック解除の絵の動きの向きを伝える目印を表示する命令をさらに含む。"]}},{"n":9,"header":"9.","body":"The device of claim 8, wherein the visual cues comprise text.","tree":{"k":"and","parts":[{"k":"ref","ref":8,"parts":["The device of claim 8"],"id":"9A","label":"9A","s":0,"e":21,"tr":{"ja":"請求項 8 の機器"}},", wherein ",{"k":"leaf","parts":["the visual cues comprise text."],"id":"9B","label":"9B","s":31,"e":61,"tr":{"ja":"目印は文字を含む。"}}],"own":false,"alt":false,"id":"9","label":"9","s":0,"e":61},"trLines":{"ja":["請求項 8 の機器であって、目印は文字を含む。"]}},{"n":10,"header":"10.","body":"The device of claim 8, wherein said visual cues comprise an arrow indicating a general direction of movement.","tree":{"k":"and","parts":[{"k":"ref","ref":8,"parts":["The device of claim 8"],"id":"10A","label":"10A","s":0,"e":21,"tr":{"ja":"請求項 8 の機器"}},", wherein ",{"k":"leaf","parts":["said visual cues comprise an arrow indicating a general direction of movement."],"id":"10B","label":"10B","s":31,"e":109,"tr":{"ja":"目印は、おおよその動きの向きを示す矢印を含む。"}}],"own":false,"alt":false,"id":"10","label":"10","s":0,"e":109},"trLines":{"ja":["請求項 8 の機器であって、目印は、おおよその動きの向きを示す矢印を含む。"]}},{"n":11,"header":"11.","body":"A portable electronic device, comprising:\na touch-sensitive display;\nmeans for displaying an unlock image at a first predefined location on the touch-sensitive display while the device is in a user-interface lock state;\nmeans for detecting contact with the touch-sensitive display; and\nmeans for continuously moving the unlock image on the touch-sensitive display in response to detecting the contact in accordance with movement of the contact while continuous contact with the touch screen is maintained, wherein the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device; and\nmeans for transitioning the device to a user-interface unlock state if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display.","tree":{"k":"and","parts":[{"k":"leaf","parts":["A portable electronic device, comprising:"],"id":"11A","label":"11A","s":0,"e":41,"tr":{"ja":"携帯型の電子機器であって、次を備える:"}},"\n",{"k":"leaf","parts":["a touch-sensitive display;"],"id":"11B","label":"11B","s":42,"e":68,"tr":{"ja":"タッチ画面;"}},"\n",{"k":"leaf","parts":["means for displaying an unlock image at a first predefined location on the touch-sensitive display while the device is in a user-interface lock state;"],"id":"11C","label":"11C","s":69,"e":219,"tr":{"ja":"機器がユーザーインターフェースのロック状態にあるあいだ、タッチ画面の上の第 1 の決めた位置にロック解除の絵を表示する手段;"}},"\n",{"k":"leaf","parts":["means for detecting contact with the touch-sensitive display;"],"id":"11D","label":"11D","s":220,"e":281,"tr":{"ja":"タッチ画面への接触を検出する手段;"}}," and\n",{"k":"and","parts":[{"k":"leaf","parts":["means for continuously moving the unlock image on the touch-sensitive display in response to detecting the contact in accordance with movement of the contact while continuous contact with the touch screen is maintained"],"id":"11E.1","label":"11E.1","s":286,"e":504,"tr":{"ja":"接触を検出したことに応じて、接触が続いているあいだ、接触の動きに合わせて、ロック解除の絵をタッチ画面の上で連続して動かす手段"}},", wherein ",{"k":"leaf","parts":["the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device"],"id":"11E.2","label":"11E.2","s":514,"e":638,"tr":{"ja":"ロック解除の絵は、利用者が機器のロックを外すために操作する、図形の対話型のユーザーインターフェースの部品である"}},";"],"own":false,"alt":false,"id":"11E","label":"11E","s":286,"e":639}," and\n",{"k":"leaf","parts":["means for transitioning the device to a user-interface unlock state if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display."],"id":"11F","label":"11F","s":644,"e":910,"tr":{"ja":"タッチ画面の上でロック解除の絵を動かした結果、その絵が第 1 の決めた位置から決めたロック解除の領域まで動いたなら、機器をユーザーインターフェースのロック解除状態へ移す手段。"}}],"own":false,"alt":false,"id":"11","label":"11","s":0,"e":910},"trLines":{"ja":["携帯型の電子機器であって、次を備える:","タッチ画面;","機器がユーザーインターフェースのロック状態にあるあいだ、タッチ画面の上の第 1 の決めた位置にロック解除の絵を表示する手段;","タッチ画面への接触を検出する手段; そして","接触を検出したことに応じて、接触が続いているあいだ、接触の動きに合わせて、ロック解除の絵をタッチ画面の上で連続して動かす手段。ここで、ロック解除の絵は、利用者が機器のロックを外すために操作する、図形の対話型のユーザーインターフェースの部品である; そして","タッチ画面の上でロック解除の絵を動かした結果、その絵が第 1 の決めた位置から決めたロック解除の領域まで動いたなら、機器をユーザーインターフェースのロック解除状態へ移す手段。"]}},{"n":12,"header":"12.","body":"A computer readable storage medium storing one or more programs, the one or more programs comprising instructions, which when executed by a portable electronic device with a touch-sensitive display, cause the portable electronic device to perform a method comprising:\ndetecting a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;\ncontinuously moving the unlock image on the touch-sensitive display in accordance with movement of the contact while continuous contact with the touch screen is maintained, wherein the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device; and\nunlocking the hand-held electronic device if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display.","tree":{"k":"and","parts":[{"k":"leaf","parts":["A computer readable storage medium storing one or more programs, the one or more programs comprising instructions, which when executed by a portable electronic device with a touch-sensitive display, cause the portable electronic device to perform a method comprising:"],"id":"12A","label":"12A","s":0,"e":267,"tr":{"ja":"1 つ以上のプログラムを記憶した、コンピュータで読める記憶媒体であって、そのプログラムは命令を含み、その命令は、タッチ画面を持つ携帯型の電子機器で実行されると、次を含む方法をその機器に行わせる:"}},"\n",{"k":"leaf","parts":["detecting a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;"],"id":"12B","label":"12B","s":268,"e":385,"tr":{"ja":"ロック解除の絵に対応する第 1 の決めた位置で、タッチ画面への接触を検出すること;"}},"\n",{"k":"and","parts":[{"k":"leaf","parts":["continuously moving the unlock image on the touch-sensitive display in accordance with movement of the contact while continuous contact with the touch screen is maintained"],"id":"12C.1","label":"12C.1","s":386,"e":557,"tr":{"ja":"タッチ画面への接触が続いているあいだ、接触の動きに合わせて、ロック解除の絵をタッチ画面の上で連続して動かすこと"}},", wherein ",{"k":"leaf","parts":["the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device"],"id":"12C.2","label":"12C.2","s":567,"e":691,"tr":{"ja":"ロック解除の絵は、利用者が機器のロックを外すために操作する、図形の対話型のユーザーインターフェースの部品である"}},";"],"own":false,"alt":false,"id":"12C","label":"12C","s":386,"e":692}," and\n",{"k":"leaf","parts":["unlocking the hand-held electronic device if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display."],"id":"12D","label":"12D","s":697,"e":937,"tr":{"ja":"タッチ画面の上でロック解除の絵を動かした結果、その絵が第 1 の決めた位置から決めたロック解除の領域まで動いたなら、携帯型の電子機器のロックを外すこと。"}}],"own":false,"alt":false,"id":"12","label":"12","s":0,"e":937},"trLines":{"ja":["1 つ以上のプログラムを記憶した、コンピュータで読める記憶媒体であって、そのプログラムは命令を含み、その命令は、タッチ画面を持つ携帯型の電子機器で実行されると、次を含む方法をその機器に行わせる:","ロック解除の絵に対応する第 1 の決めた位置で、タッチ画面への接触を検出すること;","タッチ画面への接触が続いているあいだ、接触の動きに合わせて、ロック解除の絵をタッチ画面の上で連続して動かすこと。ここで、ロック解除の絵は、利用者が機器のロックを外すために操作する、図形の対話型のユーザーインターフェースの部品である; そして","タッチ画面の上でロック解除の絵を動かした結果、その絵が第 1 の決めた位置から決めたロック解除の領域まで動いたなら、携帯型の電子機器のロックを外すこと。"]}},{"n":13,"header":"13.","body":"The method of claim 1, wherein the unlock image is a single image.","tree":{"k":"and","parts":[{"k":"ref","ref":1,"parts":["The method of claim 1"],"id":"13A","label":"13A","s":0,"e":21,"tr":{"ja":"請求項 1 の方法"}},", wherein ",{"k":"leaf","parts":["the unlock image is a single image."],"id":"13B","label":"13B","s":31,"e":66,"tr":{"ja":"ロック解除の絵は 1 つの絵である。"}}],"own":false,"alt":false,"id":"13","label":"13","s":0,"e":66},"trLines":{"ja":["請求項 1 の方法であって、ロック解除の絵は 1 つの絵である。"]}},{"n":14,"header":"14.","body":"The device of claim 7, wherein the unlock image is a single image.","tree":{"k":"and","parts":[{"k":"ref","ref":7,"parts":["The device of claim 7"],"id":"14A","label":"14A","s":0,"e":21,"tr":{"ja":"請求項 7 の機器"}},", wherein ",{"k":"leaf","parts":["the unlock image is a single image."],"id":"14B","label":"14B","s":31,"e":66,"tr":{"ja":"ロック解除の絵は 1 つの絵である。"}}],"own":false,"alt":false,"id":"14","label":"14","s":0,"e":66},"trLines":{"ja":["請求項 7 の機器であって、ロック解除の絵は 1 つの絵である。"]}},{"n":15,"header":"15.","body":"The computer readable storage medium of claim 12, wherein the unlock image is a single image.","tree":{"k":"and","parts":[{"k":"ref","ref":12,"parts":["The computer readable storage medium of claim 12"],"id":"15A","label":"15A","s":0,"e":48,"tr":{"ja":"請求項 12 の記憶媒体"}},", wherein ",{"k":"leaf","parts":["the unlock image is a single image."],"id":"15B","label":"15B","s":58,"e":93,"tr":{"ja":"ロック解除の絵は 1 つの絵である。"}}],"own":false,"alt":false,"id":"15","label":"15","s":0,"e":93},"trLines":{"ja":["請求項 12 の記憶媒体であって、ロック解除の絵は 1 つの絵である。"]}}],"trLangs":["ja"],"ai":{"target":"サンプル端末 仕様（架空）target-sample/device-spec.md","by":"Claude（AI の仮判定）","date":"2026-10-23","judgments":{"1A":{"v":"T","reason":"タッチ画面を持つ端末のロックを外す方法である。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"1B":{"v":"F","reason":"決め手。ロック画面に鍵の絵（unlock image）を出さないので、その絵の位置で触れたことを検出しない。","evidence":[{"file":"target-sample/device-spec.md","line":29,"quote":"鍵や矢印の絵は出さない。"}]},"1C.1":{"v":"F","reason":"決め手。払うあいだ、画面の絵を動かさない。","evidence":[{"file":"target-sample/device-spec.md","line":31,"quote":"払うあいだ、画面の絵は動かさない。"}]},"1D":{"v":"F","reason":"絵を決めた所まで動かすのではなく、払った長さでロックを外す。","evidence":[{"file":"target-sample/device-spec.md","line":30,"quote":"画面の下端から上へ、指 1 本で画面の高さの 30% 以上払ったら、ロックを外す。"}]},"7A":{"v":"T","reason":"持ち運べる端末である。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"7B":{"v":"T","reason":"タッチ画面を持つ。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"7C":{"v":"T","reason":"メモリを持つ。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"7D":{"v":"T","reason":"プロセッサを持つ。","evidence":[{"file":"target-sample/device-spec.md","line":10,"quote":"端末は、タッチ画面、メモリ、プロセッサを 1 つずつ持つ。"}]},"7E.1.1":{"v":"F","reason":"決め手。鍵の絵を出さない。","evidence":[{"file":"target-sample/device-spec.md","line":29,"quote":"鍵や矢印の絵は出さない。"}]},"7E.1.2.1":{"v":"F","reason":"決め手。払うあいだ、画面の絵を動かさない。","evidence":[{"file":"target-sample/device-spec.md","line":31,"quote":"払うあいだ、画面の絵は動かさない。"}]},"11C":{"v":"F","reason":"決め手。鍵の絵を出さない。","evidence":[{"file":"target-sample/device-spec.md","line":29,"quote":"鍵や矢印の絵は出さない。"}]},"11E.1":{"v":"F","reason":"決め手。払うあいだ、画面の絵を動かさない。","evidence":[{"file":"target-sample/device-spec.md","line":31,"quote":"払うあいだ、画面の絵は動かさない。"}]},"12B":{"v":"F","reason":"決め手。鍵の絵を出さない。","evidence":[{"file":"target-sample/device-spec.md","line":29,"quote":"鍵や矢印の絵は出さない。"}]},"12C.1":{"v":"F","reason":"決め手。払うあいだ、画面の絵を動かさない。","evidence":[{"file":"target-sample/device-spec.md","line":31,"quote":"払うあいだ、画面の絵は動かさない。"}]}}}}]}</script>
+<script type="application/json" id="cc-schema">{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"claim-chart-result/1","title":"Claim chart result","description":"Export and import format of the claim chart page. The page writes every node; on import it reads only check, reading, memo, aiCheck, aiReason, aiEvidence and tr of each node, and skips a node whose text differs from the claim. Quotes in aiEvidence are verified against the target files only when the page is built, not on import. Not legal advice.","type":"object","required":["format","patents"],"additionalProperties":false,"properties":{"format":{"const":"claim-chart-result/1"},"generated":{"type":"string","description":"When the page was built (YYYY-MM-DD HH:MM)."},"exported":{"type":"string","description":"When this JSON was written (YYYY-MM-DD HH:MM)."},"disclaimer":{"type":"string"},"patents":{"type":"array","items":{"$ref":"#/$defs/patent"}}},"$defs":{"value":{"description":"true: the sentence of the node holds for the product. false: it does not. tbd: not decided yet.","enum":["true","false","tbd"]},"patent":{"type":"object","required":["id","claims"],"additionalProperties":false,"properties":{"id":{"type":"string","description":"Full patent number used as the tab name, e.g. JP0000000 or US8046721."},"number":{"type":"string"},"country":{"type":"string"},"title":{"type":"string"},"holder":{"type":"string"},"status":{"type":"string"},"source":{"type":"string"},"verdict":{"$ref":"#/$defs/value","description":"OR over the claims: true when any claim is true."},"claims":{"type":"array","items":{"$ref":"#/$defs/claim"}},"aiVerdict":{"$ref":"#/$defs/value","description":"Patent verdict computed from the AI provisional checks."},"ai":{"type":"object","additionalProperties":false,"properties":{"target":{"type":"string","description":"What the AI compared the claims with."},"by":{"type":"string"},"date":{"type":"string"}}}}},"claim":{"type":"object","required":["n","nodes"],"additionalProperties":false,"properties":{"n":{"type":"integer","minimum":1},"header":{"type":"string"},"cites":{"type":"array","items":{"type":"integer"},"description":"Claims this claim refers to."},"verdict":{"$ref":"#/$defs/value"},"nodes":{"type":"array","items":{"$ref":"#/$defs/node"},"description":"Every node of the claim tree, parents before children."},"aiVerdict":{"$ref":"#/$defs/value"}}},"node":{"type":"object","required":["id"],"additionalProperties":false,"properties":{"id":{"type":"string","description":"Label such as 1B.2.1; unique inside a patent."},"parent":{"type":["string","null"]},"kind":{"description":"and/or: gate; not: negation over one list; leaf: checked by a person; opt: optional clause, always true; ref: mirrors the cited claim.","enum":["and","or","not","leaf","opt","ref"]},"gate":{"enum":["and","or"],"description":"Gate actually used for and/or nodes, after a NOT flip and the chosen reading."},"ref":{"type":"integer","description":"Cited claim number, for kind ref."},"text":{"type":"string","description":"The original claim text this node covers, verbatim. On import, a node whose text differs is skipped."},"checkable":{"type":"boolean","description":"True for leaves and for nodes whose own wording is also a condition."},"check":{"$ref":"#/$defs/value","description":"The person's (or an AI's) answer for this node's own wording. Read on import."},"reading":{"enum":["or","and"],"description":"For a node whose scope can be read two ways. Read on import."},"value":{"$ref":"#/$defs/value","description":"Computed result of the node from the person's checks. Ignored on import."},"worthChecking":{"type":"boolean","description":"False when the node is tbd but its ancestors are already decided by a sibling. Ignored on import."},"memo":{"type":"string","description":"Free note, e.g. where in the product and a quote. Read on import."},"aiCheck":{"$ref":"#/$defs/value","description":"AI provisional answer for this node's own wording. Read on import. Absence of a description in the target is tbd, never false."},"aiReason":{"type":"string","description":"Why the AI answered so. Read on import."},"aiEvidence":{"type":"array","items":{"$ref":"#/$defs/evidence"},"description":"Where in the target the AI found it. Read on import."},"aiValue":{"$ref":"#/$defs/value","description":"Computed result of the node from the AI layer. Ignored on import."},"tr":{"type":"object","description":"Machine translation of the node's wording by language code (ja, en). [label] holes must match the node's children. Read on import.","additionalProperties":{"type":"string"}},"ie":{"type":"string","description":"For a leaf under a NOT: the negation with only this leaf filled in (\"i.e.\"), built mechanically. True/False answers this sentence."}}},"evidence":{"type":"object","required":["file","quote"],"additionalProperties":false,"properties":{"file":{"type":"string","description":"Path of the target file (specification or code), relative to the target's root."},"line":{"type":"integer","minimum":0,"description":"1-based line where the quote starts; computed by the builder."},"quote":{"type":"string","description":"Verbatim excerpt from the file."}}}}}</script>
+<script type="application/json" id="cc-state">{}</script>
+<script>
+"use strict";
+
+// ==================================================================== 1 boot and state
+// Captured before anything is rendered: "save" writes this untouched page back with only the
+// state block replaced, so a saved file opens exactly where the person left it.
+const PRISTINE = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+const DATA = JSON.parse(document.getElementById("cc-data").textContent);
+const SCHEMA_TEXT = JSON.stringify(JSON.parse(document.getElementById("cc-schema").textContent), null, 2);
+const TR_LANGS = [...new Set(DATA.patents.flatMap((p) => p.trLangs || []))];
+
+// S is everything that is saved (in the HTML and, partly, in the JSON). Keys of the per-node maps
+// are "<patent id>:<node id>", e.g. "US5946647:1D.1.1".
+const S = (() => {
+  const s = JSON.parse(document.getElementById("cc-state").textContent || "{}");
+  for (const k of ["checks", "alts", "memos", "fmt", "collapsed", "aiImp", "trImp"]) s[k] = s[k] || {};
+  s.ui = Object.assign({
+    tab: "*",              // "*" = overview, else a patent id
+    view: "user",          // which layer colours the tree: "user" or "ai"
+    mode: "trunk",         // "branch": matching rows only, "trunk": with their ancestors
+    aiReason: true,        // show the AI reason and evidence under each row
+    layout: "lr",          // "lr" side by side, "tb" stacked
+    tr: TR_LANGS[0] || "", // translation language, "" = none
+    text: "both",          // "orig" | "tr" | "both": what the claim text pane and the tree show
+    lang: DATA.uiLang || "ja",
+    fs: 14, ofs: 14,       // font size of the page and of the claim text (px, 8..20)
+    split: 40,             // width of the claim text pane (%)
+    ch: null, oh: null,    // fixed claim-box height / claim-text height (px); null = fit content
+    sum: false,            // summary panel open
+  }, s.ui || {});
+  s.ui.filter = Object.assign({ U: true, T: true, F: true, N: true }, s.ui.filter || {});
+  if (s.ui.theme !== "light" && s.ui.theme !== "dark") {
+    s.ui.theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return s;
+})();
+// UI is not saved: what is open right now.
+const UI = { memoOpen: {}, edit: {}, hl: null, show: {} };
+let dirty = false;
+
+// ==================================================================== 2 texts
+const TXT = {
+  ja: {
+    T: "True", F: "False", U: "TBD", N: "No need", all: "全体", save: "保存（.html）", exportJson: "JSON 書き出し",
+    importJson: "JSON 読み込み", schema: "スキーマ", menu: "メニュー", verdict: "総合判定", summary: "概要", items: "チェック項目",
+    expand: "全て展開する", collapse: "全て折り畳む", reset: "全てTBDに戻す", resetClaim: "TBDに戻す",
+    showAi: "AIの仮判定を表示", showUser: "ユーザーの判定を表示", adopt: "AIの仮判定を採用",
+    show: "表示", branch: "枝のみ", trunk: "幹から", aiReason: "AIの根拠", layout: "配置", lr: "左右", tb: "上下",
+    tr: "訳", none: "なし", text: "原文と訳", orig: "原文", trOnly: "訳", both: "両方", fs: "全体文字", ofs: "原文文字",
+    theme: "画面", light: "ライト", dark: "ダーク",
+    disclaimer: "※本ツールは特許の該否判定を補助するツールにすぎない。訳は機械訳（参考）。最終的な判定は弁理士など専門家に依頼すること。",
+    aiBanner: "AI の仮判定を表示中 ── 人はまだ確かめていない", aiTarget: "照らした相手", aiReasonHead: "AI の根拠",
+    diff: "AI と食い違い", userCol: "ユーザーの判定", aiCol: "AI の仮判定", noAi: "AI の仮判定なし",
+    filed: "出願", registered: "登録", source: "出典", claim: "請求項", indep: "独立項", cites: "引用", refto: "の判定を映す",
+    opt: "任意（常に True）", ambig: "係り受けが 2 通りに読める", reading: "読み", memo: "メモ", edit: "編集", view: "表示",
+    mismatch: "原文と不一致（空白と改行以外が変わっている）",
+    hidden: "表示の条件で隠している", showOnce: "▸ 表示する", hideAgain: "▾ 隠す", barHint: "ドラッグで大きさを決める ／ ダブルクリックで元に戻す",
+    repPatents: "特許ごとの判定", repClaims: "請求項ごとの判定", repTodo: "調べる意味のある TBD", repMemos: "メモ",
+    patent: "特許", title: "名称", holder: "権利者", status: "状態", generated: "作成", saved: "保存", empty: "なし",
+    jumpHint: "押すとこの請求項を開く", aiUnverified: "JSON から読み込み（抜き書きは未確認）", trUnverified: "JSON から読み込んだ訳",
+    resetAsk: "この特許の全部のチェックと「読み」を TBD に戻します。メモは残します。よろしいですか？",
+    resetClaimAsk: "請求項{n} のチェックと「読み」を TBD に戻します。メモは残します。よろしいですか？",
+    adoptAsk: "この特許で、まだ TBD の行に AI の仮判定を写します。よろしいですか？",
+    adoptClaimAsk: "請求項{n} で、まだ TBD の行に AI の仮判定を写します。よろしいですか？",
+    imported: "読み込み: {a} 件を反映、{b} 件は原文が合わず飛ばした、{c} 件は見つからなかった",
+    badJson: "JSON の形が claim-chart-result/1 ではありません", leave: "保存していない変更があります。",
+    roles: { problem: "現状の課題", solution: "新規性の手がかり", effect: "進歩性の手がかり" },
+  },
+  en: {
+    T: "True", F: "False", U: "TBD", N: "No need", all: "Overview", save: "Save (.html)", exportJson: "Export JSON",
+    importJson: "Import JSON", schema: "Schema", menu: "Menu", verdict: "Verdict", summary: "Summary", items: "Check items",
+    expand: "Expand all", collapse: "Collapse all", reset: "Reset all to TBD", resetClaim: "Reset to TBD",
+    showAi: "Show AI provisional", showUser: "Show person's checks", adopt: "Adopt AI provisional",
+    show: "Show", branch: "Branches only", trunk: "From the trunk", aiReason: "AI reasons", layout: "Layout", lr: "Side by side", tb: "Stacked",
+    tr: "Translation", none: "None", text: "Original / translation", orig: "Original", trOnly: "Translation", both: "Both",
+    fs: "Text", ofs: "Claim text", theme: "Theme", light: "Light", dark: "Dark",
+    disclaimer: "This tool only assists in judging whether a product falls within a patent. Translations are machine translations (for reference). Ask a patent attorney or another expert for the final judgment.",
+    aiBanner: "Showing AI provisional checks - not confirmed by a person", aiTarget: "Compared with", aiReasonHead: "AI reason",
+    diff: "differs from AI", userCol: "Person", aiCol: "AI provisional", noAi: "no AI check",
+    filed: "Filed", registered: "Granted", source: "Source", claim: "Claim", indep: "Independent", cites: "Cites", refto: "mirrored",
+    opt: "Optional (always True)", ambig: "Scope can be read two ways", reading: "Reading", memo: "Memo", edit: "Edit", view: "View",
+    mismatch: "Differs from the original (beyond spaces and line breaks)",
+    hidden: "hidden by the Show filter", showOnce: "▸ Show", hideAgain: "▾ Hide", barHint: "Drag to resize / double-click to reset",
+    repPatents: "Verdict per patent", repClaims: "Verdict per claim", repTodo: "TBD, still decisive", repMemos: "Memos",
+    patent: "Patent", title: "Title", holder: "Holder", status: "Status", generated: "Generated", saved: "Saved", empty: "None",
+    jumpHint: "Open this claim", aiUnverified: "imported from JSON (quotes not verified)", trUnverified: "translation imported from JSON",
+    resetAsk: "Reset every check and reading of this patent to TBD? Memos are kept.",
+    resetClaimAsk: "Reset the checks and readings of claim {n} to TBD? Memos are kept.",
+    adoptAsk: "Copy the AI provisional checks into every row of this patent that is still TBD?",
+    adoptClaimAsk: "Copy the AI provisional checks into the rows of claim {n} that are still TBD?",
+    imported: "Imported: {a} applied, {b} skipped (text differs), {c} not found",
+    badJson: "This JSON is not claim-chart-result/1", leave: "There are unsaved changes.",
+    roles: { problem: "Problem", solution: "Hint for novelty", effect: "Hint for inventive step" },
+  },
+};
+const t = (k) => TXT[S.ui.lang][k];
+const LANG_NAMES = { ja: "日本語", en: "English" };
+
+// ==================================================================== 3 helpers
+const VALS = ["T", "F", "U"];          // the three answers, in button order
+const CATS = ["U", "T", "F", "N"];     // display categories, in filter order (N = TBD not worth checking)
+const TO_JSON = { T: "true", F: "false", U: "tbd" };
+const FROM_JSON = { true: "T", false: "F", tbd: "U" };
+const HOLE = /［([^［］]+)］/g;          // a [label] hole that stands for a child
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function stamp() {
+  const d = new Date();
+  const pad = (x) => String(x).padStart(2, "0");
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.display = "block";
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { el.style.display = "none"; }, 6000);
+}
+// attribute helpers for the action table in section 7
+const act = (name, arg) => ' data-act="' + name + '"' + (arg === undefined ? "" : ' data-arg="' + esc(arg) + '"');
+const badge = (v) => '<span class="badge v-' + v + '">' + esc(t(v)) + "</span>";
+const radio = (name, value, label) => '<label><input type="radio" name="' + name + '" value="' + value + '"' +
+  act(name) + (S.ui[name] === value ? " checked" : "") + "> " + esc(label) + "</label>";
+const holesHtml = (s) => esc(s).replace(HOLE, '<span class="hole">［$1］</span>');
+
+// ==================================================================== 4 index
+// P[id] = patent; each node gets parent, depth, kids, claim and text (its span of the claim).
+const P = {};
+for (const p of DATA.patents) {
+  p.byId = {};
+  p.byN = {};
+  p.nodes = [];
+  for (const c of p.claims) {
+    p.byN[c.n] = c;
+    c.refs = [];
+    (function index(node, parent, depth) {
+      Object.assign(node, { parent, depth, claim: c.n, kids: node.parts.filter((x) => typeof x !== "string"),
+        text: c.body.slice(node.s, node.e) });
+      if (node.k === "ref") c.refs.push(node.ref);
+      p.byId[node.id] = node;
+      p.nodes.push(node);
+      for (const k of node.kids) index(k, node, depth + 1);
+    })(c.tree, null, 0);
+  }
+  P[p.id] = p;
+}
+const key = (p, node) => p.id + ":" + node.id;
+const checkable = (node) => node.k === "leaf" || !!node.own;
+const nodeOfKey = (k) => { const i = k.indexOf(":"); const p = P[k.slice(0, i)]; return { p, node: p.byId[k.slice(i + 1)] }; };
+
+// ==================================================================== 5 evaluation
+// Two layers of answers: the person's (S.checks) and the AI's provisional ones (ai.json or an
+// imported JSON). Every value below is computed for one layer m ("user" | "ai").
+const LAYERS = ["user", "ai"];
+function aiOf(p, node) {
+  const imp = S.aiImp[key(p, node)];
+  if (imp) return imp;
+  return p.ai && p.ai.judgments[node.id] ? p.ai.judgments[node.id] : null;
+}
+function answer(p, node, m) {
+  if (m === "ai") { const a = aiOf(p, node); return a ? a.v : "U"; }
+  return S.checks[key(p, node)] || "U";
+}
+const andV = (vs) => vs.includes("F") ? "F" : vs.includes("U") ? "U" : "T";
+const orV = (vs) => vs.includes("T") ? "T" : vs.includes("U") ? "U" : "F";
+function gateOf(p, node) {
+  let g = (node.alt && S.alts[key(p, node)]) || node.k;
+  // the leaves under a NOT are read as negated sentences ("i.e."), so the list flips (De Morgan)
+  if (node.parent && node.parent.k === "not") g = g === "and" ? "or" : "and";
+  return g;
+}
+
+let cache = {};
+function val(p, node, m = S.ui.view) {
+  const ck = m + "|" + key(p, node);
+  if (ck in cache) return cache[ck];
+  let v;
+  if (node.k === "leaf") v = answer(p, node, m);
+  else if (node.k === "opt") v = "T";
+  else if (node.k === "ref") v = val(p, p.byN[node.ref].tree, m);
+  else if (node.k === "not") v = val(p, node.kids[0], m);
+  else {
+    const kv = node.kids.map((x) => val(p, x, m));
+    const inner = gateOf(p, node) === "and" ? andV(kv) : orV(kv);
+    v = node.own ? andV([answer(p, node, m), inner]) : inner;
+  }
+  return (cache[ck] = v);
+}
+const patentVal = (p, m = S.ui.view) => orV(p.claims.map((c) => val(p, c.tree, m)));
+
+// "Relevant" = this node can still change its ancestors. A TBD that is not relevant is "No need".
+// rel[m][key] is the node itself, rel[m][key + "#own"] its own wording (leaves: the same).
+let rel = { user: {}, ai: {} };
+function markRelevant(p, node, r, m) {
+  const R = rel[m];
+  const k = key(p, node);
+  R[k] = r;
+  if (!node.kids.length) { R[k + "#own"] = r; return; }
+  if (node.k === "not") { markRelevant(p, node.kids[0], r, m); return; }
+  const kv = node.kids.map((x) => val(p, x, m));
+  const g = gateOf(p, node);
+  const inner = g === "and" ? andV(kv) : orV(kv);
+  let innerR = r;
+  if (node.own) {
+    const own = answer(p, node, m);
+    const anyF = own === "F" || inner === "F";
+    R[k + "#own"] = r && !(anyF && own !== "F");
+    innerR = r && !(anyF && inner !== "F");
+  }
+  const decider = g === "and" ? "F" : "T";
+  const decided = kv.includes(decider);
+  node.kids.forEach((x, i) => markRelevant(p, x, innerR && !(decided && kv[i] !== decider), m));
+}
+function refresh() {
+  cache = {};
+  rel = { user: {}, ai: {} };
+  for (const m of LAYERS) {
+    for (const p of DATA.patents) {
+      const cv = p.claims.map((c) => val(p, c.tree, m));
+      const anyT = cv.includes("T");
+      p.claims.forEach((c, i) => markRelevant(p, c.tree, !(anyT && cv[i] !== "T"), m));
+    }
+  }
+}
+const worth = (p, node, m = S.ui.view) => checkable(node) && answer(p, node, m) === "U" && !!rel[m][key(p, node) + "#own"];
+function cat(p, node, m = S.ui.view) {
+  const v = val(p, node, m);
+  return v === "U" && !rel[m][key(p, node)] ? "N" : v;
+}
+function counts(p, m = S.ui.view) {
+  const c = { T: 0, F: 0, U: 0, N: 0 };
+  for (const node of p.nodes) {
+    if (!checkable(node)) continue;
+    const v = answer(p, node, m);
+    c[v === "U" && !worth(p, node, m) ? "N" : v]++;
+  }
+  return c;
+}
+const countText = (c) => CATS.map((v) => esc(t(v)) + " " + c[v]).join(" / ");
+
+// what is shown in the tree under the filters (S.ui.filter, S.ui.mode)
+const shown = (v) => !!S.ui.filter[v];
+const anyDescShown = (p, node) => node.kids.some((x) => shown(cat(p, x)) || anyDescShown(p, x));
+function visible(p, node) {
+  if (!node.parent) return true;
+  const v = cat(p, node);
+  return S.ui.mode === "branch" ? shown(v) : shown(v) || anyDescShown(p, node);
+}
+
+// translation of a node in the chosen language (an imported one wins), or null
+function trOf(p, node) {
+  if (!S.ui.tr) return null;
+  const imp = S.trImp[key(p, node)];
+  if (imp && imp[S.ui.tr]) return imp[S.ui.tr];
+  return node.tr ? node.tr[S.ui.tr] || null : null;
+}
+// "orig" | "tr" | "both" for this claim: without a translation there is only the original
+const textMode = (c) => (S.ui.tr && c.trLines && c.trLines[S.ui.tr] ? S.ui.text : "orig");
+
+// ==================================================================== 6 rendering
+function render() {
+  refresh();
+  const scrollY = window.scrollY;
+  const scrolls = {};
+  document.querySelectorAll("[data-scroll]").forEach((el) => { scrolls[el.dataset.scroll] = el.scrollTop; });
+  applyLook();
+  document.getElementById("hd").innerHTML = headerHtml();
+  document.documentElement.style.setProperty("--hdh", document.getElementById("hd").offsetHeight + "px");
+  const p = P[S.ui.tab];
+  document.getElementById("mn").innerHTML = p ? p.claims.map((c) => claimHtml(p, c)).join("") : overviewHtml();
+  document.querySelectorAll("[data-scroll]").forEach((el) => { if (el.dataset.scroll in scrolls) el.scrollTop = scrolls[el.dataset.scroll]; });
+  document.title = (p ? p.id + " " : "") + "Claim Chart";
+  window.scrollTo(0, scrollY);
+}
+
+function applyLook() {
+  const root = document.documentElement;
+  root.setAttribute("data-theme", S.ui.theme);
+  root.style.setProperty("--fs", S.ui.fs + "px");
+  root.style.setProperty("--ofs", S.ui.ofs + "px");
+  root.style.setProperty("--split", S.ui.split + "%");
+  for (const [name, v] of [["--ch", S.ui.ch], ["--oh", S.ui.oh]]) {
+    if (v) root.style.setProperty(name, v + "px"); else root.style.removeProperty(name);
+  }
+  document.querySelectorAll(".cbody").forEach((b) => {
+    b.classList.toggle("fixed", !!S.ui.ch);
+    b.classList.toggle("ohfix", !!S.ui.oh);
+  });
+  document.body.classList.toggle("tb", S.ui.layout === "tb");
+}
+
+// ---- header
+function headerHtml() {
+  const p = P[S.ui.tab];
+  const tabs = '<button class="tab' + (S.ui.tab === "*" ? " on" : "") + '"' + act("tab", "*") + ">" + esc(t("all")) + "</button>" +
+    DATA.patents.map((x) => '<button class="tab' + (S.ui.tab === x.id ? " on" : "") + '"' + act("tab", x.id) + ">" + esc(x.id) + "</button>").join("");
+  const top = '<div class="hrow">' + tabs + '<span class="sp"></span>' +
+    "<button" + act("importJson") + ">" + esc(t("importJson")) + "</button><button" + act("exportJson") + ">" + esc(t("exportJson")) +
+    "</button><button" + act("schema") + ">" + esc(t("schema")) + "</button><label>" + esc(t("menu")) + " <select" + act("menuLang") + ">" +
+    ["ja", "en"].map((l) => '<option value="' + l + '"' + (S.ui.lang === l ? " selected" : "") + ">" + LANG_NAMES[l] + "</option>").join("") +
+    "</select></label><button" + act("save") + ">" + esc(t("save")) + "</button></div>";
+  let info, verdict, summary = "";
+  if (p) {
+    info = '<div class="hrow info"><span><b>' + esc(p.number) + "</b></span><span>" + esc(p.country) + "</span><span><b>" + esc(p.title) +
+      "</b></span><span>" + esc(p.holder) + "</span><span>" + esc(t("filed")) + " " + esc(p.filed) + "</span><span>" + esc(t("registered")) +
+      " " + esc(p.registered) + "</span><span>" + esc(p.status) + '</span><span><a href="' + esc(p.source) + '" target="_blank" rel="noopener">' +
+      esc(t("source")) + "</a></span></div>";
+    verdict = '<div class="hrow">' + esc(t("verdict")) + ": " + badge(patentVal(p)) + ' <span class="note">' + esc(t("items")) + " — " +
+      countText(counts(p)) + "</span><button" + act("summary") + ">" + (S.ui.sum ? "▾ " : "▸ ") + esc(t("summary")) + "</button></div>";
+    if (S.ui.sum) summary = summaryHtml(p);
+  } else {
+    info = '<div class="hrow info"><span><b>' + esc(t("all")) + "</b></span><span>" + DATA.patents.length + " " + esc(t("patent")) + "</span></div>";
+    verdict = '<div class="hrow">' + esc(t("verdict")) + ": " + badge(orV(DATA.patents.map((x) => patentVal(x)))) + "</div>";
+  }
+  const banner = S.ui.view === "ai" ? '<div class="hrow"><span class="banner">' + esc(t("aiBanner")) + "</span>" +
+    (p && p.ai ? '<span class="note">' + esc(t("aiTarget")) + ": " + esc(p.ai.target) + " ／ " + esc(p.ai.by) + " ／ " + esc(p.ai.date) + "</span>" : "") +
+    "</div>" : "";
+  return top + info + verdict + controlsHtml() + '<div class="disc">' + esc(t("disclaimer")) + "</div>" + banner + summary;
+}
+
+function controlsHtml() {
+  const seg = (name, items) => '<span class="seg">' + items.map(([v, l]) => '<button class="' + (S.ui[name] === v ? "on" : "") + '"' +
+    act(name, v) + ">" + esc(l) + "</button>").join("") + "</span>";
+  const bulk = "<span><button" + act("expandAll") + ">" + esc(t("expand")) + "</button> <button" + act("collapseAll") + ">" + esc(t("collapse")) +
+    "</button> <button" + act("resetAll") + ">" + esc(t("reset")) + "</button> " + seg("view", [["ai", t("showAi")], ["user", t("showUser")]]) +
+    " <button" + act("adoptAll") + ">" + esc(t("adopt")) + "</button></span>";
+  const show = '<span class="grp">' + esc(t("show")) + ": " + CATS.map((v) => '<label><input type="checkbox"' + act("filter", v) +
+    (S.ui.filter[v] ? " checked" : "") + "> " + esc(t(v)) + "</label>").join(" ") + " ・ " + radio("mode", "branch", t("branch")) + " " +
+    radio("mode", "trunk", t("trunk")) + ' ・ <label><input type="checkbox"' + act("aiReason") + (S.ui.aiReason ? " checked" : "") + "> " +
+    esc(t("aiReason")) + "</label></span>";
+  const layout = '<span class="grp">' + esc(t("layout")) + ": " + radio("layout", "lr", t("lr")) + " " + radio("layout", "tb", t("tb")) + "</span>";
+  const tr = TR_LANGS.length ? "<label>" + esc(t("tr")) + " <select" + act("trLang") + '><option value="">' + esc(t("none")) + "</option>" +
+    TR_LANGS.map((l) => '<option value="' + l + '"' + (S.ui.tr === l ? " selected" : "") + ">" + esc(LANG_NAMES[l] || l) + "</option>").join("") +
+    "</select></label> " + (S.ui.tr ? esc(t("text")) + ": " + radio("text", "orig", t("orig")) + " " + radio("text", "tr", t("trOnly")) + " " +
+    radio("text", "both", t("both")) + " " : "") : "";
+  const look = '<span class="grp">' + tr + "<label>" + esc(t("fs")) + ' <input type="number" min="8" max="20"' + act("fs") + ' value="' + S.ui.fs +
+    '">px</label> <label>' + esc(t("ofs")) + ' <input type="number" min="8" max="20"' + act("ofs") + ' value="' + S.ui.ofs + '">px</label> ' +
+    esc(t("theme")) + ": <select" + act("theme") + ">" + ["light", "dark"].map((x) => '<option value="' + x + '"' +
+      (S.ui.theme === x ? " selected" : "") + ">" + esc(t(x)) + "</option>").join("") + "</select></span>";
+  return '<div class="hrow">' + bulk + show + layout + look + "</div>";
+}
+
+function summaryHtml(p) {
+  const out = p.summaryList.map((s) => {
+    const tr = S.ui.tr && s.tr ? s.tr[S.ui.tr] : null;
+    const paras = s.text.split("\n");
+    return "<h4>" + esc(t("roles")[s.role]) + " — " + esc(s.heading) + (tr ? ' <span class="trc">／ ' + esc(tr[0]) + "</span>" : "") +
+      "</h4><pre>" + paras.map((x, i) => esc(x) + (tr ? '\n<span class="trc">' + esc(tr[i + 1]) + "</span>" : "")).join("\n") + "</pre>";
+  });
+  return '<div id="sum">' + out.join("") + "</div>";
+}
+
+// ---- overview tab
+function overviewHtml() {
+  const jumpCell = (pid, n, m, v) => "<td" + act("jump", pid + "|" + n + "|" + m) + ' title="' + esc(t("jumpHint")) + '">' + badge(v) + "</td>";
+  let h = "<h2>" + esc(t("repPatents")) + '</h2><table class="rep"><tr>' + ["patent", "title", "holder", "status", "userCol", "aiCol", "items"]
+    .map((k) => "<th>" + esc(t(k)) + "</th>").join("") + "</tr>";
+  for (const p of DATA.patents) {
+    h += "<tr><td><a href=\"#\"" + act("tab", p.id) + ">" + esc(p.id) + "</a> " + esc(p.number) + "</td><td>" + esc(p.title) + "</td><td>" +
+      esc(p.holder) + "</td><td>" + esc(p.status) + "</td>" + jumpCell(p.id, 0, "user", patentVal(p, "user")) +
+      (p.ai ? jumpCell(p.id, 0, "ai", patentVal(p, "ai")) : "<td>" + esc(t("noAi")) + "</td>") + "<td>" + countText(counts(p)) + "</td></tr>";
+  }
+  h += "</table>";
+  for (const p of DATA.patents) {
+    h += "<h2>" + esc(p.id) + " — " + esc(t("repClaims")) + '</h2><table class="rep"><tr><th>' + esc(t("claim")) + "</th><th>" + esc(t("cites")) +
+      "</th><th>" + esc(t("userCol")) + "</th><th>" + esc(t("aiCol")) + "</th></tr>";
+    for (const c of p.claims) {
+      h += "<tr><td>" + esc(t("claim")) + c.n + "</td><td>" + (c.refs.length ? c.refs.map((r) => esc(t("claim")) + r).join(", ") : esc(t("indep"))) +
+        "</td>" + jumpCell(p.id, c.n, "user", cat(p, c.tree, "user")) + jumpCell(p.id, c.n, "ai", cat(p, c.tree, "ai")) + "</tr>";
+    }
+    const todo = p.nodes.filter((n) => worth(p, n));
+    h += "</table><h2>" + esc(p.id) + " — " + esc(t("repTodo")) + '</h2><table class="rep">' + (todo.length ? todo.map((n) =>
+      "<tr><td><a href=\"#\"" + act("node", key(p, n)) + ">" + esc(n.label) + "</a></td><td>" + (n.kids.length ? holeText(n) : esc(n.parts[0])) +
+      "</td></tr>").join("") : "<tr><td>" + esc(t("empty")) + "</td></tr>");
+    const memos = p.nodes.filter((n) => S.memos[key(p, n)]);
+    h += "</table><h2>" + esc(p.id) + " — " + esc(t("repMemos")) + '</h2><table class="rep">' + (memos.length ? memos.map((n) =>
+      "<tr><td><a href=\"#\"" + act("node", key(p, n)) + ">" + esc(n.label) + "</a></td><td>" + badge(val(p, n)) +
+      '</td><td style="white-space:pre-wrap">' + esc(S.memos[key(p, n)]) + "</td></tr>").join("") : "<tr><td>" + esc(t("empty")) + "</td></tr>");
+    h += "</table>";
+  }
+  return h + '<p class="note">' + esc(t("generated")) + " " + esc(DATA.generated) + (S.savedAt ? " ／ " + esc(t("saved")) + " " + esc(S.savedAt) : "") +
+    " ／ " + esc(t("disclaimer")) + "</p>";
+}
+
+// ---- one claim: header, then the claim text pane | bar | tree, then the bottom bar
+function claimHtml(p, c) {
+  const v = cat(p, c.tree);
+  const ck = p.id + ":" + c.n;
+  const open = shown(v) || UI.show[ck];
+  const other = S.ui.view === "user" ? "ai" : "user";
+  let h = '<section class="claim' + (open ? " open" : "") + '" id="claim-' + esc(p.id) + "-" + c.n + '"><h3>' + esc(t("claim")) + c.n +
+    ' <span class="sub">' + esc(c.refs.length ? t("cites") + ": " + c.refs.map((r) => t("claim") + r).join(", ") : t("indep")) + "</span> " + badge(v) +
+    " <button" + act("resetClaim", c.n) + ">" + esc(t("resetClaim")) + "</button> <button" + act("adoptClaim", c.n) + ">" + esc(t("adopt")) +
+    '</button> <span class="sub">' + esc(other === "ai" ? "AI" : t("userCol")) + ":</span> " + badge(cat(p, c.tree, other));
+  if (!shown(v)) h += ' <span class="sub">' + esc(t("hidden")) + "</span><button" + act("showClaim", ck) + ">" + esc(UI.show[ck] ? t("hideAgain") : t("showOnce")) + "</button>";
+  h += "</h3>";
+  if (!open) return h + "</section>";
+  return h + '<div class="cbody' + (S.ui.ch ? " fixed" : "") + (S.ui.oh ? " ohfix" : "") + '"><div class="orig">' + paneHtml(p, c) +
+    '</div><div class="bar-mid" data-bar="mid" title="' + esc(t("barHint")) + '"></div><div class="chart" data-scroll="chart:' + esc(ck) + '">' +
+    treeHtml(p, c) + '</div></div><div class="bar-bottom" data-bar="bottom" title="' + esc(t("barHint")) + '"></div></section>';
+}
+
+// ---- claim text pane
+// "orig": the text as the person formatted it (only spaces and line breaks may be edited);
+// "tr" / "both": one line per claim line, translated or interleaved. Every line span carries its
+// offset in the claim so a click can find the node under it.
+const fmtKey = (p, c) => p.id + ":" + c.n;
+function defaultFmt(c) {
+  const lines = c.body.split("\n");
+  return lines.map((l, i) => (i === 0 || i === lines.length - 1 ? l : "  " + l)).join("\n");
+}
+const fmtOf = (p, c) => S.fmt[fmtKey(p, c)] ?? defaultFmt(c);
+const squash = (s) => s.replace(/\s+/g, "");
+const fmtMatches = (p, c) => squash(fmtOf(p, c)) === squash(c.body);
+// claim offset -> offset in the formatted text (they differ only in whitespace)
+function offsetMap(body, fmt) {
+  const map = new Array(body.length + 1);
+  let j = 0;
+  for (let i = 0; i < body.length; i++) {
+    if (/\s/.test(body[i])) { map[i] = j; continue; }
+    while (j < fmt.length && fmt[j] !== body[i]) j++;
+    map[i] = j++;
+  }
+  map[body.length] = fmt.length;
+  return map;
+}
+function highlighted(p, c) {
+  if (!UI.hl) return null;
+  const { p: hp, node } = nodeOfKey(UI.hl);
+  return hp === p && node.claim === c.n ? node : null;
+}
+function paneHtml(p, c) {
+  const fk = fmtKey(p, c);
+  const ok = fmtMatches(p, c);
+  const mode = textMode(c);
+  const hl = highlighted(p, c);
+  let h = '<div class="inner" data-scroll="pane:' + esc(fk) + '"><div class="otool"><b>' + esc(c.header) + "</b>";
+  if (mode === "orig") h += "<button" + act("editText", fk) + ">" + esc(UI.edit[fk] ? t("view") : t("edit")) + "</button>";
+  // the claim text is always checked against the original, but only a mismatch is shown
+  h += '<span class="ng" data-okfor="' + esc(fk) + '">' + (ok ? "" : "✗ " + esc(t("mismatch"))) + "</span>";
+  h += "</div>";
+  if (mode === "orig" && UI.edit[fk]) return h + '<textarea class="oedit"' + act("fmtInput", fk) + ">" + esc(fmtOf(p, c)) + "</textarea></div>";
+  return h + '<pre class="otext"' + act("pickText", fk) + ">" + (mode === "orig" ? formattedHtml(p, c, ok ? hl : null) : linesHtml(c, mode, hl)) + "</pre></div>";
+}
+function formattedHtml(p, c, hl) {
+  const fmt = fmtOf(p, c);
+  if (!hl) return esc(fmt);
+  const m = offsetMap(c.body, fmt);
+  return esc(fmt.slice(0, m[hl.s])) + "<mark>" + esc(fmt.slice(m[hl.s], m[hl.e])) + "</mark>" + esc(fmt.slice(m[hl.e]));
+}
+function linesHtml(c, mode, hl) {
+  const lines = c.body.split("\n");
+  const trl = c.trLines[S.ui.tr];
+  const out = [];
+  let off = 0;
+  lines.forEach((ln, i) => {
+    const ind = i === 0 || i === lines.length - 1 ? "" : "  ";
+    const s0 = off, e0 = off + ln.length;
+    const hit = hl && hl.e > s0 && hl.s < e0;
+    if (mode === "both") {
+      let body = esc(ln);
+      if (hit) {
+        const a = Math.max(hl.s, s0) - s0, b = Math.min(hl.e, e0) - s0;
+        body = esc(ln.slice(0, a)) + "<mark>" + esc(ln.slice(a, b)) + "</mark>" + esc(ln.slice(b));
+      }
+      out.push(ind + '<span data-off="' + s0 + '">' + body + "</span>");
+    }
+    const tx = esc(trl[i]);
+    out.push(ind + '<span class="trc" data-off="' + s0 + '" data-whole="1">' + (hit && mode === "tr" ? "<mark>" + tx + "</mark>" : tx) + "</span>");
+    off = e0 + 1;
+  });
+  return out.join("\n");
+}
+
+// ---- tree
+function treeHtml(p, c) {
+  const out = [];
+  (function walk(node) {
+    const open = !S.collapsed[key(p, node)];
+    if (visible(p, node)) out.push(rowHtml(p, node));
+    else if (S.ui.mode === "trunk") return; // trunk: a hidden node has no shown descendants
+    if (open) node.kids.forEach(walk);
+  })(c.tree);
+  return out.join("");
+}
+// a node's own wording with each child shown as [label]; runs of children collapse to [A~C]
+function holeText(node) {
+  const out = [];
+  let run = [];
+  const flush = () => {
+    if (run.length) out.push('<span class="hole">［' + esc(run.length > 1 ? run[0] + "〜" + run[run.length - 1] : run[0]) + "］</span>");
+    run = [];
+  };
+  for (const part of node.parts) {
+    if (typeof part !== "string") { run.push(part.label); continue; }
+    if (/^\s*$/.test(part)) continue;
+    flush();
+    out.push(esc(part.replace(/\n/g, " ")));
+  }
+  flush();
+  return out.join("");
+}
+const GATE_NAMES = { and: "AND", or: "OR", not: "NOT" };
+function rowHtml(p, node) {
+  const k = key(p, node);
+  const v = cat(p, node);
+  let h = '<div class="row v-' + v + (UI.hl === k ? " hl" : "") + '" data-k="' + esc(k) + '" style="padding-left:' + node.depth * 16 + 'px">' +
+    "<span class=\"tw\"" + act("twisty") + ">" + (node.kids.length ? (S.collapsed[k] ? "▸" : "▾") : "") + "</span>" +
+    '<span class="lb">' + esc(node.label) + "</span>" + gateHtml(p, node) +
+    '<span class="tx"' + act("rowText") + ">" + rowTextHtml(p, node) + (v === "N" ? '<span class="tag">' + esc(t("N")) + "</span>" : "") +
+    (node.alt ? '<span class="tag">' + esc(t("ambig")) + "</span>" : "") + extrasHtml(p, node) + "</span>" + controlsOfRow(p, node) + "</div>";
+  if (UI.memoOpen[k]) h += '<div class="memo" style="padding-left:' + (node.depth * 16 + 18) + 'px"><textarea' + act("memoInput", k) + ">" +
+    esc(S.memos[k] || "") + "</textarea></div>";
+  return h;
+}
+function gateHtml(p, node) {
+  if (node.k === "opt") return '<span class="g">' + esc(t("opt")) + "</span>";
+  if (node.k === "ref") return '<span class="g">' + esc(t("cites")) + "</span>";
+  if (!node.kids.length) return "";
+  const g = gateOf(p, node);
+  const flipped = node.parent && node.parent.k === "not" ? GATE_NAMES[node.k] + "→" : "";
+  return '<span class="g g-' + (node.k === "not" ? "not" : g) + '">' + flipped + (node.k === "not" ? "NOT" : GATE_NAMES[g]) + "</span>";
+}
+// the wording of the row in the chosen text mode; a translation is told apart by its colour only
+function rowTextHtml(p, node) {
+  const tr = trOf(p, node);
+  const mode = textMode(p.byN[node.claim]);
+  const orig = node.kids.length ? holeText(node) : esc(node.parts[0]);
+  const trText = tr ? '<span class="trc">' + holesHtml(tr) + "</span>" : "";
+  let h = mode === "tr" && tr ? trText : orig;
+  if (node.k === "ref") {
+    h = "<a href=\"#\"" + act("gotoClaim", node.ref) + ">" + h + "</a> → " + esc(t("claim")) + node.ref + " " + esc(t("refto")) + " " +
+      badge(val(p, p.byN[node.ref].tree));
+  }
+  if (mode === "both" && tr) h += '<span class="sub-line">' + trText + "</span>";
+  if (mode !== "orig" && tr && S.trImp[key(p, node)]) h += '<span class="tag">' + esc(t("trUnverified")) + "</span>";
+  if (node.ie) h += '<span class="sub-line ie">i.e., ' + esc(node.ie) + "</span>";
+  return h;
+}
+function extrasHtml(p, node) {
+  const k = key(p, node);
+  let h = S.memos[k] && !UI.memoOpen[k] ? '<span class="sub-line mtxt">✎ ' + esc(S.memos[k]) + "</span>" : "";
+  const ai = checkable(node) ? aiOf(p, node) : null;
+  if (ai && S.ui.aiReason) {
+    h += '<span class="ai">' + esc(t("aiReasonHead")) + " " + badge(ai.v) + (S.aiImp[k] ? '<span class="tag">' + esc(t("aiUnverified")) + "</span>" : "") +
+      " " + esc(ai.reason) + ai.evidence.map((e) => '<span class="ev">' + esc(e.file) + ":" + e.line + "「" + esc(e.quote) + "」</span>").join("") + "</span>";
+  }
+  return h;
+}
+function controlsOfRow(p, node) {
+  const k = key(p, node);
+  let h = "";
+  if (node.alt) {
+    const a = S.alts[k] || node.k;
+    h += '<span class="ck alt" title="' + esc(t("reading")) + '">' + ["or", "and"].map((g) => '<button class="' + (a === g ? "on" : "") + '"' +
+      act("reading", g) + ">" + g.toUpperCase() + "</button>").join("") + "</span>";
+  }
+  if (checkable(node)) {
+    const ai = aiOf(p, node);
+    if (S.ui.view === "user" && ai && ai.v !== "U") {
+      const mine = answer(p, node, "user");
+      const differs = mine !== "U" && mine !== ai.v;
+      h += '<span class="tag' + (differs ? " diff" : "") + '">AI: ' + esc(t(ai.v)) + (differs ? " ／ " + esc(t("diff")) : "") + "</span>";
+    }
+    const cur = answer(p, node, S.ui.view);
+    h += '<span class="ck">' + VALS.map((x) => '<button class="b-' + x + (cur === x ? " on" : "") + '"' + act("check", x) +
+      (S.ui.view === "ai" ? " disabled" : "") + ">" + esc(t(x)) + "</button>").join("") + "</span>";
+  }
+  return h + '<button class="mm' + (S.memos[k] ? " has" : "") + '"' + act("memo") + ' title="' + esc(t("memo")) + '">✎</button>';
+}
+
+// bring the highlighted text into view inside its own pane (when the pane scrolls)
+function revealMark() {
+  const m = document.querySelector(".otext mark");
+  if (!m) return;
+  const box = m.closest(".inner");
+  if (box.scrollHeight <= box.clientHeight) return;
+  const top = m.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+  if (top < box.scrollTop + 24 || top + m.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = Math.max(0, top - box.clientHeight / 3);
+}
+
+// ==================================================================== 7 actions
+// Every control carries data-act="<name>" (and data-arg). ON_CLICK / ON_CHANGE / ON_INPUT map the
+// name to what it does; a row-level action finds its row through the nearest [data-k].
+function change() { dirty = true; render(); }
+const rowOf = (el) => { const r = el.closest("[data-k]"); return r ? Object.assign({ k: r.dataset.k }, nodeOfKey(r.dataset.k)) : null; };
+const confirmText = (name, n) => t(name).replace("{n}", n);
+
+function goToNode(k) {
+  const { p, node } = nodeOfKey(k);
+  S.ui.tab = p.id;
+  UI.show[p.id + ":" + node.claim] = true;
+  for (let a = node.parent; a; a = a.parent) delete S.collapsed[key(p, a)];
+  UI.hl = k;
+  render();
+  let row = document.querySelector('.row[data-k="' + CSS.escape(k) + '"]');
+  if (!row) { S.ui.filter = { U: true, T: true, F: true, N: true }; render(); row = document.querySelector('.row[data-k="' + CSS.escape(k) + '"]'); }
+  if (row) { row.scrollIntoView({ block: "center" }); row.classList.add("flash"); }
+  revealMark();
+}
+function scrollToClaim(pid, n) {
+  const sec = document.getElementById("claim-" + pid + "-" + n);
+  if (sec) { sec.scrollIntoView({ block: "start" }); window.scrollBy(0, -document.getElementById("hd").offsetHeight - 4); }
+}
+// overview table: open the patent (and the claim) in the layer of the clicked column
+function jumpTo(pid, n, m) {
+  S.ui.tab = pid;
+  S.ui.view = m;
+  UI.hl = null;
+  if (+n) UI.show[pid + ":" + n] = true;
+  render();
+  if (+n) scrollToClaim(pid, n); else window.scrollTo(0, 0);
+}
+function setChecks(p, claim, fn) {
+  for (const x of p.nodes) if (!claim || x.claim === claim) fn(x, key(p, x));
+  change();
+}
+// the deepest node of the claim whose span covers the clicked character
+function pickFromText(e, el) {
+  const [pid, n] = [el.dataset.arg.slice(0, el.dataset.arg.lastIndexOf(":")), +el.dataset.arg.slice(el.dataset.arg.lastIndexOf(":") + 1)];
+  const p = P[pid], c = p.byN[n];
+  let node, off;
+  if (document.caretPositionFromPoint) { const cp = document.caretPositionFromPoint(e.clientX, e.clientY); node = cp && cp.offsetNode; off = cp && cp.offset; }
+  else if (document.caretRangeFromPoint) { const cr = document.caretRangeFromPoint(e.clientX, e.clientY); node = cr && cr.startContainer; off = cr && cr.startOffset; }
+  if (!node) return;
+  const upTo = (start) => { const r = document.createRange(); r.setStart(start, 0); r.setEnd(node, off); return r.toString().length; };
+  let at;
+  const line = (node.nodeType === 1 ? node : node.parentElement).closest("[data-off]");
+  if (line && el.contains(line)) at = +line.dataset.off + (line.dataset.whole ? 0 : upTo(line));
+  else {
+    if (!fmtMatches(p, c)) return;
+    const fi = upTo(el);
+    const m = offsetMap(c.body, fmtOf(p, c));
+    at = 0;
+    while (at < c.body.length && m[at + 1] <= fi) at++;
+  }
+  let best = c.tree;
+  (function deeper(x) { for (const k of x.kids) if (k.s <= at && at < k.e) { best = k; deeper(k); } })(c.tree);
+  goToNode(key(p, best));
+}
+
+const ON_CLICK = {
+  tab: (el, e) => { e.preventDefault(); S.ui.tab = el.dataset.arg; UI.hl = null; render(); window.scrollTo(0, 0); },
+  jump: (el) => jumpTo(...el.dataset.arg.split("|")),
+  node: (el, e) => { e.preventDefault(); goToNode(el.dataset.arg); },
+  summary: () => { S.ui.sum = !S.ui.sum; render(); },
+  save: () => saveHtml(),
+  exportJson: () => exportJson(),
+  importJson: () => document.getElementById("jsonFile").click(),
+  schema: () => download("claim-chart-result.schema.json", SCHEMA_TEXT, "application/json"),
+  view: (el) => { S.ui.view = el.dataset.arg; render(); },
+  expandAll: () => { const p = P[S.ui.tab]; if (!p) return; for (const n of p.nodes) delete S.collapsed[key(p, n)]; render(); },
+  collapseAll: () => { const p = P[S.ui.tab]; if (!p) return; for (const n of p.nodes) if (n.kids.length && n.parent) S.collapsed[key(p, n)] = true; render(); },
+  resetAll: () => { const p = P[S.ui.tab]; if (p && confirm(t("resetAsk"))) setChecks(p, 0, (x, k) => { delete S.checks[k]; delete S.alts[k]; }); },
+  resetClaim: (el) => { const n = +el.dataset.arg; if (confirm(confirmText("resetClaimAsk", n))) setChecks(P[S.ui.tab], n, (x, k) => { delete S.checks[k]; delete S.alts[k]; }); },
+  adoptAll: () => { const p = P[S.ui.tab]; if (p && confirm(t("adoptAsk"))) adopt(p, 0); },
+  adoptClaim: (el) => { const n = +el.dataset.arg; if (confirm(confirmText("adoptClaimAsk", n))) adopt(P[S.ui.tab], n); },
+  showClaim: (el) => { UI.show[el.dataset.arg] = !UI.show[el.dataset.arg]; render(); },
+  gotoClaim: (el, e) => { e.preventDefault(); UI.show[S.ui.tab + ":" + el.dataset.arg] = true; render(); scrollToClaim(S.ui.tab, el.dataset.arg); },
+  editText: (el) => { UI.edit[el.dataset.arg] = !UI.edit[el.dataset.arg]; render(); },
+  pickText: (el, e) => pickFromText(e, el),
+  check: (el) => { S.checks[rowOf(el).k] = el.dataset.arg; if (el.dataset.arg === "U") delete S.checks[rowOf(el).k]; change(); },
+  reading: (el) => { S.alts[rowOf(el).k] = el.dataset.arg; change(); },
+  memo: (el) => { const k = rowOf(el).k; UI.memoOpen[k] = !UI.memoOpen[k]; render(); },
+  twisty: (el) => { const r = rowOf(el); if (r.node.kids.length) { S.collapsed[r.k] = !S.collapsed[r.k]; render(); } },
+  rowText: (el, e) => { if (e.target.closest("a")) return; const k = rowOf(el).k; UI.hl = UI.hl === k ? null : k; render(); revealMark(); },
+};
+function adopt(p, claim) {
+  setChecks(p, claim, (x, k) => { const a = checkable(x) ? aiOf(p, x) : null; if (a && a.v !== "U" && !S.checks[k]) S.checks[k] = a.v; });
+  S.ui.view = "user";
+  render();
+}
+const clampFont = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(20, Math.max(8, n)) : 14; };
+const ON_CHANGE = {
+  filter: (el) => { S.ui.filter[el.dataset.arg] = el.checked; render(); },
+  mode: (el) => { S.ui.mode = el.value; render(); },
+  layout: (el) => { S.ui.layout = el.value; render(); },
+  text: (el) => { S.ui.text = el.value; render(); revealMark(); },
+  aiReason: (el) => { S.ui.aiReason = el.checked; render(); },
+  trLang: (el) => { S.ui.tr = el.value; render(); },
+  menuLang: (el) => { S.ui.lang = el.value; render(); },
+  theme: (el) => { S.ui.theme = el.value; render(); },
+  fs: (el) => { S.ui.fs = clampFont(el.value); render(); },
+  ofs: (el) => { S.ui.ofs = clampFont(el.value); render(); },
+  memoInput: () => render(),
+  jsonFile: (el) => { if (el.files[0]) el.files[0].text().then(importJson); el.value = ""; },
+};
+const ON_INPUT = {
+  memoInput: (el) => { if (el.value) S.memos[el.dataset.arg] = el.value; else delete S.memos[el.dataset.arg]; dirty = true; },
+  fmtInput: (el) => {
+    const fk = el.dataset.arg;
+    S.fmt[fk] = el.value;
+    dirty = true;
+    const i = fk.lastIndexOf(":");
+    const ok = fmtMatches(P[fk.slice(0, i)], P[fk.slice(0, i)].byN[+fk.slice(i + 1)]);
+    document.querySelector('[data-okfor="' + CSS.escape(fk) + '"]').textContent = ok ? "" : "✗ " + t("mismatch");
+  },
+};
+const dispatch = (table) => (e) => {
+  const el = e.target.closest("[data-act]");
+  if (el && table[el.dataset.act]) table[el.dataset.act](el, e);
+};
+document.addEventListener("click", dispatch(ON_CLICK));
+document.addEventListener("change", dispatch(ON_CHANGE));
+document.addEventListener("input", dispatch(ON_INPUT));
+window.addEventListener("resize", () => document.documentElement.style.setProperty("--hdh", document.getElementById("hd").offsetHeight + "px"));
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = t("leave"); } });
+
+// ==================================================================== 8 bars
+// mid bar: width of the claim text pane (side by side) or its height (stacked);
+// bottom bar: height of every claim box. Double-click puts them back.
+document.addEventListener("pointerdown", (e) => {
+  const bar = e.target.closest("[data-bar]");
+  if (!bar) return;
+  e.preventDefault();
+  const bottom = bar.dataset.bar === "bottom";
+  const box = bottom ? bar.previousElementSibling : bar.parentElement;
+  bar.classList.add("dragging");
+  bar.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    const r = box.getBoundingClientRect();
+    if (bottom) S.ui.ch = Math.round(Math.min(4000, Math.max(150, ev.clientY - r.top)));
+    else if (S.ui.layout === "lr") S.ui.split = Math.round(Math.min(85, Math.max(15, (ev.clientX - r.left) / r.width * 100)));
+    else S.ui.oh = Math.round(Math.min(window.innerHeight - 120, Math.max(40, ev.clientY - r.top)));
+    applyLook();
+  };
+  const up = () => { bar.classList.remove("dragging"); bar.removeEventListener("pointermove", move); bar.removeEventListener("pointerup", up); dirty = true; };
+  bar.addEventListener("pointermove", move);
+  bar.addEventListener("pointerup", up);
+});
+document.addEventListener("dblclick", (e) => {
+  const bar = e.target.closest("[data-bar]");
+  if (!bar) return;
+  if (bar.dataset.bar === "bottom") S.ui.ch = null;
+  else if (S.ui.layout === "lr") S.ui.split = 40;
+  else S.ui.oh = null;
+  change();
+});
+
+// ==================================================================== 9 save and JSON
+const fileStem = () => "claim-chart-" + DATA.patents.map((p) => p.id).join("_") + "-" + stamp().replace(/[-: ]/g, "");
+function saveHtml() {
+  S.savedAt = stamp();
+  const json = JSON.stringify(S).replace(/</g, "\\u003c");
+  const re = /(<script type="application\/json" id="cc-state">)[\s\S]*?(<\/script>)/;
+  download(fileStem() + ".html", PRISTINE.replace(re, (_, a, b) => a + json + b), "text/html");
+  dirty = false;
+  render();
+}
+
+// claim-chart-result/1 (schema/claim-chart-result.schema.json): every node of every claim
+function exportJson() {
+  refresh();
+  const nodeJson = (p, n) => {
+    const k = key(p, n);
+    const o = { id: n.id, parent: n.parent ? n.parent.id : null, kind: n.k };
+    if (n.k === "and" || n.k === "or") o.gate = gateOf(p, n);
+    if (n.k === "ref") o.ref = n.ref;
+    o.text = n.text;
+    if (n.ie) o.ie = n.ie;
+    o.checkable = checkable(n);
+    if (o.checkable) o.check = TO_JSON[answer(p, n, "user")];
+    const ai = o.checkable ? aiOf(p, n) : null;
+    if (ai) Object.assign(o, { aiCheck: TO_JSON[ai.v], aiReason: ai.reason, aiEvidence: ai.evidence });
+    if (n.alt) o.reading = S.alts[k] || n.k;
+    o.value = TO_JSON[val(p, n, "user")];
+    o.aiValue = TO_JSON[val(p, n, "ai")];
+    o.worthChecking = worth(p, n, "user");
+    if (S.memos[k]) o.memo = S.memos[k];
+    const trs = Object.assign({}, n.tr || {}, S.trImp[k] || {});
+    if (Object.keys(trs).length) o.tr = trs;
+    return o;
+  };
+  const out = {
+    format: "claim-chart-result/1", generated: DATA.generated, exported: stamp(), disclaimer: TXT.en.disclaimer,
+    patents: DATA.patents.map((p) => ({
+      id: p.id, number: p.number, country: p.country, title: p.title, holder: p.holder, status: p.status, source: p.source,
+      verdict: TO_JSON[patentVal(p, "user")], aiVerdict: TO_JSON[patentVal(p, "ai")],
+      ai: p.ai ? { target: p.ai.target, by: p.ai.by, date: p.ai.date } : undefined,
+      claims: p.claims.map((c) => ({ n: c.n, header: c.header, cites: c.refs, verdict: TO_JSON[val(p, c.tree, "user")],
+        aiVerdict: TO_JSON[val(p, c.tree, "ai")], nodes: p.nodes.filter((n) => n.claim === c.n).map((n) => nodeJson(p, n)) })),
+    })),
+  };
+  download(fileStem() + ".json", JSON.stringify(out, null, 2), "application/json");
+}
+
+// Read back what a person or an AI may change: check, reading, memo, aiCheck/aiReason/aiEvidence, tr.
+// A node whose text differs from the claim is skipped, so answers cannot land on the wrong text.
+function importJson(text) {
+  let doc;
+  try { doc = JSON.parse(text); } catch (err) { toast(t("badJson")); return; }
+  if (!doc || doc.format !== "claim-chart-result/1" || !Array.isArray(doc.patents)) { toast(t("badJson")); return; }
+  const holes = (s) => (String(s).match(HOLE) || []).map((h) => h.slice(1, -1)).sort().join("|");
+  let applied = 0, skipped = 0, missing = 0;
+  for (const dp of doc.patents) {
+    const p = P[dp.id];
+    for (const dc of dp.claims || []) {
+      for (const dn of dc.nodes || []) {
+        const n = p && p.byId[dn.id];
+        if (!n || n.claim !== dc.n) { missing++; continue; }
+        if (dn.text !== undefined && dn.text !== n.text) { skipped++; continue; }
+        const k = key(p, n);
+        let used = false;
+        if (checkable(n) && dn.check in FROM_JSON) {
+          if (FROM_JSON[dn.check] === "U") delete S.checks[k]; else S.checks[k] = FROM_JSON[dn.check];
+          used = true;
+        }
+        if (n.alt && (dn.reading === "or" || dn.reading === "and")) { S.alts[k] = dn.reading; used = true; }
+        if (checkable(n) && dn.aiCheck in FROM_JSON) {
+          const ev = Array.isArray(dn.aiEvidence) ? dn.aiEvidence.filter((x) => x && typeof x.file === "string" && typeof x.quote === "string")
+            .map((x) => ({ file: x.file, line: Number.isInteger(x.line) ? x.line : 0, quote: x.quote })) : [];
+          S.aiImp[k] = { v: FROM_JSON[dn.aiCheck], reason: typeof dn.aiReason === "string" ? dn.aiReason : "", evidence: ev };
+          used = true;
+        }
+        if (dn.tr && typeof dn.tr === "object") {
+          const want = n.kids.map((x) => x.label).sort().join("|");
+          for (const [lang, s] of Object.entries(dn.tr)) {
+            if (typeof s !== "string" || holes(s) !== want || (n.tr && n.tr[lang] === s)) continue;
+            (S.trImp[k] = S.trImp[k] || {})[lang] = s;
+            used = true;
+          }
+        }
+        if (typeof dn.memo === "string") { if (dn.memo) S.memos[k] = dn.memo; else delete S.memos[k]; used = true; }
+        if (used) applied++;
+      }
+    }
+  }
+  dirty = true;
+  render();
+  toast(t("imported").replace("{a}", applied).replace("{b}", skipped).replace("{c}", missing));
+}
+
+// ==================================================================== 10 start
+render();
+</script>
+</body>
+</html>

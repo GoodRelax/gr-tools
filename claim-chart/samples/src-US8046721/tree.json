@@ -1,0 +1,57 @@
+{
+  "claims": [
+    {"A": [
+      {"L": "A method of unlocking a hand-held electronic device, the device including a touch-sensitive display, the method comprising:"}, "\n",
+      {"L": "detecting a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;"}, "\n",
+      {"A": [{"L": "continuously moving the unlock image on the touch-sensitive display in accordance with movement of the contact while continuous contact with the touch screen is maintained"}, ", wherein ",
+        {"L": "the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device"}, ";"]},
+      " and\n",
+      {"L": "unlocking the hand-held electronic device if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display."}
+    ]},
+    {"A": [{"R": 1, "t": "The method of claim 1"}, ", wherein ", {"L": "the moving comprises movement along any desired path."}]},
+    {"A": [{"R": 1, "t": "The method of claim 1"}, ", wherein ", {"L": "the moving comprises movement along a predefined channel from the first predefined location to the predefined unlock region."}]},
+    {"A": [{"R": 1, "t": "The method of claim 1"}, ", further comprising ", {"L": "displaying visual cues to communicate a direction of movement of the unlock image required to unlock the device."}]},
+    {"A": [{"R": 4, "t": "The method of claim 4"}, ", wherein ", {"L": "the visual cues comprise text."}]},
+    {"A": [{"R": 4, "t": "The method of claim 4"}, ", wherein ", {"L": "said visual cues comprise an arrow indicating a general direction of movement."}]},
+    {"A": [
+      {"L": "A portable electronic device, comprising:"}, "\n",
+      {"L": "a touch-sensitive display;"}, "\n",
+      {"L": "memory;"}, "\n",
+      {"L": "one or more processors;"}, " and\n",
+      {"A": [
+        "one or more modules stored in the memory and configured for execution by the one or more processors, the one or more modules including instructions:\n",
+        {"A": [
+          {"L": "to detect a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;"}, "\n",
+          {"A": [{"L": "to continuously move the unlock image on the touch-sensitive display in accordance with movement of the detected contact while continuous contact with the touch-sensitive display is maintained"}, ", wherein ",
+            {"L": "the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device"}, ";"]},
+          " and\n",
+          {"L": "to unlock the hand-held electronic device if the unlock image is moved from the first predefined location on the touch screen to a predefined unlock region on the touch-sensitive display."}
+        ]}
+      ], "own": true}
+    ]},
+    {"A": [{"R": 7, "t": "The device of claim 7"}, ", further comprising ", {"L": "instructions to display visual cues to communicate a direction of movement of the unlock image required to unlock the device."}]},
+    {"A": [{"R": 8, "t": "The device of claim 8"}, ", wherein ", {"L": "the visual cues comprise text."}]},
+    {"A": [{"R": 8, "t": "The device of claim 8"}, ", wherein ", {"L": "said visual cues comprise an arrow indicating a general direction of movement."}]},
+    {"A": [
+      {"L": "A portable electronic device, comprising:"}, "\n",
+      {"L": "a touch-sensitive display;"}, "\n",
+      {"L": "means for displaying an unlock image at a first predefined location on the touch-sensitive display while the device is in a user-interface lock state;"}, "\n",
+      {"L": "means for detecting contact with the touch-sensitive display;"}, " and\n",
+      {"A": [{"L": "means for continuously moving the unlock image on the touch-sensitive display in response to detecting the contact in accordance with movement of the contact while continuous contact with the touch screen is maintained"}, ", wherein ",
+        {"L": "the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device"}, ";"]},
+      " and\n",
+      {"L": "means for transitioning the device to a user-interface unlock state if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display."}
+    ]},
+    {"A": [
+      {"L": "A computer readable storage medium storing one or more programs, the one or more programs comprising instructions, which when executed by a portable electronic device with a touch-sensitive display, cause the portable electronic device to perform a method comprising:"}, "\n",
+      {"L": "detecting a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;"}, "\n",
+      {"A": [{"L": "continuously moving the unlock image on the touch-sensitive display in accordance with movement of the contact while continuous contact with the touch screen is maintained"}, ", wherein ",
+        {"L": "the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device"}, ";"]},
+      " and\n",
+      {"L": "unlocking the hand-held electronic device if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display."}
+    ]},
+    {"A": [{"R": 1, "t": "The method of claim 1"}, ", wherein ", {"L": "the unlock image is a single image."}]},
+    {"A": [{"R": 7, "t": "The device of claim 7"}, ", wherein ", {"L": "the unlock image is a single image."}]},
+    {"A": [{"R": 12, "t": "The computer readable storage medium of claim 12"}, ", wherein ", {"L": "the unlock image is a single image."}]}
+  ]
+}

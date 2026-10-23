@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claim Chart</title>
+<!--
+  Claim chart page. build.py fills the two placeholders in the cc-data and cc-schema blocks
+  below and writes one self-contained .html. Layout of this file:
+    <style>   1 colour tokens  2 header  3 claim box and panes  4 tree rows  5 overview tables
+    <script>  1 boot and state  2 texts  3 helpers  4 index  5 evaluation  6 rendering
+              7 actions (every control has data-act="name")  8 bars  9 save and JSON  10 start
+  DESIGN.md explains the data model and how to extend it.
+-->
+<style>
+/* ---- 1 colour tokens: T = True (pink), F = False (green), U = TBD (orange), N = No need (grey) */
+:root {
+  --T-bg: #fbd3e0; --T-bd: #d6336c; --F-bg: #cdeed5; --F-bd: #2f9e44;
+  --U-bg: #ffe0b8; --U-bd: #f08c00; --N-bg: #e9ecef; --N-bd: #868e96;
+  --ink: #1f2328; --sub: #57606a; --line: #d0d7de; --paper: #ffffff; --tint: #f6f8fa;
+  --link: #0969da; --mark: #fff3a3; --markbd: #d4a72c; --trc: #0b7285;
+  --and: #6639ba; --or: #0969da; --not: #cf222e; --warn: #9a3412; --memo: #5a3e00;
+  --hdh: 120px; --fs: 14px; --ofs: 14px; --split: 40%;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --T-bg: #5a1f35; --T-bd: #f06595; --F-bg: #1c3f27; --F-bd: #51cf66;
+  --U-bg: #4a3213; --U-bd: #ffa94d; --N-bg: #262b31; --N-bd: #6e7681;
+  --ink: #e6edf3; --sub: #9da7b3; --line: #3d444d; --paper: #0d1117; --tint: #161b22;
+  --link: #58a6ff; --mark: #6b5a00; --markbd: #e3b341; --trc: #66d9e8;
+  --and: #b197fc; --or: #74c0fc; --not: #ff6b6b; --warn: #ffa94d; --memo: #ffd8a8;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: var(--fs)/1.45 system-ui, "Segoe UI", "Yu Gothic UI", "Hiragino Sans", sans-serif; color: var(--ink); background: var(--paper); }
+button, input, select, textarea { font: inherit; color: var(--ink); }
+button { cursor: pointer; background: var(--tint); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
+select, textarea, input[type="number"] { background: var(--paper); border: 1px solid var(--line); }
+input[type="number"] { width: 3.6em; }
+a { color: var(--link); }
+.badge { display: inline-block; padding: 0 8px; border-radius: 10px; border: 1px solid; font-weight: 700; }
+.badge.v-T { background: var(--T-bg); border-color: var(--T-bd); }
+.badge.v-F { background: var(--F-bg); border-color: var(--F-bd); }
+.badge.v-U { background: var(--U-bg); border-color: var(--U-bd); }
+.badge.v-N { background: var(--N-bg); border-color: var(--N-bd); color: var(--sub); }
+.tag { font-size: 0.79em; border: 1px solid var(--sub); border-radius: 3px; padding: 0 3px; color: var(--sub); margin-left: 4px; white-space: nowrap; }
+.tag.diff { border-color: var(--not); color: var(--not); font-weight: 700; }
+.note { color: var(--sub); font-size: 0.86em; }
+.trc { color: var(--trc); }
+
+/* ---- 2 header (sticky) */
+#hd { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 2px solid var(--line); padding: 4px 10px; }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 2px 0; }
+.hrow label { white-space: nowrap; }
+.tab { border-bottom: none; padding: 2px 10px; border-radius: 6px 6px 0 0; }
+.tab.on { background: var(--paper); font-weight: 700; border-color: var(--ink); }
+.sp { flex: 1; }
+.info span + span::before { content: "｜"; color: var(--sub); margin: 0 2px; }
+.grp { border-left: 1px solid var(--line); padding-left: 8px; }
+.seg { display: inline-flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 4px 0 0 4px; }
+.seg button:last-child { border-radius: 0 4px 4px 0; }
+.seg button.on { background: var(--link); color: #fff; border-color: var(--link); }
+.disc { color: var(--warn); font-size: 0.86em; }
+.banner { background: var(--U-bg); border: 1px solid var(--U-bd); border-radius: 4px; padding: 1px 8px; font-weight: 700; }
+#sum { max-height: 45vh; overflow: auto; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
+#sum h4 { margin: 4px 0 2px; font-size: 0.93em; }
+#sum pre { margin: 0 0 6px; white-space: pre-wrap; font: inherit; background: var(--tint); padding: 4px 6px; border-radius: 4px; }
+#toast { position: fixed; right: 12px; bottom: 12px; z-index: 30; background: var(--tint); border: 1px solid var(--line); padding: 6px 10px; border-radius: 6px; display: none; white-space: pre-wrap; }
+
+/* ---- 3 claim box: by default it fits its content (the longer pane, no inner scroll, no blank
+   tail) and the claim text stays on screen while a longer tree scrolls past. Dragging the bottom
+   bar fixes the height (--ch) and both panes scroll inside; double-click goes back to fitting. */
+#mn { padding: 6px 10px 40vh; }
+.claim { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 8px; }
+.claim > h3 { margin: 0; padding: 2px 8px; font-size: 1em; background: var(--tint); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.claim.open > h3 { border-bottom: 1px solid var(--line); }
+.claim > h3 .sub { font-weight: 400; color: var(--sub); }
+.cbody { display: grid; grid-template-columns: minmax(0, var(--split)) 6px minmax(0, 1fr); }
+.bar-mid { cursor: col-resize; background: var(--line); }
+.bar-bottom { height: 6px; cursor: row-resize; background: var(--line); border-radius: 0 0 6px 6px; }
+.bar-mid:hover, .bar-bottom:hover, .dragging { background: var(--link); }
+.orig { padding: 4px 0 4px 6px; min-width: 0; min-height: 0; }
+.orig .inner { position: sticky; top: calc(var(--hdh) + 4px); max-height: calc(100vh - var(--hdh) - 16px); overflow: auto; padding-right: 6px; }
+.chart { padding: 2px 0; min-width: 0; min-height: 0; }
+.cbody.fixed { height: var(--ch); grid-template-rows: minmax(0, 1fr); }
+.cbody.fixed .orig .inner { position: relative; top: 0; height: 100%; max-height: none; }
+.cbody.fixed .chart { overflow: auto; }
+body.tb .cbody { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 6px auto; }
+body.tb .bar-mid { cursor: row-resize; }
+body.tb .orig .inner { position: relative; top: 0; max-height: none; }
+body.tb .cbody.ohfix .orig .inner { height: var(--oh); }
+body.tb .cbody.fixed { grid-template-rows: minmax(0, 40%) 6px minmax(0, 1fr); }
+body.tb .cbody.fixed.ohfix { grid-template-rows: minmax(0, var(--oh)) 6px minmax(0, 1fr); }
+.otool { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.86em; margin-bottom: 2px; position: sticky; top: 0; background: var(--paper); }
+.ng { color: var(--not); font-weight: 700; }
+.otext { white-space: pre-wrap; margin: 0; font: var(--ofs)/1.5 system-ui, "Segoe UI", "Yu Gothic UI", "Hiragino Sans", sans-serif; cursor: text; }
+.otext mark { background: var(--mark); color: inherit; outline: 1px solid var(--markbd); }
+.otext .trc { display: inline; }
+textarea.oedit { width: 100%; min-height: 95%; font: var(--ofs)/1.5 system-ui, "Segoe UI", "Yu Gothic UI", "Hiragino Sans", sans-serif; resize: vertical; }
+
+/* ---- 4 tree rows */
+.row { display: flex; align-items: flex-start; gap: 4px; padding: 1px 6px 1px 0; border-left: 4px solid transparent; margin: 1px 0; }
+.row.v-T { background: var(--T-bg); border-left-color: var(--T-bd); }
+.row.v-F { background: var(--F-bg); border-left-color: var(--F-bd); }
+.row.v-U { background: var(--U-bg); border-left-color: var(--U-bd); }
+.row.v-N { background: var(--N-bg); border-left-color: var(--N-bd); color: var(--sub); }
+.row.hl { outline: 2px solid var(--markbd); }
+.row.flash { animation: flash 1.2s; }
+@keyframes flash { 0%, 60% { outline: 3px solid var(--link); } 100% { outline: 0 solid transparent; } }
+.tw { width: 14px; flex: none; text-align: center; color: var(--sub); cursor: pointer; user-select: none; }
+.lb { flex: none; min-width: 3.4em; font-weight: 700; font-size: 0.86em; padding-top: 1px; }
+.g { flex: none; font-size: 0.79em; font-weight: 700; border-radius: 3px; padding: 0 4px; margin-top: 2px; border: 1px solid var(--sub); color: var(--sub); background: var(--paper); }
+.g-and { border-color: var(--and); color: var(--and); }
+.g-or { border-color: var(--or); color: var(--or); }
+.g-not { border-color: var(--not); color: #fff; background: var(--not); }
+.tx { flex: 1; min-width: 0; cursor: pointer; }
+.hole { color: var(--sub); font-size: 0.86em; }
+.sub-line { display: block; font-size: 0.86em; }
+.ie { color: var(--sub); }
+.mtxt { color: var(--memo); white-space: pre-wrap; }
+.ai { display: block; font-size: 0.86em; border-left: 3px solid var(--link); padding-left: 6px; margin-top: 1px; }
+.ai .ev { display: block; color: var(--sub); }
+.ck { flex: none; display: inline-flex; }
+.ck button { border-radius: 0; padding: 0 5px; font-size: 0.86em; line-height: 1.5; margin-left: -1px; background: var(--paper); }
+.ck button:first-child { border-radius: 4px 0 0 4px; }
+.ck button:last-child { border-radius: 0 4px 4px 0; }
+.ck button:disabled { cursor: default; opacity: .85; }
+.ck button.on.b-T { background: var(--T-bd); color: #fff; border-color: var(--T-bd); }
+.ck button.on.b-F { background: var(--F-bd); color: #fff; border-color: var(--F-bd); }
+.ck button.on.b-U { background: var(--U-bd); color: #fff; border-color: var(--U-bd); }
+.ck.alt button.on { background: var(--link); color: #fff; border-color: var(--link); }
+.mm { flex: none; border: none; background: none; padding: 0 2px; opacity: .35; }
+.mm.has { opacity: 1; }
+.memo textarea { width: 100%; min-height: 3em; }
+
+/* ---- 5 overview tables */
+h2 { font-size: 1.14em; margin: 10px 0 4px; }
+table.rep { border-collapse: collapse; margin: 4px 0 12px; width: 100%; }
+table.rep th, table.rep td { border: 1px solid var(--line); padding: 2px 6px; text-align: left; vertical-align: top; }
+table.rep th { background: var(--tint); }
+td[data-act="jump"] { cursor: pointer; }
+td[data-act="jump"]:hover { background: var(--tint); }
+
+@media (max-width: 760px) {
+  .cbody, body.tb .cbody { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 6px auto; }
+  .orig .inner { position: relative; top: 0; max-height: 60vh; }
+}
+</style>
+</head>
+<body>
+<header id="hd"></header>
+<main id="mn"></main>
+<div id="toast"></div>
+<input type="file" id="jsonFile" data-act="jsonFile" accept=".json,application/json" hidden>
+<script type="application/json" id="cc-data">/*CC_DATA*/</script>
+<script type="application/json" id="cc-schema">/*CC_SCHEMA*/</script>
+<script type="application/json" id="cc-state">{}</script>
+<script>
+"use strict";
+
+// ==================================================================== 1 boot and state
+// Captured before anything is rendered: "save" writes this untouched page back with only the
+// state block replaced, so a saved file opens exactly where the person left it.
+const PRISTINE = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+const DATA = JSON.parse(document.getElementById("cc-data").textContent);
+const SCHEMA_TEXT = JSON.stringify(JSON.parse(document.getElementById("cc-schema").textContent), null, 2);
+const TR_LANGS = [...new Set(DATA.patents.flatMap((p) => p.trLangs || []))];
+
+// S is everything that is saved (in the HTML and, partly, in the JSON). Keys of the per-node maps
+// are "<patent id>:<node id>", e.g. "US5946647:1D.1.1".
+const S = (() => {
+  const s = JSON.parse(document.getElementById("cc-state").textContent || "{}");
+  for (const k of ["checks", "alts", "memos", "fmt", "collapsed", "aiImp", "trImp"]) s[k] = s[k] || {};
+  s.ui = Object.assign({
+    tab: "*",              // "*" = overview, else a patent id
+    view: "user",          // which layer colours the tree: "user" or "ai"
+    mode: "trunk",         // "branch": matching rows only, "trunk": with their ancestors
+    aiReason: true,        // show the AI reason and evidence under each row
+    layout: "lr",          // "lr" side by side, "tb" stacked
+    tr: TR_LANGS[0] || "", // translation language, "" = none
+    text: "both",          // "orig" | "tr" | "both": what the claim text pane and the tree show
+    lang: DATA.uiLang || "ja",
+    fs: 14, ofs: 14,       // font size of the page and of the claim text (px, 8..20)
+    split: 40,             // width of the claim text pane (%)
+    ch: null, oh: null,    // fixed claim-box height / claim-text height (px); null = fit content
+    sum: false,            // summary panel open
+  }, s.ui || {});
+  s.ui.filter = Object.assign({ U: true, T: true, F: true, N: true }, s.ui.filter || {});
+  if (s.ui.theme !== "light" && s.ui.theme !== "dark") {
+    s.ui.theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return s;
+})();
+// UI is not saved: what is open right now.
+const UI = { memoOpen: {}, edit: {}, hl: null, show: {} };
+let dirty = false;
+
+// ==================================================================== 2 texts
+const TXT = {
+  ja: {
+    T: "True", F: "False", U: "TBD", N: "No need", all: "全体", save: "保存（.html）", exportJson: "JSON 書き出し",
+    importJson: "JSON 読み込み", schema: "スキーマ", menu: "メニュー", verdict: "総合判定", summary: "概要", items: "チェック項目",
+    expand: "全て展開する", collapse: "全て折り畳む", reset: "全てTBDに戻す", resetClaim: "TBDに戻す",
+    showAi: "AIの仮判定を表示", showUser: "ユーザーの判定を表示", adopt: "AIの仮判定を採用",
+    show: "表示", branch: "枝のみ", trunk: "幹から", aiReason: "AIの根拠", layout: "配置", lr: "左右", tb: "上下",
+    tr: "訳", none: "なし", text: "原文と訳", orig: "原文", trOnly: "訳", both: "両方", fs: "全体文字", ofs: "原文文字",
+    theme: "画面", light: "ライト", dark: "ダーク",
+    disclaimer: "※本ツールは特許の該否判定を補助するツールにすぎない。訳は機械訳（参考）。最終的な判定は弁理士など専門家に依頼すること。",
+    aiBanner: "AI の仮判定を表示中 ── 人はまだ確かめていない", aiTarget: "照らした相手", aiReasonHead: "AI の根拠",
+    diff: "AI と食い違い", userCol: "ユーザーの判定", aiCol: "AI の仮判定", noAi: "AI の仮判定なし",
+    filed: "出願", registered: "登録", source: "出典", claim: "請求項", indep: "独立項", cites: "引用", refto: "の判定を映す",
+    opt: "任意（常に True）", ambig: "係り受けが 2 通りに読める", reading: "読み", memo: "メモ", edit: "編集", view: "表示",
+    mismatch: "原文と不一致（空白と改行以外が変わっている）",
+    hidden: "表示の条件で隠している", showOnce: "▸ 表示する", hideAgain: "▾ 隠す", barHint: "ドラッグで大きさを決める ／ ダブルクリックで元に戻す",
+    repPatents: "特許ごとの判定", repClaims: "請求項ごとの判定", repTodo: "調べる意味のある TBD", repMemos: "メモ",
+    patent: "特許", title: "名称", holder: "権利者", status: "状態", generated: "作成", saved: "保存", empty: "なし",
+    jumpHint: "押すとこの請求項を開く", aiUnverified: "JSON から読み込み（抜き書きは未確認）", trUnverified: "JSON から読み込んだ訳",
+    resetAsk: "この特許の全部のチェックと「読み」を TBD に戻します。メモは残します。よろしいですか？",
+    resetClaimAsk: "請求項{n} のチェックと「読み」を TBD に戻します。メモは残します。よろしいですか？",
+    adoptAsk: "この特許で、まだ TBD の行に AI の仮判定を写します。よろしいですか？",
+    adoptClaimAsk: "請求項{n} で、まだ TBD の行に AI の仮判定を写します。よろしいですか？",
+    imported: "読み込み: {a} 件を反映、{b} 件は原文が合わず飛ばした、{c} 件は見つからなかった",
+    badJson: "JSON の形が claim-chart-result/1 ではありません", leave: "保存していない変更があります。",
+    roles: { problem: "現状の課題", solution: "新規性の手がかり", effect: "進歩性の手がかり" },
+  },
+  en: {
+    T: "True", F: "False", U: "TBD", N: "No need", all: "Overview", save: "Save (.html)", exportJson: "Export JSON",
+    importJson: "Import JSON", schema: "Schema", menu: "Menu", verdict: "Verdict", summary: "Summary", items: "Check items",
+    expand: "Expand all", collapse: "Collapse all", reset: "Reset all to TBD", resetClaim: "Reset to TBD",
+    showAi: "Show AI provisional", showUser: "Show person's checks", adopt: "Adopt AI provisional",
+    show: "Show", branch: "Branches only", trunk: "From the trunk", aiReason: "AI reasons", layout: "Layout", lr: "Side by side", tb: "Stacked",
+    tr: "Translation", none: "None", text: "Original / translation", orig: "Original", trOnly: "Translation", both: "Both",
+    fs: "Text", ofs: "Claim text", theme: "Theme", light: "Light", dark: "Dark",
+    disclaimer: "This tool only assists in judging whether a product falls within a patent. Translations are machine translations (for reference). Ask a patent attorney or another expert for the final judgment.",
+    aiBanner: "Showing AI provisional checks - not confirmed by a person", aiTarget: "Compared with", aiReasonHead: "AI reason",
+    diff: "differs from AI", userCol: "Person", aiCol: "AI provisional", noAi: "no AI check",
+    filed: "Filed", registered: "Granted", source: "Source", claim: "Claim", indep: "Independent", cites: "Cites", refto: "mirrored",
+    opt: "Optional (always True)", ambig: "Scope can be read two ways", reading: "Reading", memo: "Memo", edit: "Edit", view: "View",
+    mismatch: "Differs from the original (beyond spaces and line breaks)",
+    hidden: "hidden by the Show filter", showOnce: "▸ Show", hideAgain: "▾ Hide", barHint: "Drag to resize / double-click to reset",
+    repPatents: "Verdict per patent", repClaims: "Verdict per claim", repTodo: "TBD, still decisive", repMemos: "Memos",
+    patent: "Patent", title: "Title", holder: "Holder", status: "Status", generated: "Generated", saved: "Saved", empty: "None",
+    jumpHint: "Open this claim", aiUnverified: "imported from JSON (quotes not verified)", trUnverified: "translation imported from JSON",
+    resetAsk: "Reset every check and reading of this patent to TBD? Memos are kept.",
+    resetClaimAsk: "Reset the checks and readings of claim {n} to TBD? Memos are kept.",
+    adoptAsk: "Copy the AI provisional checks into every row of this patent that is still TBD?",
+    adoptClaimAsk: "Copy the AI provisional checks into the rows of claim {n} that are still TBD?",
+    imported: "Imported: {a} applied, {b} skipped (text differs), {c} not found",
+    badJson: "This JSON is not claim-chart-result/1", leave: "There are unsaved changes.",
+    roles: { problem: "Problem", solution: "Hint for novelty", effect: "Hint for inventive step" },
+  },
+};
+const t = (k) => TXT[S.ui.lang][k];
+const LANG_NAMES = { ja: "日本語", en: "English" };
+
+// ==================================================================== 3 helpers
+const VALS = ["T", "F", "U"];          // the three answers, in button order
+const CATS = ["U", "T", "F", "N"];     // display categories, in filter order (N = TBD not worth checking)
+const TO_JSON = { T: "true", F: "false", U: "tbd" };
+const FROM_JSON = { true: "T", false: "F", tbd: "U" };
+const HOLE = /［([^［］]+)］/g;          // a [label] hole that stands for a child
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function stamp() {
+  const d = new Date();
+  const pad = (x) => String(x).padStart(2, "0");
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.style.display = "block";
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { el.style.display = "none"; }, 6000);
+}
+// attribute helpers for the action table in section 7
+const act = (name, arg) => ' data-act="' + name + '"' + (arg === undefined ? "" : ' data-arg="' + esc(arg) + '"');
+const badge = (v) => '<span class="badge v-' + v + '">' + esc(t(v)) + "</span>";
+const radio = (name, value, label) => '<label><input type="radio" name="' + name + '" value="' + value + '"' +
+  act(name) + (S.ui[name] === value ? " checked" : "") + "> " + esc(label) + "</label>";
+const holesHtml = (s) => esc(s).replace(HOLE, '<span class="hole">［$1］</span>');
+
+// ==================================================================== 4 index
+// P[id] = patent; each node gets parent, depth, kids, claim and text (its span of the claim).
+const P = {};
+for (const p of DATA.patents) {
+  p.byId = {};
+  p.byN = {};
+  p.nodes = [];
+  for (const c of p.claims) {
+    p.byN[c.n] = c;
+    c.refs = [];
+    (function index(node, parent, depth) {
+      Object.assign(node, { parent, depth, claim: c.n, kids: node.parts.filter((x) => typeof x !== "string"),
+        text: c.body.slice(node.s, node.e) });
+      if (node.k === "ref") c.refs.push(node.ref);
+      p.byId[node.id] = node;
+      p.nodes.push(node);
+      for (const k of node.kids) index(k, node, depth + 1);
+    })(c.tree, null, 0);
+  }
+  P[p.id] = p;
+}
+const key = (p, node) => p.id + ":" + node.id;
+const checkable = (node) => node.k === "leaf" || !!node.own;
+const nodeOfKey = (k) => { const i = k.indexOf(":"); const p = P[k.slice(0, i)]; return { p, node: p.byId[k.slice(i + 1)] }; };
+
+// ==================================================================== 5 evaluation
+// Two layers of answers: the person's (S.checks) and the AI's provisional ones (ai.json or an
+// imported JSON). Every value below is computed for one layer m ("user" | "ai").
+const LAYERS = ["user", "ai"];
+function aiOf(p, node) {
+  const imp = S.aiImp[key(p, node)];
+  if (imp) return imp;
+  return p.ai && p.ai.judgments[node.id] ? p.ai.judgments[node.id] : null;
+}
+function answer(p, node, m) {
+  if (m === "ai") { const a = aiOf(p, node); return a ? a.v : "U"; }
+  return S.checks[key(p, node)] || "U";
+}
+const andV = (vs) => vs.includes("F") ? "F" : vs.includes("U") ? "U" : "T";
+const orV = (vs) => vs.includes("T") ? "T" : vs.includes("U") ? "U" : "F";
+function gateOf(p, node) {
+  let g = (node.alt && S.alts[key(p, node)]) || node.k;
+  // the leaves under a NOT are read as negated sentences ("i.e."), so the list flips (De Morgan)
+  if (node.parent && node.parent.k === "not") g = g === "and" ? "or" : "and";
+  return g;
+}
+
+let cache = {};
+function val(p, node, m = S.ui.view) {
+  const ck = m + "|" + key(p, node);
+  if (ck in cache) return cache[ck];
+  let v;
+  if (node.k === "leaf") v = answer(p, node, m);
+  else if (node.k === "opt") v = "T";
+  else if (node.k === "ref") v = val(p, p.byN[node.ref].tree, m);
+  else if (node.k === "not") v = val(p, node.kids[0], m);
+  else {
+    const kv = node.kids.map((x) => val(p, x, m));
+    const inner = gateOf(p, node) === "and" ? andV(kv) : orV(kv);
+    v = node.own ? andV([answer(p, node, m), inner]) : inner;
+  }
+  return (cache[ck] = v);
+}
+const patentVal = (p, m = S.ui.view) => orV(p.claims.map((c) => val(p, c.tree, m)));
+
+// "Relevant" = this node can still change its ancestors. A TBD that is not relevant is "No need".
+// rel[m][key] is the node itself, rel[m][key + "#own"] its own wording (leaves: the same).
+let rel = { user: {}, ai: {} };
+function markRelevant(p, node, r, m) {
+  const R = rel[m];
+  const k = key(p, node);
+  R[k] = r;
+  if (!node.kids.length) { R[k + "#own"] = r; return; }
+  if (node.k === "not") { markRelevant(p, node.kids[0], r, m); return; }
+  const kv = node.kids.map((x) => val(p, x, m));
+  const g = gateOf(p, node);
+  const inner = g === "and" ? andV(kv) : orV(kv);
+  let innerR = r;
+  if (node.own) {
+    const own = answer(p, node, m);
+    const anyF = own === "F" || inner === "F";
+    R[k + "#own"] = r && !(anyF && own !== "F");
+    innerR = r && !(anyF && inner !== "F");
+  }
+  const decider = g === "and" ? "F" : "T";
+  const decided = kv.includes(decider);
+  node.kids.forEach((x, i) => markRelevant(p, x, innerR && !(decided && kv[i] !== decider), m));
+}
+function refresh() {
+  cache = {};
+  rel = { user: {}, ai: {} };
+  for (const m of LAYERS) {
+    for (const p of DATA.patents) {
+      const cv = p.claims.map((c) => val(p, c.tree, m));
+      const anyT = cv.includes("T");
+      p.claims.forEach((c, i) => markRelevant(p, c.tree, !(anyT && cv[i] !== "T"), m));
+    }
+  }
+}
+const worth = (p, node, m = S.ui.view) => checkable(node) && answer(p, node, m) === "U" && !!rel[m][key(p, node) + "#own"];
+function cat(p, node, m = S.ui.view) {
+  const v = val(p, node, m);
+  return v === "U" && !rel[m][key(p, node)] ? "N" : v;
+}
+function counts(p, m = S.ui.view) {
+  const c = { T: 0, F: 0, U: 0, N: 0 };
+  for (const node of p.nodes) {
+    if (!checkable(node)) continue;
+    const v = answer(p, node, m);
+    c[v === "U" && !worth(p, node, m) ? "N" : v]++;
+  }
+  return c;
+}
+const countText = (c) => CATS.map((v) => esc(t(v)) + " " + c[v]).join(" / ");
+
+// what is shown in the tree under the filters (S.ui.filter, S.ui.mode)
+const shown = (v) => !!S.ui.filter[v];
+const anyDescShown = (p, node) => node.kids.some((x) => shown(cat(p, x)) || anyDescShown(p, x));
+function visible(p, node) {
+  if (!node.parent) return true;
+  const v = cat(p, node);
+  return S.ui.mode === "branch" ? shown(v) : shown(v) || anyDescShown(p, node);
+}
+
+// translation of a node in the chosen language (an imported one wins), or null
+function trOf(p, node) {
+  if (!S.ui.tr) return null;
+  const imp = S.trImp[key(p, node)];
+  if (imp && imp[S.ui.tr]) return imp[S.ui.tr];
+  return node.tr ? node.tr[S.ui.tr] || null : null;
+}
+// "orig" | "tr" | "both" for this claim: without a translation there is only the original
+const textMode = (c) => (S.ui.tr && c.trLines && c.trLines[S.ui.tr] ? S.ui.text : "orig");
+
+// ==================================================================== 6 rendering
+function render() {
+  refresh();
+  const scrollY = window.scrollY;
+  const scrolls = {};
+  document.querySelectorAll("[data-scroll]").forEach((el) => { scrolls[el.dataset.scroll] = el.scrollTop; });
+  applyLook();
+  document.getElementById("hd").innerHTML = headerHtml();
+  document.documentElement.style.setProperty("--hdh", document.getElementById("hd").offsetHeight + "px");
+  const p = P[S.ui.tab];
+  document.getElementById("mn").innerHTML = p ? p.claims.map((c) => claimHtml(p, c)).join("") : overviewHtml();
+  document.querySelectorAll("[data-scroll]").forEach((el) => { if (el.dataset.scroll in scrolls) el.scrollTop = scrolls[el.dataset.scroll]; });
+  document.title = (p ? p.id + " " : "") + "Claim Chart";
+  window.scrollTo(0, scrollY);
+}
+
+function applyLook() {
+  const root = document.documentElement;
+  root.setAttribute("data-theme", S.ui.theme);
+  root.style.setProperty("--fs", S.ui.fs + "px");
+  root.style.setProperty("--ofs", S.ui.ofs + "px");
+  root.style.setProperty("--split", S.ui.split + "%");
+  for (const [name, v] of [["--ch", S.ui.ch], ["--oh", S.ui.oh]]) {
+    if (v) root.style.setProperty(name, v + "px"); else root.style.removeProperty(name);
+  }
+  document.querySelectorAll(".cbody").forEach((b) => {
+    b.classList.toggle("fixed", !!S.ui.ch);
+    b.classList.toggle("ohfix", !!S.ui.oh);
+  });
+  document.body.classList.toggle("tb", S.ui.layout === "tb");
+}
+
+// ---- header
+function headerHtml() {
+  const p = P[S.ui.tab];
+  const tabs = '<button class="tab' + (S.ui.tab === "*" ? " on" : "") + '"' + act("tab", "*") + ">" + esc(t("all")) + "</button>" +
+    DATA.patents.map((x) => '<button class="tab' + (S.ui.tab === x.id ? " on" : "") + '"' + act("tab", x.id) + ">" + esc(x.id) + "</button>").join("");
+  const top = '<div class="hrow">' + tabs + '<span class="sp"></span>' +
+    "<button" + act("importJson") + ">" + esc(t("importJson")) + "</button><button" + act("exportJson") + ">" + esc(t("exportJson")) +
+    "</button><button" + act("schema") + ">" + esc(t("schema")) + "</button><label>" + esc(t("menu")) + " <select" + act("menuLang") + ">" +
+    ["ja", "en"].map((l) => '<option value="' + l + '"' + (S.ui.lang === l ? " selected" : "") + ">" + LANG_NAMES[l] + "</option>").join("") +
+    "</select></label><button" + act("save") + ">" + esc(t("save")) + "</button></div>";
+  let info, verdict, summary = "";
+  if (p) {
+    info = '<div class="hrow info"><span><b>' + esc(p.number) + "</b></span><span>" + esc(p.country) + "</span><span><b>" + esc(p.title) +
+      "</b></span><span>" + esc(p.holder) + "</span><span>" + esc(t("filed")) + " " + esc(p.filed) + "</span><span>" + esc(t("registered")) +
+      " " + esc(p.registered) + "</span><span>" + esc(p.status) + '</span><span><a href="' + esc(p.source) + '" target="_blank" rel="noopener">' +
+      esc(t("source")) + "</a></span></div>";
+    verdict = '<div class="hrow">' + esc(t("verdict")) + ": " + badge(patentVal(p)) + ' <span class="note">' + esc(t("items")) + " — " +
+      countText(counts(p)) + "</span><button" + act("summary") + ">" + (S.ui.sum ? "▾ " : "▸ ") + esc(t("summary")) + "</button></div>";
+    if (S.ui.sum) summary = summaryHtml(p);
+  } else {
+    info = '<div class="hrow info"><span><b>' + esc(t("all")) + "</b></span><span>" + DATA.patents.length + " " + esc(t("patent")) + "</span></div>";
+    verdict = '<div class="hrow">' + esc(t("verdict")) + ": " + badge(orV(DATA.patents.map((x) => patentVal(x)))) + "</div>";
+  }
+  const banner = S.ui.view === "ai" ? '<div class="hrow"><span class="banner">' + esc(t("aiBanner")) + "</span>" +
+    (p && p.ai ? '<span class="note">' + esc(t("aiTarget")) + ": " + esc(p.ai.target) + " ／ " + esc(p.ai.by) + " ／ " + esc(p.ai.date) + "</span>" : "") +
+    "</div>" : "";
+  return top + info + verdict + controlsHtml() + '<div class="disc">' + esc(t("disclaimer")) + "</div>" + banner + summary;
+}
+
+function controlsHtml() {
+  const seg = (name, items) => '<span class="seg">' + items.map(([v, l]) => '<button class="' + (S.ui[name] === v ? "on" : "") + '"' +
+    act(name, v) + ">" + esc(l) + "</button>").join("") + "</span>";
+  const bulk = "<span><button" + act("expandAll") + ">" + esc(t("expand")) + "</button> <button" + act("collapseAll") + ">" + esc(t("collapse")) +
+    "</button> <button" + act("resetAll") + ">" + esc(t("reset")) + "</button> " + seg("view", [["ai", t("showAi")], ["user", t("showUser")]]) +
+    " <button" + act("adoptAll") + ">" + esc(t("adopt")) + "</button></span>";
+  const show = '<span class="grp">' + esc(t("show")) + ": " + CATS.map((v) => '<label><input type="checkbox"' + act("filter", v) +
+    (S.ui.filter[v] ? " checked" : "") + "> " + esc(t(v)) + "</label>").join(" ") + " ・ " + radio("mode", "branch", t("branch")) + " " +
+    radio("mode", "trunk", t("trunk")) + ' ・ <label><input type="checkbox"' + act("aiReason") + (S.ui.aiReason ? " checked" : "") + "> " +
+    esc(t("aiReason")) + "</label></span>";
+  const layout = '<span class="grp">' + esc(t("layout")) + ": " + radio("layout", "lr", t("lr")) + " " + radio("layout", "tb", t("tb")) + "</span>";
+  const tr = TR_LANGS.length ? "<label>" + esc(t("tr")) + " <select" + act("trLang") + '><option value="">' + esc(t("none")) + "</option>" +
+    TR_LANGS.map((l) => '<option value="' + l + '"' + (S.ui.tr === l ? " selected" : "") + ">" + esc(LANG_NAMES[l] || l) + "</option>").join("") +
+    "</select></label> " + (S.ui.tr ? esc(t("text")) + ": " + radio("text", "orig", t("orig")) + " " + radio("text", "tr", t("trOnly")) + " " +
+    radio("text", "both", t("both")) + " " : "") : "";
+  const look = '<span class="grp">' + tr + "<label>" + esc(t("fs")) + ' <input type="number" min="8" max="20"' + act("fs") + ' value="' + S.ui.fs +
+    '">px</label> <label>' + esc(t("ofs")) + ' <input type="number" min="8" max="20"' + act("ofs") + ' value="' + S.ui.ofs + '">px</label> ' +
+    esc(t("theme")) + ": <select" + act("theme") + ">" + ["light", "dark"].map((x) => '<option value="' + x + '"' +
+      (S.ui.theme === x ? " selected" : "") + ">" + esc(t(x)) + "</option>").join("") + "</select></span>";
+  return '<div class="hrow">' + bulk + show + layout + look + "</div>";
+}
+
+function summaryHtml(p) {
+  const out = p.summaryList.map((s) => {
+    const tr = S.ui.tr && s.tr ? s.tr[S.ui.tr] : null;
+    const paras = s.text.split("\n");
+    return "<h4>" + esc(t("roles")[s.role]) + " — " + esc(s.heading) + (tr ? ' <span class="trc">／ ' + esc(tr[0]) + "</span>" : "") +
+      "</h4><pre>" + paras.map((x, i) => esc(x) + (tr ? '\n<span class="trc">' + esc(tr[i + 1]) + "</span>" : "")).join("\n") + "</pre>";
+  });
+  return '<div id="sum">' + out.join("") + "</div>";
+}
+
+// ---- overview tab
+function overviewHtml() {
+  const jumpCell = (pid, n, m, v) => "<td" + act("jump", pid + "|" + n + "|" + m) + ' title="' + esc(t("jumpHint")) + '">' + badge(v) + "</td>";
+  let h = "<h2>" + esc(t("repPatents")) + '</h2><table class="rep"><tr>' + ["patent", "title", "holder", "status", "userCol", "aiCol", "items"]
+    .map((k) => "<th>" + esc(t(k)) + "</th>").join("") + "</tr>";
+  for (const p of DATA.patents) {
+    h += "<tr><td><a href=\"#\"" + act("tab", p.id) + ">" + esc(p.id) + "</a> " + esc(p.number) + "</td><td>" + esc(p.title) + "</td><td>" +
+      esc(p.holder) + "</td><td>" + esc(p.status) + "</td>" + jumpCell(p.id, 0, "user", patentVal(p, "user")) +
+      (p.ai ? jumpCell(p.id, 0, "ai", patentVal(p, "ai")) : "<td>" + esc(t("noAi")) + "</td>") + "<td>" + countText(counts(p)) + "</td></tr>";
+  }
+  h += "</table>";
+  for (const p of DATA.patents) {
+    h += "<h2>" + esc(p.id) + " — " + esc(t("repClaims")) + '</h2><table class="rep"><tr><th>' + esc(t("claim")) + "</th><th>" + esc(t("cites")) +
+      "</th><th>" + esc(t("userCol")) + "</th><th>" + esc(t("aiCol")) + "</th></tr>";
+    for (const c of p.claims) {
+      h += "<tr><td>" + esc(t("claim")) + c.n + "</td><td>" + (c.refs.length ? c.refs.map((r) => esc(t("claim")) + r).join(", ") : esc(t("indep"))) +
+        "</td>" + jumpCell(p.id, c.n, "user", cat(p, c.tree, "user")) + jumpCell(p.id, c.n, "ai", cat(p, c.tree, "ai")) + "</tr>";
+    }
+    const todo = p.nodes.filter((n) => worth(p, n));
+    h += "</table><h2>" + esc(p.id) + " — " + esc(t("repTodo")) + '</h2><table class="rep">' + (todo.length ? todo.map((n) =>
+      "<tr><td><a href=\"#\"" + act("node", key(p, n)) + ">" + esc(n.label) + "</a></td><td>" + (n.kids.length ? holeText(n) : esc(n.parts[0])) +
+      "</td></tr>").join("") : "<tr><td>" + esc(t("empty")) + "</td></tr>");
+    const memos = p.nodes.filter((n) => S.memos[key(p, n)]);
+    h += "</table><h2>" + esc(p.id) + " — " + esc(t("repMemos")) + '</h2><table class="rep">' + (memos.length ? memos.map((n) =>
+      "<tr><td><a href=\"#\"" + act("node", key(p, n)) + ">" + esc(n.label) + "</a></td><td>" + badge(val(p, n)) +
+      '</td><td style="white-space:pre-wrap">' + esc(S.memos[key(p, n)]) + "</td></tr>").join("") : "<tr><td>" + esc(t("empty")) + "</td></tr>");
+    h += "</table>";
+  }
+  return h + '<p class="note">' + esc(t("generated")) + " " + esc(DATA.generated) + (S.savedAt ? " ／ " + esc(t("saved")) + " " + esc(S.savedAt) : "") +
+    " ／ " + esc(t("disclaimer")) + "</p>";
+}
+
+// ---- one claim: header, then the claim text pane | bar | tree, then the bottom bar
+function claimHtml(p, c) {
+  const v = cat(p, c.tree);
+  const ck = p.id + ":" + c.n;
+  const open = shown(v) || UI.show[ck];
+  const other = S.ui.view === "user" ? "ai" : "user";
+  let h = '<section class="claim' + (open ? " open" : "") + '" id="claim-' + esc(p.id) + "-" + c.n + '"><h3>' + esc(t("claim")) + c.n +
+    ' <span class="sub">' + esc(c.refs.length ? t("cites") + ": " + c.refs.map((r) => t("claim") + r).join(", ") : t("indep")) + "</span> " + badge(v) +
+    " <button" + act("resetClaim", c.n) + ">" + esc(t("resetClaim")) + "</button> <button" + act("adoptClaim", c.n) + ">" + esc(t("adopt")) +
+    '</button> <span class="sub">' + esc(other === "ai" ? "AI" : t("userCol")) + ":</span> " + badge(cat(p, c.tree, other));
+  if (!shown(v)) h += ' <span class="sub">' + esc(t("hidden")) + "</span><button" + act("showClaim", ck) + ">" + esc(UI.show[ck] ? t("hideAgain") : t("showOnce")) + "</button>";
+  h += "</h3>";
+  if (!open) return h + "</section>";
+  return h + '<div class="cbody' + (S.ui.ch ? " fixed" : "") + (S.ui.oh ? " ohfix" : "") + '"><div class="orig">' + paneHtml(p, c) +
+    '</div><div class="bar-mid" data-bar="mid" title="' + esc(t("barHint")) + '"></div><div class="chart" data-scroll="chart:' + esc(ck) + '">' +
+    treeHtml(p, c) + '</div></div><div class="bar-bottom" data-bar="bottom" title="' + esc(t("barHint")) + '"></div></section>';
+}
+
+// ---- claim text pane
+// "orig": the text as the person formatted it (only spaces and line breaks may be edited);
+// "tr" / "both": one line per claim line, translated or interleaved. Every line span carries its
+// offset in the claim so a click can find the node under it.
+const fmtKey = (p, c) => p.id + ":" + c.n;
+function defaultFmt(c) {
+  const lines = c.body.split("\n");
+  return lines.map((l, i) => (i === 0 || i === lines.length - 1 ? l : "  " + l)).join("\n");
+}
+const fmtOf = (p, c) => S.fmt[fmtKey(p, c)] ?? defaultFmt(c);
+const squash = (s) => s.replace(/\s+/g, "");
+const fmtMatches = (p, c) => squash(fmtOf(p, c)) === squash(c.body);
+// claim offset -> offset in the formatted text (they differ only in whitespace)
+function offsetMap(body, fmt) {
+  const map = new Array(body.length + 1);
+  let j = 0;
+  for (let i = 0; i < body.length; i++) {
+    if (/\s/.test(body[i])) { map[i] = j; continue; }
+    while (j < fmt.length && fmt[j] !== body[i]) j++;
+    map[i] = j++;
+  }
+  map[body.length] = fmt.length;
+  return map;
+}
+function highlighted(p, c) {
+  if (!UI.hl) return null;
+  const { p: hp, node } = nodeOfKey(UI.hl);
+  return hp === p && node.claim === c.n ? node : null;
+}
+function paneHtml(p, c) {
+  const fk = fmtKey(p, c);
+  const ok = fmtMatches(p, c);
+  const mode = textMode(c);
+  const hl = highlighted(p, c);
+  let h = '<div class="inner" data-scroll="pane:' + esc(fk) + '"><div class="otool"><b>' + esc(c.header) + "</b>";
+  if (mode === "orig") h += "<button" + act("editText", fk) + ">" + esc(UI.edit[fk] ? t("view") : t("edit")) + "</button>";
+  // the claim text is always checked against the original, but only a mismatch is shown
+  h += '<span class="ng" data-okfor="' + esc(fk) + '">' + (ok ? "" : "✗ " + esc(t("mismatch"))) + "</span>";
+  h += "</div>";
+  if (mode === "orig" && UI.edit[fk]) return h + '<textarea class="oedit"' + act("fmtInput", fk) + ">" + esc(fmtOf(p, c)) + "</textarea></div>";
+  return h + '<pre class="otext"' + act("pickText", fk) + ">" + (mode === "orig" ? formattedHtml(p, c, ok ? hl : null) : linesHtml(c, mode, hl)) + "</pre></div>";
+}
+function formattedHtml(p, c, hl) {
+  const fmt = fmtOf(p, c);
+  if (!hl) return esc(fmt);
+  const m = offsetMap(c.body, fmt);
+  return esc(fmt.slice(0, m[hl.s])) + "<mark>" + esc(fmt.slice(m[hl.s], m[hl.e])) + "</mark>" + esc(fmt.slice(m[hl.e]));
+}
+function linesHtml(c, mode, hl) {
+  const lines = c.body.split("\n");
+  const trl = c.trLines[S.ui.tr];
+  const out = [];
+  let off = 0;
+  lines.forEach((ln, i) => {
+    const ind = i === 0 || i === lines.length - 1 ? "" : "  ";
+    const s0 = off, e0 = off + ln.length;
+    const hit = hl && hl.e > s0 && hl.s < e0;
+    if (mode === "both") {
+      let body = esc(ln);
+      if (hit) {
+        const a = Math.max(hl.s, s0) - s0, b = Math.min(hl.e, e0) - s0;
+        body = esc(ln.slice(0, a)) + "<mark>" + esc(ln.slice(a, b)) + "</mark>" + esc(ln.slice(b));
+      }
+      out.push(ind + '<span data-off="' + s0 + '">' + body + "</span>");
+    }
+    const tx = esc(trl[i]);
+    out.push(ind + '<span class="trc" data-off="' + s0 + '" data-whole="1">' + (hit && mode === "tr" ? "<mark>" + tx + "</mark>" : tx) + "</span>");
+    off = e0 + 1;
+  });
+  return out.join("\n");
+}
+
+// ---- tree
+function treeHtml(p, c) {
+  const out = [];
+  (function walk(node) {
+    const open = !S.collapsed[key(p, node)];
+    if (visible(p, node)) out.push(rowHtml(p, node));
+    else if (S.ui.mode === "trunk") return; // trunk: a hidden node has no shown descendants
+    if (open) node.kids.forEach(walk);
+  })(c.tree);
+  return out.join("");
+}
+// a node's own wording with each child shown as [label]; runs of children collapse to [A~C]
+function holeText(node) {
+  const out = [];
+  let run = [];
+  const flush = () => {
+    if (run.length) out.push('<span class="hole">［' + esc(run.length > 1 ? run[0] + "〜" + run[run.length - 1] : run[0]) + "］</span>");
+    run = [];
+  };
+  for (const part of node.parts) {
+    if (typeof part !== "string") { run.push(part.label); continue; }
+    if (/^\s*$/.test(part)) continue;
+    flush();
+    out.push(esc(part.replace(/\n/g, " ")));
+  }
+  flush();
+  return out.join("");
+}
+const GATE_NAMES = { and: "AND", or: "OR", not: "NOT" };
+function rowHtml(p, node) {
+  const k = key(p, node);
+  const v = cat(p, node);
+  let h = '<div class="row v-' + v + (UI.hl === k ? " hl" : "") + '" data-k="' + esc(k) + '" style="padding-left:' + node.depth * 16 + 'px">' +
+    "<span class=\"tw\"" + act("twisty") + ">" + (node.kids.length ? (S.collapsed[k] ? "▸" : "▾") : "") + "</span>" +
+    '<span class="lb">' + esc(node.label) + "</span>" + gateHtml(p, node) +
+    '<span class="tx"' + act("rowText") + ">" + rowTextHtml(p, node) + (v === "N" ? '<span class="tag">' + esc(t("N")) + "</span>" : "") +
+    (node.alt ? '<span class="tag">' + esc(t("ambig")) + "</span>" : "") + extrasHtml(p, node) + "</span>" + controlsOfRow(p, node) + "</div>";
+  if (UI.memoOpen[k]) h += '<div class="memo" style="padding-left:' + (node.depth * 16 + 18) + 'px"><textarea' + act("memoInput", k) + ">" +
+    esc(S.memos[k] || "") + "</textarea></div>";
+  return h;
+}
+function gateHtml(p, node) {
+  if (node.k === "opt") return '<span class="g">' + esc(t("opt")) + "</span>";
+  if (node.k === "ref") return '<span class="g">' + esc(t("cites")) + "</span>";
+  if (!node.kids.length) return "";
+  const g = gateOf(p, node);
+  const flipped = node.parent && node.parent.k === "not" ? GATE_NAMES[node.k] + "→" : "";
+  return '<span class="g g-' + (node.k === "not" ? "not" : g) + '">' + flipped + (node.k === "not" ? "NOT" : GATE_NAMES[g]) + "</span>";
+}
+// the wording of the row in the chosen text mode; a translation is told apart by its colour only
+function rowTextHtml(p, node) {
+  const tr = trOf(p, node);
+  const mode = textMode(p.byN[node.claim]);
+  const orig = node.kids.length ? holeText(node) : esc(node.parts[0]);
+  const trText = tr ? '<span class="trc">' + holesHtml(tr) + "</span>" : "";
+  let h = mode === "tr" && tr ? trText : orig;
+  if (node.k === "ref") {
+    h = "<a href=\"#\"" + act("gotoClaim", node.ref) + ">" + h + "</a> → " + esc(t("claim")) + node.ref + " " + esc(t("refto")) + " " +
+      badge(val(p, p.byN[node.ref].tree));
+  }
+  if (mode === "both" && tr) h += '<span class="sub-line">' + trText + "</span>";
+  if (mode !== "orig" && tr && S.trImp[key(p, node)]) h += '<span class="tag">' + esc(t("trUnverified")) + "</span>";
+  if (node.ie) h += '<span class="sub-line ie">i.e., ' + esc(node.ie) + "</span>";
+  return h;
+}
+function extrasHtml(p, node) {
+  const k = key(p, node);
+  let h = S.memos[k] && !UI.memoOpen[k] ? '<span class="sub-line mtxt">✎ ' + esc(S.memos[k]) + "</span>" : "";
+  const ai = checkable(node) ? aiOf(p, node) : null;
+  if (ai && S.ui.aiReason) {
+    h += '<span class="ai">' + esc(t("aiReasonHead")) + " " + badge(ai.v) + (S.aiImp[k] ? '<span class="tag">' + esc(t("aiUnverified")) + "</span>" : "") +
+      " " + esc(ai.reason) + ai.evidence.map((e) => '<span class="ev">' + esc(e.file) + ":" + e.line + "「" + esc(e.quote) + "」</span>").join("") + "</span>";
+  }
+  return h;
+}
+function controlsOfRow(p, node) {
+  const k = key(p, node);
+  let h = "";
+  if (node.alt) {
+    const a = S.alts[k] || node.k;
+    h += '<span class="ck alt" title="' + esc(t("reading")) + '">' + ["or", "and"].map((g) => '<button class="' + (a === g ? "on" : "") + '"' +
+      act("reading", g) + ">" + g.toUpperCase() + "</button>").join("") + "</span>";
+  }
+  if (checkable(node)) {
+    const ai = aiOf(p, node);
+    if (S.ui.view === "user" && ai && ai.v !== "U") {
+      const mine = answer(p, node, "user");
+      const differs = mine !== "U" && mine !== ai.v;
+      h += '<span class="tag' + (differs ? " diff" : "") + '">AI: ' + esc(t(ai.v)) + (differs ? " ／ " + esc(t("diff")) : "") + "</span>";
+    }
+    const cur = answer(p, node, S.ui.view);
+    h += '<span class="ck">' + VALS.map((x) => '<button class="b-' + x + (cur === x ? " on" : "") + '"' + act("check", x) +
+      (S.ui.view === "ai" ? " disabled" : "") + ">" + esc(t(x)) + "</button>").join("") + "</span>";
+  }
+  return h + '<button class="mm' + (S.memos[k] ? " has" : "") + '"' + act("memo") + ' title="' + esc(t("memo")) + '">✎</button>';
+}
+
+// bring the highlighted text into view inside its own pane (when the pane scrolls)
+function revealMark() {
+  const m = document.querySelector(".otext mark");
+  if (!m) return;
+  const box = m.closest(".inner");
+  if (box.scrollHeight <= box.clientHeight) return;
+  const top = m.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+  if (top < box.scrollTop + 24 || top + m.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = Math.max(0, top - box.clientHeight / 3);
+}
+
+// ==================================================================== 7 actions
+// Every control carries data-act="<name>" (and data-arg). ON_CLICK / ON_CHANGE / ON_INPUT map the
+// name to what it does; a row-level action finds its row through the nearest [data-k].
+function change() { dirty = true; render(); }
+const rowOf = (el) => { const r = el.closest("[data-k]"); return r ? Object.assign({ k: r.dataset.k }, nodeOfKey(r.dataset.k)) : null; };
+const confirmText = (name, n) => t(name).replace("{n}", n);
+
+function goToNode(k) {
+  const { p, node } = nodeOfKey(k);
+  S.ui.tab = p.id;
+  UI.show[p.id + ":" + node.claim] = true;
+  for (let a = node.parent; a; a = a.parent) delete S.collapsed[key(p, a)];
+  UI.hl = k;
+  render();
+  let row = document.querySelector('.row[data-k="' + CSS.escape(k) + '"]');
+  if (!row) { S.ui.filter = { U: true, T: true, F: true, N: true }; render(); row = document.querySelector('.row[data-k="' + CSS.escape(k) + '"]'); }
+  if (row) { row.scrollIntoView({ block: "center" }); row.classList.add("flash"); }
+  revealMark();
+}
+function scrollToClaim(pid, n) {
+  const sec = document.getElementById("claim-" + pid + "-" + n);
+  if (sec) { sec.scrollIntoView({ block: "start" }); window.scrollBy(0, -document.getElementById("hd").offsetHeight - 4); }
+}
+// overview table: open the patent (and the claim) in the layer of the clicked column
+function jumpTo(pid, n, m) {
+  S.ui.tab = pid;
+  S.ui.view = m;
+  UI.hl = null;
+  if (+n) UI.show[pid + ":" + n] = true;
+  render();
+  if (+n) scrollToClaim(pid, n); else window.scrollTo(0, 0);
+}
+function setChecks(p, claim, fn) {
+  for (const x of p.nodes) if (!claim || x.claim === claim) fn(x, key(p, x));
+  change();
+}
+// the deepest node of the claim whose span covers the clicked character
+function pickFromText(e, el) {
+  const [pid, n] = [el.dataset.arg.slice(0, el.dataset.arg.lastIndexOf(":")), +el.dataset.arg.slice(el.dataset.arg.lastIndexOf(":") + 1)];
+  const p = P[pid], c = p.byN[n];
+  let node, off;
+  if (document.caretPositionFromPoint) { const cp = document.caretPositionFromPoint(e.clientX, e.clientY); node = cp && cp.offsetNode; off = cp && cp.offset; }
+  else if (document.caretRangeFromPoint) { const cr = document.caretRangeFromPoint(e.clientX, e.clientY); node = cr && cr.startContainer; off = cr && cr.startOffset; }
+  if (!node) return;
+  const upTo = (start) => { const r = document.createRange(); r.setStart(start, 0); r.setEnd(node, off); return r.toString().length; };
+  let at;
+  const line = (node.nodeType === 1 ? node : node.parentElement).closest("[data-off]");
+  if (line && el.contains(line)) at = +line.dataset.off + (line.dataset.whole ? 0 : upTo(line));
+  else {
+    if (!fmtMatches(p, c)) return;
+    const fi = upTo(el);
+    const m = offsetMap(c.body, fmtOf(p, c));
+    at = 0;
+    while (at < c.body.length && m[at + 1] <= fi) at++;
+  }
+  let best = c.tree;
+  (function deeper(x) { for (const k of x.kids) if (k.s <= at && at < k.e) { best = k; deeper(k); } })(c.tree);
+  goToNode(key(p, best));
+}
+
+const ON_CLICK = {
+  tab: (el, e) => { e.preventDefault(); S.ui.tab = el.dataset.arg; UI.hl = null; render(); window.scrollTo(0, 0); },
+  jump: (el) => jumpTo(...el.dataset.arg.split("|")),
+  node: (el, e) => { e.preventDefault(); goToNode(el.dataset.arg); },
+  summary: () => { S.ui.sum = !S.ui.sum; render(); },
+  save: () => saveHtml(),
+  exportJson: () => exportJson(),
+  importJson: () => document.getElementById("jsonFile").click(),
+  schema: () => download("claim-chart-result.schema.json", SCHEMA_TEXT, "application/json"),
+  view: (el) => { S.ui.view = el.dataset.arg; render(); },
+  expandAll: () => { const p = P[S.ui.tab]; if (!p) return; for (const n of p.nodes) delete S.collapsed[key(p, n)]; render(); },
+  collapseAll: () => { const p = P[S.ui.tab]; if (!p) return; for (const n of p.nodes) if (n.kids.length && n.parent) S.collapsed[key(p, n)] = true; render(); },
+  resetAll: () => { const p = P[S.ui.tab]; if (p && confirm(t("resetAsk"))) setChecks(p, 0, (x, k) => { delete S.checks[k]; delete S.alts[k]; }); },
+  resetClaim: (el) => { const n = +el.dataset.arg; if (confirm(confirmText("resetClaimAsk", n))) setChecks(P[S.ui.tab], n, (x, k) => { delete S.checks[k]; delete S.alts[k]; }); },
+  adoptAll: () => { const p = P[S.ui.tab]; if (p && confirm(t("adoptAsk"))) adopt(p, 0); },
+  adoptClaim: (el) => { const n = +el.dataset.arg; if (confirm(confirmText("adoptClaimAsk", n))) adopt(P[S.ui.tab], n); },
+  showClaim: (el) => { UI.show[el.dataset.arg] = !UI.show[el.dataset.arg]; render(); },
+  gotoClaim: (el, e) => { e.preventDefault(); UI.show[S.ui.tab + ":" + el.dataset.arg] = true; render(); scrollToClaim(S.ui.tab, el.dataset.arg); },
+  editText: (el) => { UI.edit[el.dataset.arg] = !UI.edit[el.dataset.arg]; render(); },
+  pickText: (el, e) => pickFromText(e, el),
+  check: (el) => { S.checks[rowOf(el).k] = el.dataset.arg; if (el.dataset.arg === "U") delete S.checks[rowOf(el).k]; change(); },
+  reading: (el) => { S.alts[rowOf(el).k] = el.dataset.arg; change(); },
+  memo: (el) => { const k = rowOf(el).k; UI.memoOpen[k] = !UI.memoOpen[k]; render(); },
+  twisty: (el) => { const r = rowOf(el); if (r.node.kids.length) { S.collapsed[r.k] = !S.collapsed[r.k]; render(); } },
+  rowText: (el, e) => { if (e.target.closest("a")) return; const k = rowOf(el).k; UI.hl = UI.hl === k ? null : k; render(); revealMark(); },
+};
+function adopt(p, claim) {
+  setChecks(p, claim, (x, k) => { const a = checkable(x) ? aiOf(p, x) : null; if (a && a.v !== "U" && !S.checks[k]) S.checks[k] = a.v; });
+  S.ui.view = "user";
+  render();
+}
+const clampFont = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(20, Math.max(8, n)) : 14; };
+const ON_CHANGE = {
+  filter: (el) => { S.ui.filter[el.dataset.arg] = el.checked; render(); },
+  mode: (el) => { S.ui.mode = el.value; render(); },
+  layout: (el) => { S.ui.layout = el.value; render(); },
+  text: (el) => { S.ui.text = el.value; render(); revealMark(); },
+  aiReason: (el) => { S.ui.aiReason = el.checked; render(); },
+  trLang: (el) => { S.ui.tr = el.value; render(); },
+  menuLang: (el) => { S.ui.lang = el.value; render(); },
+  theme: (el) => { S.ui.theme = el.value; render(); },
+  fs: (el) => { S.ui.fs = clampFont(el.value); render(); },
+  ofs: (el) => { S.ui.ofs = clampFont(el.value); render(); },
+  memoInput: () => render(),
+  jsonFile: (el) => { if (el.files[0]) el.files[0].text().then(importJson); el.value = ""; },
+};
+const ON_INPUT = {
+  memoInput: (el) => { if (el.value) S.memos[el.dataset.arg] = el.value; else delete S.memos[el.dataset.arg]; dirty = true; },
+  fmtInput: (el) => {
+    const fk = el.dataset.arg;
+    S.fmt[fk] = el.value;
+    dirty = true;
+    const i = fk.lastIndexOf(":");
+    const ok = fmtMatches(P[fk.slice(0, i)], P[fk.slice(0, i)].byN[+fk.slice(i + 1)]);
+    document.querySelector('[data-okfor="' + CSS.escape(fk) + '"]').textContent = ok ? "" : "✗ " + t("mismatch");
+  },
+};
+const dispatch = (table) => (e) => {
+  const el = e.target.closest("[data-act]");
+  if (el && table[el.dataset.act]) table[el.dataset.act](el, e);
+};
+document.addEventListener("click", dispatch(ON_CLICK));
+document.addEventListener("change", dispatch(ON_CHANGE));
+document.addEventListener("input", dispatch(ON_INPUT));
+window.addEventListener("resize", () => document.documentElement.style.setProperty("--hdh", document.getElementById("hd").offsetHeight + "px"));
+window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = t("leave"); } });
+
+// ==================================================================== 8 bars
+// mid bar: width of the claim text pane (side by side) or its height (stacked);
+// bottom bar: height of every claim box. Double-click puts them back.
+document.addEventListener("pointerdown", (e) => {
+  const bar = e.target.closest("[data-bar]");
+  if (!bar) return;
+  e.preventDefault();
+  const bottom = bar.dataset.bar === "bottom";
+  const box = bottom ? bar.previousElementSibling : bar.parentElement;
+  bar.classList.add("dragging");
+  bar.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    const r = box.getBoundingClientRect();
+    if (bottom) S.ui.ch = Math.round(Math.min(4000, Math.max(150, ev.clientY - r.top)));
+    else if (S.ui.layout === "lr") S.ui.split = Math.round(Math.min(85, Math.max(15, (ev.clientX - r.left) / r.width * 100)));
+    else S.ui.oh = Math.round(Math.min(window.innerHeight - 120, Math.max(40, ev.clientY - r.top)));
+    applyLook();
+  };
+  const up = () => { bar.classList.remove("dragging"); bar.removeEventListener("pointermove", move); bar.removeEventListener("pointerup", up); dirty = true; };
+  bar.addEventListener("pointermove", move);
+  bar.addEventListener("pointerup", up);
+});
+document.addEventListener("dblclick", (e) => {
+  const bar = e.target.closest("[data-bar]");
+  if (!bar) return;
+  if (bar.dataset.bar === "bottom") S.ui.ch = null;
+  else if (S.ui.layout === "lr") S.ui.split = 40;
+  else S.ui.oh = null;
+  change();
+});
+
+// ==================================================================== 9 save and JSON
+const fileStem = () => "claim-chart-" + DATA.patents.map((p) => p.id).join("_") + "-" + stamp().replace(/[-: ]/g, "");
+function saveHtml() {
+  S.savedAt = stamp();
+  const json = JSON.stringify(S).replace(/</g, "\\u003c");
+  const re = /(<script type="application\/json" id="cc-state">)[\s\S]*?(<\/script>)/;
+  download(fileStem() + ".html", PRISTINE.replace(re, (_, a, b) => a + json + b), "text/html");
+  dirty = false;
+  render();
+}
+
+// claim-chart-result/1 (schema/claim-chart-result.schema.json): every node of every claim
+function exportJson() {
+  refresh();
+  const nodeJson = (p, n) => {
+    const k = key(p, n);
+    const o = { id: n.id, parent: n.parent ? n.parent.id : null, kind: n.k };
+    if (n.k === "and" || n.k === "or") o.gate = gateOf(p, n);
+    if (n.k === "ref") o.ref = n.ref;
+    o.text = n.text;
+    if (n.ie) o.ie = n.ie;
+    o.checkable = checkable(n);
+    if (o.checkable) o.check = TO_JSON[answer(p, n, "user")];
+    const ai = o.checkable ? aiOf(p, n) : null;
+    if (ai) Object.assign(o, { aiCheck: TO_JSON[ai.v], aiReason: ai.reason, aiEvidence: ai.evidence });
+    if (n.alt) o.reading = S.alts[k] || n.k;
+    o.value = TO_JSON[val(p, n, "user")];
+    o.aiValue = TO_JSON[val(p, n, "ai")];
+    o.worthChecking = worth(p, n, "user");
+    if (S.memos[k]) o.memo = S.memos[k];
+    const trs = Object.assign({}, n.tr || {}, S.trImp[k] || {});
+    if (Object.keys(trs).length) o.tr = trs;
+    return o;
+  };
+  const out = {
+    format: "claim-chart-result/1", generated: DATA.generated, exported: stamp(), disclaimer: TXT.en.disclaimer,
+    patents: DATA.patents.map((p) => ({
+      id: p.id, number: p.number, country: p.country, title: p.title, holder: p.holder, status: p.status, source: p.source,
+      verdict: TO_JSON[patentVal(p, "user")], aiVerdict: TO_JSON[patentVal(p, "ai")],
+      ai: p.ai ? { target: p.ai.target, by: p.ai.by, date: p.ai.date } : undefined,
+      claims: p.claims.map((c) => ({ n: c.n, header: c.header, cites: c.refs, verdict: TO_JSON[val(p, c.tree, "user")],
+        aiVerdict: TO_JSON[val(p, c.tree, "ai")], nodes: p.nodes.filter((n) => n.claim === c.n).map((n) => nodeJson(p, n)) })),
+    })),
+  };
+  download(fileStem() + ".json", JSON.stringify(out, null, 2), "application/json");
+}
+
+// Read back what a person or an AI may change: check, reading, memo, aiCheck/aiReason/aiEvidence, tr.
+// A node whose text differs from the claim is skipped, so answers cannot land on the wrong text.
+function importJson(text) {
+  let doc;
+  try { doc = JSON.parse(text); } catch (err) { toast(t("badJson")); return; }
+  if (!doc || doc.format !== "claim-chart-result/1" || !Array.isArray(doc.patents)) { toast(t("badJson")); return; }
+  const holes = (s) => (String(s).match(HOLE) || []).map((h) => h.slice(1, -1)).sort().join("|");
+  let applied = 0, skipped = 0, missing = 0;
+  for (const dp of doc.patents) {
+    const p = P[dp.id];
+    for (const dc of dp.claims || []) {
+      for (const dn of dc.nodes || []) {
+        const n = p && p.byId[dn.id];
+        if (!n || n.claim !== dc.n) { missing++; continue; }
+        if (dn.text !== undefined && dn.text !== n.text) { skipped++; continue; }
+        const k = key(p, n);
+        let used = false;
+        if (checkable(n) && dn.check in FROM_JSON) {
+          if (FROM_JSON[dn.check] === "U") delete S.checks[k]; else S.checks[k] = FROM_JSON[dn.check];
+          used = true;
+        }
+        if (n.alt && (dn.reading === "or" || dn.reading === "and")) { S.alts[k] = dn.reading; used = true; }
+        if (checkable(n) && dn.aiCheck in FROM_JSON) {
+          const ev = Array.isArray(dn.aiEvidence) ? dn.aiEvidence.filter((x) => x && typeof x.file === "string" && typeof x.quote === "string")
+            .map((x) => ({ file: x.file, line: Number.isInteger(x.line) ? x.line : 0, quote: x.quote })) : [];
+          S.aiImp[k] = { v: FROM_JSON[dn.aiCheck], reason: typeof dn.aiReason === "string" ? dn.aiReason : "", evidence: ev };
+          used = true;
+        }
+        if (dn.tr && typeof dn.tr === "object") {
+          const want = n.kids.map((x) => x.label).sort().join("|");
+          for (const [lang, s] of Object.entries(dn.tr)) {
+            if (typeof s !== "string" || holes(s) !== want || (n.tr && n.tr[lang] === s)) continue;
+            (S.trImp[k] = S.trImp[k] || {})[lang] = s;
+            used = true;
+          }
+        }
+        if (typeof dn.memo === "string") { if (dn.memo) S.memos[k] = dn.memo; else delete S.memos[k]; used = true; }
+        if (used) applied++;
+      }
+    }
+  }
+  dirty = true;
+  render();
+  toast(t("imported").replace("{a}", applied).replace("{b}", skipped).replace("{c}", missing));
+}
+
+// ==================================================================== 10 start
+render();
+</script>
+</body>
+</html>

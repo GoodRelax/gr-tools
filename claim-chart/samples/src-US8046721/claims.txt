@@ -1,0 +1,48 @@
+1.
+A method of unlocking a hand-held electronic device, the device including a touch-sensitive display, the method comprising:
+detecting a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;
+continuously moving the unlock image on the touch-sensitive display in accordance with movement of the contact while continuous contact with the touch screen is maintained, wherein the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device; and
+unlocking the hand-held electronic device if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display.
+2.
+The method of claim 1, wherein the moving comprises movement along any desired path.
+3.
+The method of claim 1, wherein the moving comprises movement along a predefined channel from the first predefined location to the predefined unlock region.
+4.
+The method of claim 1, further comprising displaying visual cues to communicate a direction of movement of the unlock image required to unlock the device.
+5.
+The method of claim 4, wherein the visual cues comprise text.
+6.
+The method of claim 4, wherein said visual cues comprise an arrow indicating a general direction of movement.
+7.
+A portable electronic device, comprising:
+a touch-sensitive display;
+memory;
+one or more processors; and
+one or more modules stored in the memory and configured for execution by the one or more processors, the one or more modules including instructions:
+to detect a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;
+to continuously move the unlock image on the touch-sensitive display in accordance with movement of the detected contact while continuous contact with the touch-sensitive display is maintained, wherein the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device; and
+to unlock the hand-held electronic device if the unlock image is moved from the first predefined location on the touch screen to a predefined unlock region on the touch-sensitive display.
+8.
+The device of claim 7, further comprising instructions to display visual cues to communicate a direction of movement of the unlock image required to unlock the device.
+9.
+The device of claim 8, wherein the visual cues comprise text.
+10.
+The device of claim 8, wherein said visual cues comprise an arrow indicating a general direction of movement.
+11.
+A portable electronic device, comprising:
+a touch-sensitive display;
+means for displaying an unlock image at a first predefined location on the touch-sensitive display while the device is in a user-interface lock state;
+means for detecting contact with the touch-sensitive display; and
+means for continuously moving the unlock image on the touch-sensitive display in response to detecting the contact in accordance with movement of the contact while continuous contact with the touch screen is maintained, wherein the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device; and
+means for transitioning the device to a user-interface unlock state if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display.
+12.
+A computer readable storage medium storing one or more programs, the one or more programs comprising instructions, which when executed by a portable electronic device with a touch-sensitive display, cause the portable electronic device to perform a method comprising:
+detecting a contact with the touch-sensitive display at a first predefined location corresponding to an unlock image;
+continuously moving the unlock image on the touch-sensitive display in accordance with movement of the contact while continuous contact with the touch screen is maintained, wherein the unlock image is a graphical, interactive user-interface object with which a user interacts in order to unlock the device; and
+unlocking the hand-held electronic device if the moving the unlock image on the touch-sensitive display results in movement of the unlock image from the first predefined location to a predefined unlock region on the touch-sensitive display.
+13.
+The method of claim 1, wherein the unlock image is a single image.
+14.
+The device of claim 7, wherein the unlock image is a single image.
+15.
+The computer readable storage medium of claim 12, wherein the unlock image is a single image.

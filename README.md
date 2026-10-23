@@ -14,7 +14,8 @@ A collection of utility tools by GoodRelax designed to enhance development workf
 [📂 js_renamer](./js_renamer/)&nbsp;&nbsp;  
 [📂 cat_files](./cat_files/)&nbsp;&nbsp;  
 [🚀 StrictDocStarter](./StrictDocStarter/)&nbsp;&nbsp;  
-[📐 drawio-uml](./drawio-uml/)&nbsp;&nbsp;
+[📐 drawio-uml](./drawio-uml/)&nbsp;&nbsp;  
+[⚖️ claim-chart](./claim-chart/)&nbsp;&nbsp;
 
 <br>
 
@@ -146,6 +147,24 @@ Generates publication-quality UML / node-link diagrams (class, state machine, us
 
 [Go to drawio-uml >](./drawio-uml/)
 
+<br>
+
+### [⚖️ claim-chart](./claim-chart/)
+
+#### Overview
+
+**Interactive Patent Claim Charts — Claude Code skill + builder**
+Splits each patent claim into an AND / OR / NOT tree without changing a single character, so you can mark every condition True / False / TBD against your product and see the verdict of every claim at a glance. An AI agent can add provisional answers with verbatim evidence from your specification, and a machine translation can sit beside the original. One offline HTML file that saves itself with your marks; JSON export / import for AI tools. Not legal advice.
+
+#### Platform / Requirements
+
+- Python 3.9+ (standard library only) to build; any modern browser to view
+- Cross-platform (Windows / macOS / Linux)
+
+#### Details
+
+[Go to claim-chart >](./claim-chart/)
+
 ## <br>
 
 ## Japanese Description
@@ -274,6 +293,24 @@ HTMLファイル内に埋め込まれたJavaScriptの変数や関数名を、AST
 #### 詳細
 
 [drawio-uml のフォルダへ >](./drawio-uml/)
+
+<br>
+
+### [⚖️ claim-chart](./claim-chart/)
+
+#### 概要
+
+**特許のクレームチャートを対話で — Claude Code スキル + ビルダー**
+特許の請求項を 1 字も変えずに AND / OR / NOT の木に分け、構成要件ごとに True / False / TBD を付けると、請求項ごとの判定が一目で分かります。AI に仕様書の抜き書きを根拠とした仮判定を付けさせたり、原文の横に機械訳を添えたりできます。チェックを入れたまま保存できる、オフラインで動く 1 つの HTML と、AI 向けの JSON の書き出し・読み込み。法律上の意見ではありません。
+
+#### 動作環境 / 必須要件
+
+- 作るとき: Python 3.9 以上（標準ライブラリのみ）／見るとき: 一般的なブラウザ
+- クロスプラットフォーム (Windows / macOS / Linux)
+
+#### 詳細
+
+[claim-chart のフォルダへ >](./claim-chart/)
 
 <br>
 

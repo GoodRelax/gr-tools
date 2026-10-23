@@ -1,0 +1,22 @@
+{
+  "id": "US8046721",
+  "country": "US",
+  "number": "US 8,046,721",
+  "title": "Unlocking a device by performing gestures on an unlock image",
+  "holder": "Apple Inc",
+  "filed": "2009-06-02",
+  "registered": "2011-10-25",
+  "status": "Expired - Lifetime（Google Patents の表示、2026-10-23 に確認）",
+  "source": "https://patents.google.com/patent/US8046721B2/en",
+  "origLang": "en",
+  "summary": [
+    {
+      "file": "problem.txt",
+      "role": "problem"
+    },
+    {
+      "file": "solution.txt",
+      "role": "solution"
+    }
+  ]
+}

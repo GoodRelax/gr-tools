@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>極・零点で見るアンプの周波数応答 — s平面3D × ボード線図</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=STIX+Two+Text:ital,wght@0,400;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#eaeef3; --panel:#fbfcfd; --ink:#14213d; --muted:#5c677d; --line:#cfd6e0;
+  --grid:rgba(20,33,61,.09); --gridStrong:rgba(20,33,61,.35);
+  --accent:#e8590c; --curve:#1c4fd6; --ol:#8a94a6; --pole:#c92a2a; --zero:#1971c2;
+  --shade:rgba(20,33,61,.05); --stable:rgba(47,158,68,.10); --unstable:rgba(224,49,49,.09);
+  --btn:#e3e8ef; --btnOn:#14213d; --btnOnInk:#fbfcfd;
+  --sans:"Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --math:"STIX Two Text", "Times New Roman", serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1522; --panel:#152033; --ink:#e6ecf5; --muted:#9aa7bb; --line:#26334a;
+    --grid:rgba(230,236,245,.08); --gridStrong:rgba(230,236,245,.35);
+    --accent:#ff8c42; --curve:#6ea8ff; --ol:#7d889b; --pole:#ff6b6b; --zero:#74c0fc;
+    --shade:rgba(230,236,245,.05); --stable:rgba(81,207,102,.10); --unstable:rgba(255,107,107,.09);
+    --btn:#1e2b42; --btnOn:#e6ecf5; --btnOnInk:#0e1522;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1522; --panel:#152033; --ink:#e6ecf5; --muted:#9aa7bb; --line:#26334a;
+  --grid:rgba(230,236,245,.08); --gridStrong:rgba(230,236,245,.35);
+  --accent:#ff8c42; --curve:#6ea8ff; --ol:#7d889b; --pole:#ff6b6b; --zero:#74c0fc;
+  --shade:rgba(230,236,245,.05); --stable:rgba(81,207,102,.10); --unstable:rgba(255,107,107,.09);
+  --btn:#1e2b42; --btnOn:#e6ecf5; --btnOnInk:#0e1522;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65}
+header{max-width:1400px;margin:0 auto;padding:22px 20px 8px}
+h1{font-size:clamp(1.35rem,2.6vw,1.9rem);font-weight:700;margin:0;letter-spacing:.01em;line-height:1.3}
+.lede{margin:6px 0 0;color:var(--muted);max-width:72ch}
+.m{font-family:var(--math);font-style:italic;font-size:1.08em}
+.layout{max-width:1400px;margin:0 auto;padding:12px 20px 32px;display:grid;gap:14px;
+  grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);
+  grid-template-areas:"view side" "ctrl expl";}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.view{grid-area:view;position:relative;height:clamp(380px,64vh,680px);overflow:hidden;border-radius:14px}
+#three{position:absolute;inset:0}
+#three canvas{display:block;touch-action:none;cursor:grab}
+#three canvas:active{cursor:grabbing}
+.legend{position:absolute;left:12px;top:10px;font-size:12.5px;color:var(--muted);pointer-events:none;
+  background:color-mix(in srgb,var(--panel) 82%,transparent);padding:8px 10px;border-radius:8px;line-height:1.55}
+.legend b{color:var(--ink);font-weight:500}
+.sw{display:inline-block;width:14px;text-align:center;font-weight:700}
+.cbar{margin-top:6px;width:170px;height:8px;border-radius:4px}
+.cbarLbl{display:flex;justify-content:space-between;width:170px;font-size:11px}
+.viewBtns{position:absolute;right:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:60%}
+.hint{position:absolute;right:12px;bottom:8px;font-size:12px;color:var(--muted);pointer-events:none}
+.side{grid-area:side;display:flex;flex-direction:column;gap:14px;min-width:0}
+.bode{padding:8px 8px 4px}
+.bode canvas{display:block;width:100%;height:190px;cursor:crosshair;touch-action:none}
+.bodeCap{font-size:12px;color:var(--muted);padding:0 6px 4px}
+.readout{padding:12px 14px;font-size:13.5px;overflow-x:auto}
+.readout table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.readout td,.readout th{padding:3px 6px;text-align:right;white-space:nowrap}
+.readout th{font-weight:500;color:var(--muted);font-size:12px}
+.readout td:first-child,.readout th:first-child{text-align:left}
+.big{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px}
+.big div{line-height:1.25}
+.big span{display:block;font-size:12px;color:var(--muted)}
+.big strong{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}
+.sum{margin-top:8px;font-size:12.5px;color:var(--muted)}
+.extra{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;display:grid;grid-template-columns:auto auto;gap:2px 14px;font-size:13px}
+.extra span:nth-child(odd){color:var(--muted)}
+.ctrl{grid-area:ctrl;padding:14px 16px}
+.expl{grid-area:expl;padding:14px 18px;font-size:14px}
+.expl h2,.ctrl h2{font-size:1rem;margin:0 0 6px;font-weight:700}
+.expl p{margin:0 0 10px;max-width:70ch}
+select{font:inherit;color:var(--ink);background:var(--btn);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:100%}
+.formula{font-family:var(--math);font-style:italic;font-size:1.12rem;margin:10px 0 2px;overflow-x:auto;white-space:nowrap}
+.note{color:var(--muted);font-size:13.5px;margin:0 0 10px}
+.sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 18px;margin-bottom:12px}
+.sl label{display:flex;justify-content:space-between;font-size:13px}
+.sl output{font-variant-numeric:tabular-nums;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;font-size:13px;color:var(--ink);background:var(--btn);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer}
+button[aria-pressed="true"]{background:var(--btnOn);color:var(--btnOnInk);border-color:var(--btnOn)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.speed{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px}
+.speed input{max-width:200px}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"view" "ctrl" "side" "expl";padding:10px 12px 28px}
+  header{padding:16px 12px 4px}
+  .view{height:clamp(340px,58vh,520px)}
+  .viewBtns{max-width:100%;left:10px;right:10px;top:auto;bottom:30px;justify-content:flex-start}
+  .legend{font-size:11.5px}
+}
+@media (prefers-reduced-motion: reduce){ .hint::after{content:"（動きを抑える設定のため自動再生オフ）"} }
+</style>
+</head>
+<body>
+<header>
+  <h1>極・零点で見るアンプの周波数応答</h1>
+  <p class="lede">伝達関数 <span class="m">|H(s)|</span> を s平面上の曲面として立体表示。極は山、零点は谷になります。
+  この曲面を <span class="m">σ = 0</span>（jω軸）で切った断面が周波数応答そのもので、それを対数軸で描いたものがボード線図です。</p>
+</header>
+
+<main class="layout">
+  <section class="panel view" aria-label="s平面上の |H(s)| 3D表示">
+    <div id="three"></div>
+    <div class="legend">
+      <div><span class="sw" style="color:var(--pole)">×</span> 極　<span class="sw" style="color:var(--zero)">○</span> 零点</div>
+      <div><span class="sw" style="color:var(--accent)">━</span> <b>jω軸の断面 ＝ 周波数応答</b></div>
+      <div id="cbarBox"></div>
+    </div>
+    <div class="viewBtns">
+      <button data-view="iso">俯瞰</button>
+      <button data-view="top">真上（s平面）</button>
+      <button data-view="side">断面方向</button>
+    </div>
+    <div class="hint">ドラッグで回転・ホイール/ピンチで拡大</div>
+  </section>
+
+  <aside class="side">
+    <div class="panel bode">
+      <canvas id="bodeMag" aria-label="ボード線図 ゲイン"></canvas>
+      <canvas id="bodePh" aria-label="ボード線図 位相"></canvas>
+      <div class="bodeCap">ボード線図上をクリック/ドラッグすると、その周波数に3Dの観測点が移動します。</div>
+    </div>
+    <div class="panel readout" id="readout"></div>
+  </aside>
+
+  <section class="panel ctrl">
+    <h2>回路モデル</h2>
+    <select id="preset" aria-label="回路モデルを選ぶ"></select>
+    <div class="formula" id="formula"></div>
+    <p class="note" id="note"></p>
+    <div class="sliders" id="sliders"></div>
+    <div class="btns">
+      <button id="bPlay" aria-pressed="true">ω を掃引</button>
+      <button id="bParam" aria-pressed="false">パラメータを自動で動かす</button>
+      <button id="bRot" aria-pressed="false">自動回転</button>
+      <button id="bColor" aria-pressed="false">色を位相で表示</button>
+      <button id="bCut" aria-pressed="false">右半面を切り取る</button>
+      <button id="bPlane" aria-pressed="true">断面の面を表示</button>
+    </div>
+    <div class="speed"><label for="spd">速さ</label><input id="spd" type="range" min="0.2" max="3" step="0.05" value="1"></div>
+  </section>
+
+  <section class="panel expl">
+    <h2>見方</h2>
+    <p>伝達関数は <span class="m">H(s) = K · Π(s − z<sub>i</sub>) / Π(s − p<sub>k</sub>)</span>。
+    s = σ + jω を平面全体で動かすと <span class="m">|H(s)|</span> は極で無限大、零点で 0 になるので、曲面は極で尖った山、零点で深い谷になります（表示は −30〜60 dB で切り詰め）。</p>
+    <p>実際の正弦波入力に対する応答は <span class="m">s = jω</span> のときだけ、つまり橙色の断面です。ボード線図はこの断面の <span class="m">ω &gt; 0</span> 側を横軸 log ω、縦軸 dB で描き直したものです。</p>
+    <p>床面の細い線は各零点・極から観測点 jω へのベクトルです。ゲインは「零点からの距離の積 ÷ 極からの距離の積」、位相は「零点ベクトルの角度の和 − 極ベクトルの角度の和」。極が jω 軸に近いほど、その付近で距離が急に小さくなり、ゲインのピークと急な位相変化が起きます。</p>
+    <p>床の緑は左半平面（安定領域）。極がすべてここにあれば増幅回路は安定です。⑤の負帰還モデルでは、β を上げると閉ループ極が根軌跡（点線）に沿って jω 軸へ近づき、位相余裕が減っていく様子が見えます。</p>
+    <p>周波数は正規化値（rad/s を代表周波数で割ったもの）です。</p>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+"use strict";
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const db2lin = d => Math.pow(10, d/20);
+const C = (re,im) => ({re, im});
+const RAD = 180/Math.PI;
+const LN2DB = 20/Math.LN10;
+
+/* ---------- s-plane / surface constants ---------- */
+const S_MIN=-4, S_MAX=1.5, W_MAX=4.5, DS=0.05;
+const NX = Math.round((S_MAX-S_MIN)/DS)+1;      // 111
+const NZ = Math.round((2*W_MAX)/DS)+1;          // 181
+const DBMIN=-30, DBMAX=60, HS=0.05;
+const YF = DBMIN*HS - 0.15;
+const yOf = db => clamp(db, DBMIN, DBMAX)*HS;
+const WL=0.01, WH=100, SW_MIN=0.02, SW_MAX=W_MAX;
+
+function evalH(sys, sr, si){
+  let lm = Math.log(Math.abs(sys.K)), ph = sys.K<0 ? Math.PI : 0;
+  for (const z of sys.zeros){ const dr=sr-z.re, di=si-z.im; lm += 0.5*Math.log(dr*dr+di*di+1e-14); ph += Math.atan2(di,dr); }
+  for (const p of sys.poles){ const dr=sr-p.re, di=si-p.im; lm -= 0.5*Math.log(dr*dr+di*di+1e-14); ph -= Math.atan2(di,dr); }
+  return { db: lm*LN2DB, ph };
+}
+
+/* ---------- presets ---------- */
+const P = (id,label,min,max,step,val,unit='') => ({id,label,min,max,step,val,unit});
+const PG = () => P('G','中域利得 G',0,40,0.5,20,'dB');
+const A0=200, P1=0.05;
+function fbPoles(b,p2){
+  const a=P1+p2, c=P1*p2*(1+A0*b), d=a*a/4-c;
+  return d>=0 ? [C(-a/2+Math.sqrt(d),0), C(-a/2-Math.sqrt(d),0)]
+              : [C(-a/2, Math.sqrt(-d)), C(-a/2,-Math.sqrt(-d))];
+}
+const PRESETS = [
+ { name:'① 1次ローパス（内部補償オペアンプ）',
+   formula:'H(s) = G · ωp / (s + ωp)',
+   note:'実軸上に極が1つ。ωp で −3 dB、それ以降は −20 dB/dec、位相は 0° → −90°。',
+   params:[PG(), P('wp','極 ωp',0.2,3,0.01,1)],
+   anim:{id:'wp',min:0.3,max:2.5},
+   build:p=>({K:db2lin(p.G)*p.wp, zeros:[], poles:[C(-p.wp,0)]}),
+   extra:p=>[['−3 dB 帯域', p.wp.toFixed(3)],['利得帯域幅積', (db2lin(p.G)*p.wp).toFixed(2)]]
+ },
+ { name:'② 2次系（2極アンプ・共振ピーク）',
+   formula:'H(s) = G · ωn² / (s² + 2ζωn s + ωn²)',
+   note:'ζ < 1 で極は共役複素対。極が jω 軸に近づく（ζ が小さい）ほど山が尖り、ゲインピークが出ます。',
+   params:[PG(), P('wn','固有角周波数 ωn',0.3,3,0.01,1.2), P('z','減衰係数 ζ',0.05,1.5,0.01,0.3)],
+   anim:{id:'z',min:0.08,max:1.2},
+   build:p=>{ const wn=p.wn, z=p.z; let poles;
+     if(z<1){ const wd=wn*Math.sqrt(1-z*z); poles=[C(-z*wn,wd),C(-z*wn,-wd)]; }
+     else { const r=wn*Math.sqrt(z*z-1); poles=[C(-z*wn+r,0),C(-z*wn-r,0)]; }
+     return {K:db2lin(p.G)*wn*wn, zeros:[], poles}; },
+   extra:p=>{ const z=p.z, r=[['Q = 1/(2ζ)', (1/(2*z)).toFixed(2)]];
+     if(z<Math.SQRT1_2){ r.push(['ピーク周波数 ωr', (p.wn*Math.sqrt(1-2*z*z)).toFixed(3)]); r.push(['ピーク量', '+'+(LN2DB*Math.log(1/(2*z*Math.sqrt(1-z*z)))).toFixed(2)+' dB']); }
+     else r.push(['ピーク', 'なし（ζ ≥ 0.707）']);
+     return r; }
+ },
+ { name:'③ エミッタ接地（結合容量＋高域極）',
+   formula:'H(s) = G · ωH s / ((s + ωL)(s + ωH))',
+   note:'原点の零点（結合容量）が低域を +20 dB/dec で落とし、ωL と ωH の2極の間が平坦な中域になります。',
+   params:[PG(), P('wl','低域極 ωL',0.03,1,0.01,0.1), P('wh','高域極 ωH',1,4,0.01,2.5)],
+   anim:{id:'wl',min:0.05,max:0.9},
+   build:p=>({K:db2lin(p.G)*p.wh, zeros:[C(0,0)], poles:[C(-p.wl,0),C(-p.wh,0)]}),
+   extra:p=>[['低域遮断 ≈ ωL', p.wl.toFixed(3)],['高域遮断 ≈ ωH', p.wh.toFixed(3)]]
+ },
+ { name:'④ 零点付き（位相補償：進み／遅れ）',
+   formula:'H(s) = G · (ωp/ωz) · (s + ωz) / (s + ωp)',
+   note:'ωz < ωp なら位相進み、ωz > ωp なら位相遅れ。零点の谷と極の山の位置関係で傾きが決まります。',
+   params:[PG(), P('wz','零点 ωz',0.1,3,0.01,0.4), P('wp','極 ωp',0.1,3,0.01,2)],
+   anim:{id:'wz',min:0.15,max:2.8},
+   build:p=>({K:db2lin(p.G)*p.wp/p.wz, zeros:[C(-p.wz,0)], poles:[C(-p.wp,0)]}),
+   extra:p=>{ const phm=Math.asin((p.wp-p.wz)/(p.wp+p.wz))*RAD;
+     return [[phm>=0?'最大位相進み':'最大位相遅れ', Math.abs(phm).toFixed(1)+'°'],['その周波数 √(ωzωp)', Math.sqrt(p.wz*p.wp).toFixed(3)]]; }
+ },
+ { name:'⑤ 負帰還アンプ（2極オペアンプ＋帰還率 β）',
+   formula:'A(s) = A0 / ((1+s/p1)(1+s/p2)),   H(s) = A / (1 + βA)',
+   note:'A0 = 200 (46 dB), p1 = 0.05 固定。β を上げると利得は下がり帯域は広がりますが、閉ループ極が jω 軸に近づき位相余裕が減ってピークが出ます。点線は開ループ特性と根軌跡。',
+   params:[P('b','帰還率 β',0,0.5,0.001,0.02), P('p2','第2極 p2',0.5,3,0.01,1.5)],
+   anim:{id:'b',min:0.002,max:0.45,log:true},
+   build:p=>({K:A0*P1*p.p2, zeros:[], poles:fbPoles(p.b,p.p2),
+     ol:{K:A0*P1*p.p2, zeros:[], poles:[C(-P1,0),C(-p.p2,0)]},
+     locus:(()=>{ const u=[],l=[]; for(let i=0;i<=240;i++){ const b=0.5*i/240; const q=fbPoles(b,p.p2); u.push(q[0]); l.push(q[1]); } return [u,l]; })()
+   }),
+   extra:(p,sys)=>{
+     const L={K:sys.ol.K*p.b, zeros:[], poles:sys.ol.poles};
+     let pm='∞（ループ利得 < 1）';
+     if(A0*p.b>1){ let prev=null;
+       for(let i=0;i<=3000;i++){ const w=1e-3*Math.pow(1e6,i/3000); const r=evalH(L,0,w);
+         if(prev && prev.db>0 && r.db<=0){ const t=prev.db/(prev.db-r.db); const ph=(prev.ph+(r.ph-prev.ph)*t)*RAD; pm=(180+ph).toFixed(1)+'°　（ωc ≈ '+(prev.w+(w-prev.w)*t).toFixed(3)+'）'; break; }
+         prev={db:r.db,ph:r.ph,w}; } }
+     const pz=sys.poles[0]; const wn=Math.hypot(pz.re,pz.im);
+     return [['ループ利得 βA0', (A0*p.b).toFixed(2)+'（'+(LN2DB*Math.log(Math.max(A0*p.b,1e-9))).toFixed(1)+' dB）'],
+             ['閉ループDC利得', (LN2DB*Math.log(A0/(1+A0*p.b))).toFixed(2)+' dB'],
+             ['位相余裕 PM', pm],
+             ['閉ループ極の ζ', (-pz.re/wn).toFixed(3)]];
+   }
+ }
+];
+
+/* ---------- state ---------- */
+let pi = 0, params = {}, sys = null, dirty = true;
+let omega = 0.3, playing = true, u = 0.4, dir = 1, speed = 1;
+let paramAnim = false, tAnim = 0, autoRot = false, colorPhase = false, cutRHP = false;
+let magRange=null, phRange=null, curve=null;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduced) playing = false;
+
+/* ---------- theme tokens ---------- */
+let T = {};
+function readTokens(){
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['panel','ink','muted','line','grid','gridStrong','accent','curve','ol','pole','zero','shade','stable','unstable'])
+    T[k] = cs.getPropertyValue('--'+k).trim();
+}
+readTokens();
+
+/* ---------- three.js ---------- */
+const host = $('#three');
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.localClippingEnabled = true;
+host.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40,1,0.1,200);
+const target = new THREE.Vector3(-1.25, 0.35, 0);
+const VIEWS = { iso:{r:12.5, th:0.72, ph:1.02}, top:{r:12, th:0, ph:0.06}, side:{r:12, th:Math.PI/2, ph:Math.PI/2-0.04} };
+const cam = {...VIEWS.iso}; let camGoal = null;
+function placeCam(){
+  camera.position.set(target.x+cam.r*Math.sin(cam.ph)*Math.sin(cam.th), target.y+cam.r*Math.cos(cam.ph), target.z+cam.r*Math.sin(cam.ph)*Math.cos(cam.th));
+  camera.lookAt(target);
+}
+scene.add(new THREE.AmbientLight(0xffffff, 0.62));
+const dl1 = new THREE.DirectionalLight(0xffffff, 0.62); dl1.position.set(5,10,6); scene.add(dl1);
+const dl2 = new THREE.DirectionalLight(0xffffff, 0.28); dl2.position.set(-6,4,-5); scene.add(dl2);
+
+const clipPlane = new THREE.Plane(new THREE.Vector3(-1,0,0), 0.001);
+
+// surface geometry (x = σ, z = −ω, y = dB)
+const pos = new Float32Array(NX*NZ*3), col = new Float32Array(NX*NZ*3);
+for (let i=0;i<NX;i++) for (let j=0;j<NZ;j++){ const k=(i*NZ+j)*3; pos[k]=S_MIN+i*DS; pos[k+2]=-(-W_MAX+j*DS); }
+const posAttr = new THREE.BufferAttribute(pos,3), colAttr = new THREE.BufferAttribute(col,3);
+const surfGeo = new THREE.BufferGeometry();
+const idx=[]; for (let i=0;i<NX-1;i++) for (let j=0;j<NZ-1;j++){ const a=i*NZ+j, b=a+1, c=a+NZ, d=c+1; idx.push(a,b,c, b,d,c); }
+surfGeo.setIndex(idx); surfGeo.setAttribute('position',posAttr); surfGeo.setAttribute('color',colAttr);
+const surfMat = new THREE.MeshPhongMaterial({vertexColors:true, side:THREE.DoubleSide, shininess:35, transparent:true, opacity:0.94,
+  polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1});
+scene.add(new THREE.Mesh(surfGeo, surfMat));
+// iso-lines on surface every 0.5 (shares positions)
+const lIdx=[];
+for (let i=0;i<NX;i+=10) for (let j=0;j<NZ-1;j++){ lIdx.push(i*NZ+j, i*NZ+j+1); }
+for (let j=0;j<NZ;j+=10) for (let i=0;i<NX-1;i++){ lIdx.push(i*NZ+j, (i+1)*NZ+j); }
+const lineGeo = new THREE.BufferGeometry(); lineGeo.setAttribute('position',posAttr); lineGeo.setIndex(lIdx);
+const lineMat = new THREE.LineBasicMaterial({color:0x000000, transparent:true, opacity:0.16});
+scene.add(new THREE.LineSegments(lineGeo, lineMat));
+
+// colour LUT
+const STOPS = [[0,'#1d2b6b'],[0.28,'#1f78a0'],[0.52,'#45b39d'],[0.74,'#f2c14e'],[0.9,'#f08a3e'],[1,'#d9412b']];
+const LUT = []; { const cs=STOPS.map(s=>[s[0],new THREE.Color(s[1])]);
+  for (let n=0;n<256;n++){ const t=n/255; let a=cs[0],b=cs[cs.length-1];
+    for (let q=0;q<cs.length-1;q++) if(t>=cs[q][0]&&t<=cs[q+1][0]){a=cs[q];b=cs[q+1];break;}
+    const f=(t-a[0])/((b[0]-a[0])||1); LUT.push(a[1].clone().lerp(b[1],f)); } }
+const tmpC = new THREE.Color();
+
+// static group: floor, axes, labels
+const staticG = new THREE.Group(); scene.add(staticG);
+const dynG = new THREE.Group(); scene.add(dynG);
+function disposeGroup(g){ g.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material){ if(o.material.map) o.material.map.dispose(); o.material.dispose(); } }); g.clear(); }
+function cssColor(str){ // returns {color, alpha}
+  const cv=document.createElement('canvas'); cv.width=cv.height=1; const x=cv.getContext('2d'); x.fillStyle=str; x.fillRect(0,0,1,1);
+  const d=x.getImageData(0,0,1,1).data; return {color:new THREE.Color(d[0]/255,d[1]/255,d[2]/255), alpha:d[3]/255};
+}
+function makeLabel(text, color, h=0.3, italic=false){
+  const cv=document.createElement('canvas'), x=cv.getContext('2d'), fs=56;
+  const font = italic ? `italic 400 ${fs}px "STIX Two Text", serif` : `500 ${fs}px "Zen Kaku Gothic New", sans-serif`;
+  x.font=font; const w=Math.ceil(x.measureText(text).width)+20; cv.width=w; cv.height=fs+20;
+  x.font=font; x.fillStyle=color; x.textBaseline='middle'; x.fillText(text,10,cv.height/2+2);
+  const tex=new THREE.CanvasTexture(cv); tex.minFilter=THREE.LinearFilter;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false}));
+  s.scale.set(h*w/cv.height, h, 1); return s;
+}
+function segs(pts, colorStr, opacity=1){
+  const g=new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+  const c=cssColor(colorStr);
+  return new THREE.LineSegments(g, new THREE.LineBasicMaterial({color:c.color, transparent:true, opacity:opacity*c.alpha}));
+}
+function buildStatic(){
+  disposeGroup(staticG);
+  const zMin=-W_MAX, zMax=W_MAX;
+  // stable / unstable half planes
+  const mk=(x0,x1,colStr)=>{ const c=cssColor(colStr); const m=new THREE.Mesh(new THREE.PlaneGeometry(x1-x0, 2*W_MAX),
+      new THREE.MeshBasicMaterial({color:c.color, transparent:true, opacity:Math.min(1,c.alpha*2.2), side:THREE.DoubleSide, depthWrite:false}));
+    m.rotation.x=-Math.PI/2; m.position.set((x0+x1)/2, YF-0.005, 0); staticG.add(m); };
+  mk(S_MIN,0,T.stable); mk(0,S_MAX,T.unstable);
+  // grid
+  const g=[]; for(let s=S_MIN;s<=S_MAX+1e-9;s+=0.5){ g.push(s,YF,zMin, s,YF,zMax); }
+  for(let w=-W_MAX;w<=W_MAX+1e-9;w+=0.5){ g.push(S_MIN,YF,w, S_MAX,YF,w); }
+  staticG.add(segs(g, T.grid, 1.6));
+  staticG.add(segs([S_MIN,YF,0, S_MAX+0.2,YF,0,  0,YF,zMin-0.2, 0,YF,zMax], T.gridStrong, 1.8));
+  // dB ruler
+  const rx=S_MIN-0.12, rz=W_MAX, r=[rx,yOf(DBMIN),rz, rx,yOf(DBMAX),rz];
+  for(let d=-20; d<=60; d+=20){ r.push(rx,yOf(d),rz, rx+0.15,yOf(d),rz);
+    const l=makeLabel(d+' dB', T.muted, 0.24); l.position.set(rx-0.45, yOf(d), rz); staticG.add(l); }
+  staticG.add(segs(r, T.gridStrong, 1.5));
+  // axis labels
+  const a1=makeLabel('σ（実軸）', T.ink, 0.3); a1.position.set(S_MAX+0.75, YF, 0); staticG.add(a1);
+  const a2=makeLabel('+jω（虚軸）', T.ink, 0.3); a2.position.set(0, YF, zMin-0.55); staticG.add(a2);
+  const a3=makeLabel('−jω', T.muted, 0.26); a3.position.set(0.1, YF, zMax+0.35); staticG.add(a3);
+  const a4=makeLabel('安定（左半平面）', T.muted, 0.24); a4.position.set(-2.6, YF, zMax-0.35); staticG.add(a4);
+  for (let w=-4; w<=4; w+=2){ if(!w) continue; const l=makeLabel((w>0?'+':'')+w, T.muted, 0.22, true); l.position.set(0.28, YF, -w); staticG.add(l); }
+  // cut plane
+  const c=cssColor(T.accent);
+  cutPlane = new THREE.Mesh(new THREE.PlaneGeometry(2*W_MAX, (DBMAX-DBMIN)*HS+0.4),
+    new THREE.MeshBasicMaterial({color:c.color, transparent:true, opacity:0.07, side:THREE.DoubleSide, depthWrite:false}));
+  cutPlane.rotation.y=Math.PI/2; cutPlane.position.set(0,(DBMAX+DBMIN)/2*HS,0); cutPlane.visible=$('#bPlane').getAttribute('aria-pressed')==='true';
+  staticG.add(cutPlane);
+  lineMat.color = cssColor(T.ink).color;
+  dirty = true;
+}
+let cutPlane=null;
+
+// moving probe objects
+const probeG = new THREE.Group(); scene.add(probeG);
+const vecPos = new Float32Array(16*3), vecCol = new Float32Array(16*3);
+const vecGeo = new THREE.BufferGeometry();
+vecGeo.setAttribute('position', new THREE.BufferAttribute(vecPos,3)); vecGeo.setAttribute('color', new THREE.BufferAttribute(vecCol,3));
+const vecLines = new THREE.LineSegments(vecGeo, new THREE.LineBasicMaterial({vertexColors:true}));
+probeG.add(vecLines);
+const probeMat = new THREE.MeshPhongMaterial({color:0xffffff, emissive:0x000000, shininess:60});
+const probeTop = new THREE.Mesh(new THREE.SphereGeometry(0.1,20,14), probeMat); probeG.add(probeTop);
+const probeBot = new THREE.Mesh(new THREE.SphereGeometry(0.06,16,10), probeMat); probeG.add(probeBot);
+const stemGeo = new THREE.BufferGeometry(); stemGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
+const stem = new THREE.Line(stemGeo, new THREE.LineBasicMaterial({color:0xffffff})); probeG.add(stem);
+function colorProbe(){ const c=cssColor(T.accent).color; probeMat.color=c; probeMat.emissive=c.clone().multiplyScalar(0.35); stem.material.color=c; }
+
+/* ---------- rebuild on parameter change ---------- */
+function rebuild(){
+  sys = PRESETS[pi].build(params);
+  // surface
+  for (let i=0;i<NX;i++){ const s=S_MIN+i*DS;
+    for (let j=0;j<NZ;j++){ const w=-W_MAX+j*DS, k=(i*NZ+j)*3; const r=evalH(sys,s,w);
+      pos[k+1]=yOf(r.db);
+      if (colorPhase){ let h=(r.ph/(2*Math.PI))%1; if(h<0) h+=1; tmpC.setHSL(h,0.62,0.52); }
+      else { tmpC.copy(LUT[Math.round(clamp((r.db-DBMIN)/(DBMAX-DBMIN),0,1)*255)]); }
+      col[k]=tmpC.r; col[k+1]=tmpC.g; col[k+2]=tmpC.b; } }
+  posAttr.needsUpdate=true; colAttr.needsUpdate=true; surfGeo.computeVertexNormals();
+  surfMat.clippingPlanes = cutRHP ? [clipPlane] : []; lineMat.clippingPlanes = surfMat.clippingPlanes;
+  surfMat.needsUpdate = true; lineMat.needsUpdate = true;
+
+  // dynamic markers
+  disposeGroup(dynG);
+  const pts=[]; for (let n=0;n<=720;n++){ const w=-W_MAX+n*(2*W_MAX/720); pts.push(new THREE.Vector3(0, yOf(evalH(sys,0,w).db)+0.02, -w)); }
+  const ac=cssColor(T.accent).color;
+  dynG.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),720,0.032,6,false), new THREE.MeshBasicMaterial({color:ac})));
+  const pc=cssColor(T.pole).color, zc=cssColor(T.zero).color;
+  const pillar=(r,topY,c)=>{ const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(r.re,YF,-r.im), new THREE.Vector3(r.re,topY,-r.im)]);
+    const l=new THREE.Line(g,new THREE.LineDashedMaterial({color:c,dashSize:0.08,gapSize:0.06,transparent:true,opacity:0.75})); l.computeLineDistances(); dynG.add(l); };
+  const cross=(r,c,size=0.3,op=1)=>{ for(const a of [Math.PI/4,-Math.PI/4]){ const b=new THREE.Mesh(new THREE.BoxGeometry(size,0.035,0.055), new THREE.MeshBasicMaterial({color:c,transparent:op<1,opacity:op}));
+    b.rotation.y=a; b.position.set(r.re,YF+0.03,-r.im); dynG.add(b);} };
+  for (const p of sys.poles){ if(p.re<S_MIN||p.re>S_MAX||Math.abs(p.im)>W_MAX) continue; cross(p,pc); pillar(p,yOf(DBMAX),pc); }
+  for (const z of sys.zeros){ if(z.re<S_MIN||z.re>S_MAX||Math.abs(z.im)>W_MAX) continue;
+    const t=new THREE.Mesh(new THREE.TorusGeometry(0.12,0.028,10,28), new THREE.MeshBasicMaterial({color:zc})); t.rotation.x=Math.PI/2; t.position.set(z.re,YF+0.03,-z.im); dynG.add(t); pillar(z,yOf(DBMIN),zc); }
+  if (sys.ol){ const oc=cssColor(T.ol).color; for(const p of sys.ol.poles) cross(p,oc,0.2,0.8); }
+  if (sys.locus){ const oc=cssColor(T.ol).color;
+    for (const br of sys.locus){ const g=new THREE.BufferGeometry().setFromPoints(br.filter(q=>q.re>=S_MIN&&Math.abs(q.im)<=W_MAX).map(q=>new THREE.Vector3(q.re,YF+0.015,-q.im)));
+      const l=new THREE.Line(g,new THREE.LineDashedMaterial({color:oc,dashSize:0.07,gapSize:0.07})); l.computeLineDistances(); dynG.add(l); } }
+
+  // Bode data
+  const N=420; curve={w:[],db:[],ph:[],oldb:null,olph:null};
+  if (sys.ol){ curve.oldb=[]; curve.olph=[]; }
+  for (let n=0;n<N;n++){ const w=WL*Math.pow(WH/WL,n/(N-1)); curve.w.push(w);
+    const r=evalH(sys,0,w); curve.db.push(r.db); curve.ph.push(r.ph*RAD);
+    if (sys.ol){ const o=evalH(sys.ol,0,w); curve.oldb.push(o.db); curve.olph.push(o.ph*RAD); } }
+  const all=a=>a.filter(v=>isFinite(v));
+  let md=[...all(curve.db)], pd=[...curve.ph]; if(curve.oldb){ md=md.concat(curve.oldb); pd=pd.concat(curve.olph); }
+  let lo=Math.floor((Math.max(Math.min(...md),-60)-2)/20)*20, hi=Math.ceil((Math.min(Math.max(...md),80)+2)/20)*20;
+  if (hi-lo<40) hi=lo+40;
+  let plo=Math.floor((Math.min(...pd)-1)/45)*45, phi=Math.ceil((Math.max(...pd)+1)/45)*45;
+  if (paramAnim && magRange){ lo=Math.min(lo,magRange[0]); hi=Math.max(hi,magRange[1]); plo=Math.min(plo,phRange[0]); phi=Math.max(phi,phRange[1]); }
+  magRange=[lo,hi]; phRange=[plo,phi];
+}
+
+/* ---------- probe per frame ---------- */
+function updateProbe(){
+  const wd=Math.min(omega,W_MAX), r=evalH(sys,0,wd), y=yOf(r.db);
+  probeTop.position.set(0,y,-wd); probeBot.position.set(0,YF+0.02,-wd);
+  const sp=stem.geometry.attributes.position; sp.setXYZ(0,0,YF,-wd); sp.setXYZ(1,0,y,-wd); sp.needsUpdate=true;
+  const pc=cssColor(T.pole).color, zc=cssColor(T.zero).color; let n=0;
+  const add=(rt,c)=>{ if(n>=7) return; vecPos.set([rt.re,YF+0.025,-rt.im, 0,YF+0.025,-wd], n*6); vecCol.set([c.r,c.g,c.b,c.r,c.g,c.b], n*6); n++; };
+  for (const z of sys.zeros) add(z,zc); for (const p of sys.poles) add(p,pc);
+  vecGeo.attributes.position.needsUpdate=true; vecGeo.attributes.color.needsUpdate=true; vecGeo.setDrawRange(0,n*2);
+}
+
+/* ---------- Bode ---------- */
+function setupCanvas(cv){
+  const dpr=Math.min(devicePixelRatio,2), w=cv.clientWidth, h=cv.clientHeight;
+  if (cv.width!==Math.round(w*dpr) || cv.height!==Math.round(h*dpr)){ cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); }
+  const x=cv.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); return {x,w,h};
+}
+const BM={l:48,r:12,t:24,b:22};
+const xOfW=(w,pw)=>BM.l+(Math.log10(w)+2)/4*pw;
+function drawPlot(cv, kind){
+  const {x,w,h}=setupCanvas(cv); x.clearRect(0,0,w,h);
+  const pw=w-BM.l-BM.r, ph=h-BM.t-BM.b;
+  const [lo,hi]= kind==='mag'?magRange:phRange, step= kind==='mag'?20:45;
+  const Y=v=>BM.t+(hi-v)/(hi-lo)*ph, X=v=>xOfW(v,pw);
+  x.fillStyle=T.shade; x.fillRect(X(W_MAX),BM.t,BM.l+pw-X(W_MAX),ph);
+  x.lineWidth=1; x.strokeStyle=T.grid; x.font='11px "Zen Kaku Gothic New", sans-serif'; x.fillStyle=T.muted;
+  for (let d=-2; d<=2; d++){ for (let m=1;m<10;m++){ const wv=Math.pow(10,d)*m; if(wv>WH) break; const xx=Math.round(X(wv))+0.5;
+      x.globalAlpha=m===1?1:0.45; x.beginPath(); x.moveTo(xx,BM.t); x.lineTo(xx,BM.t+ph); x.stroke(); }
+    x.globalAlpha=1; x.textAlign='center'; x.fillText(String(Math.pow(10,d)), X(Math.pow(10,d)), h-6); }
+  x.textAlign='right';
+  for (let v=lo; v<=hi+1e-9; v+=step){ const yy=Math.round(Y(v))+0.5; x.strokeStyle= v===0?T.gridStrong:T.grid; x.beginPath(); x.moveTo(BM.l,yy); x.lineTo(BM.l+pw,yy); x.stroke(); x.fillText(v+(kind==='mag'?'':'°'), BM.l-5, yy+4); }
+  x.strokeStyle=T.line; x.strokeRect(BM.l+0.5,BM.t+0.5,pw,ph);
+  x.textAlign='left'; x.fillStyle=T.ink; x.font='500 12.5px "Zen Kaku Gothic New", sans-serif';
+  x.fillText(kind==='mag'?'ゲイン |H(jω)| [dB]':'位相 ∠H(jω) [°]', BM.l, 15);
+  x.fillStyle=T.muted; x.textAlign='right'; x.font='11px "Zen Kaku Gothic New", sans-serif';
+  x.fillText(kind==='mag'?'網掛け：3D表示範囲外':'ω（正規化, 対数）', BM.l+pw, 15);
+  x.save(); x.beginPath(); x.rect(BM.l,BM.t,pw,ph); x.clip();
+  const line=(arr,color,dash,lw)=>{ x.strokeStyle=color; x.lineWidth=lw; x.setLineDash(dash); x.beginPath();
+    arr.forEach((v,i)=>{ const xx=X(curve.w[i]), yy=Y(clamp(v,lo-50,hi+50)); i?x.lineTo(xx,yy):x.moveTo(xx,yy); }); x.stroke(); x.setLineDash([]); };
+  if (curve.oldb) line(kind==='mag'?curve.oldb:curve.olph, T.ol, [5,4], 1.5);
+  line(kind==='mag'?curve.db:curve.ph, T.curve, [], 2.2);
+  // root break-frequency ticks
+  if (kind==='mag'){ x.font='bold 13px sans-serif'; x.textAlign='center';
+    const tick=(r,c,s)=>{ const m=Math.hypot(r.re,r.im); if(m<WL||m>WH) return; x.fillStyle=c; x.fillText(s, X(m), BM.t+ph-4); };
+    for(const z of sys.zeros) if(z.im>=0) tick(z,T.zero,'○'); for(const p of sys.poles) if(p.im>=0) tick(p,T.pole,'×'); }
+  // marker
+  const r=evalH(sys,0,omega), v= kind==='mag'?r.db:r.ph*RAD, mx=X(omega);
+  x.strokeStyle=T.accent; x.lineWidth=1.2; x.beginPath(); x.moveTo(mx,BM.t); x.lineTo(mx,BM.t+ph); x.stroke();
+  x.fillStyle=T.accent; x.beginPath(); x.arc(mx,Y(clamp(v,lo,hi)),4.5,0,7); x.fill();
+  x.restore();
+}
+
+/* ---------- readout ---------- */
+const fmtC=z=>`${z.re.toFixed(2)} ${z.im>=0?'+':'−'} j${Math.abs(z.im).toFixed(2)}`;
+let roTimer=0;
+function updateReadout(){
+  const r=evalH(sys,0,omega); let sum=LN2DB*Math.log(Math.abs(sys.K));
+  let rows=`<tr><th></th><th>位置</th><th>|jω − ·|</th><th>dB寄与</th><th>角度</th></tr>`;
+  rows+=`<tr><td>K</td><td>${sys.K.toFixed(3)}</td><td></td><td>${sum.toFixed(1)}</td><td>${sys.K<0?'180°':'0°'}</td></tr>`;
+  const row=(q,name,sign,c)=>{ const dr=-q.re, di=omega-q.im, d=Math.hypot(dr,di), a=Math.atan2(di,dr)*RAD, db=sign*LN2DB*Math.log(Math.max(d,1e-9));
+    return `<tr><td style="color:${c}">${name}</td><td>${fmtC(q)}</td><td>${d.toFixed(3)}</td><td>${db>=0?'+':''}${db.toFixed(1)}</td><td>${sign>0?'+':'−'}${a.toFixed(1)}°</td></tr>`; };
+  sys.zeros.forEach((z,i)=>rows+=row(z,'○ 零点 z'+(i+1),1,T.zero));
+  sys.poles.forEach((p,i)=>rows+=row(p,'× 極 p'+(i+1),-1,T.pole));
+  const ex=PRESETS[pi].extra ? PRESETS[pi].extra(params,sys) : [];
+  $('#readout').innerHTML=
+    `<div class="big"><div><span>観測点 s = jω</span><strong>ω = ${omega.toFixed(3)}</strong></div>
+     <div><span>ゲイン</span><strong>${r.db.toFixed(2)} dB</strong></div>
+     <div><span>位相</span><strong>${(r.ph*RAD).toFixed(1)}°</strong></div></div>
+     <table>${rows}</table>
+     <div class="sum">ゲイン = 20log|K| ＋ Σ 零点距離の dB − Σ 極距離の dB、位相 = Σ 零点角 − Σ 極角（床面の細線がこのベクトル）</div>
+     ${ex.length?'<div class="extra">'+ex.map(e=>`<span>${e[0]}</span><span>${e[1]}</span>`).join('')+'</div>':''}`;
+}
+
+/* ---------- controls ---------- */
+const sel=$('#preset'); PRESETS.forEach((p,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=p.name; sel.appendChild(o); });
+const inputs={};
+function loadPreset(i){
+  pi=i; const pr=PRESETS[i]; params={}; magRange=null; phRange=null; tAnim=0;
+  $('#formula').textContent=pr.formula; $('#note').textContent=pr.note;
+  const box=$('#sliders'); box.innerHTML='';
+  for (const p of pr.params){ params[p.id]=p.val;
+    const d=document.createElement('div'); d.className='sl';
+    d.innerHTML=`<label for="s_${p.id}"><span>${p.label}</span><output id="o_${p.id}"></output></label><input id="s_${p.id}" type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}">`;
+    box.appendChild(d); const inp=d.querySelector('input'); inputs[p.id]={inp,out:d.querySelector('output'),p};
+    inp.addEventListener('input',()=>{ params[p.id]=+inp.value; showVal(p.id); magRange=null; dirty=true; });
+    showVal(p.id); }
+  dirty=true;
+}
+function showVal(id){ const {out,p}=inputs[id]; const v=params[id]; out.textContent=(p.step<0.01?v.toFixed(3):p.step<1?v.toFixed(2):v.toFixed(1))+(p.unit?' '+p.unit:''); }
+sel.addEventListener('change',()=>loadPreset(+sel.value));
+const toggle=(id,fn)=>{ const b=$(id); b.addEventListener('click',()=>{ const on=b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',on); fn(on); }); };
+toggle('#bPlay',on=>playing=on); $('#bPlay').setAttribute('aria-pressed', playing);
+toggle('#bParam',on=>{ paramAnim=on; magRange=null; if(on){ const a=PRESETS[pi].anim, v=params[a.id]; const k=a.log? Math.log(v/a.min)/Math.log(a.max/a.min) : (v-a.min)/(a.max-a.min); tAnim=Math.acos(clamp(1-2*clamp(k,0,1),-1,1)); } });
+toggle('#bRot',on=>autoRot=on);
+toggle('#bColor',on=>{ colorPhase=on; dirty=true; renderCbar(); });
+toggle('#bCut',on=>{ cutRHP=on; dirty=true; });
+toggle('#bPlane',on=>{ if(cutPlane) cutPlane.visible=on; });
+$('#spd').addEventListener('input',e=>speed=+e.target.value);
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{
+  const v=b.dataset.view; camGoal={...VIEWS[v]};
+  if (v==='side' && !cutRHP){ cutRHP=true; $('#bCut').setAttribute('aria-pressed','true'); dirty=true; }
+}));
+function renderCbar(){
+  const box=$('#cbarBox');
+  if (colorPhase){ box.innerHTML=`<div class="cbar" style="background:linear-gradient(90deg,${[0,60,120,180,240,300,360].map(h=>`hsl(${h} 62% 52%)`).join(',')})"></div><div class="cbarLbl"><span>0°</span><span>色 = ∠H(s)</span><span>360°</span></div>`; }
+  else { box.innerHTML=`<div class="cbar" style="background:linear-gradient(90deg,${STOPS.map(s=>`${s[1]} ${s[0]*100}%`).join(',')})"></div><div class="cbarLbl"><span>${DBMIN} dB</span><span>色 = |H(s)|</span><span>${DBMAX} dB</span></div>`; }
+}
+
+// Bode interaction
+function bodePointer(e){
+  const cv=e.currentTarget, rc=cv.getBoundingClientRect(), pw=rc.width-BM.l-BM.r;
+  const t=clamp((e.clientX-rc.left-BM.l)/pw,0,1); omega=Math.pow(10,t*4-2);
+  playing=false; $('#bPlay').setAttribute('aria-pressed','false');
+  u=clamp(Math.log(omega/SW_MIN)/Math.log(SW_MAX/SW_MIN),0,1);
+}
+for (const cv of [$('#bodeMag'),$('#bodePh')]){
+  let down=false;
+  cv.addEventListener('pointerdown',e=>{ down=true; cv.setPointerCapture(e.pointerId); bodePointer(e); });
+  cv.addEventListener('pointermove',e=>{ if(down) bodePointer(e); });
+  cv.addEventListener('pointerup',()=>down=false); cv.addEventListener('pointercancel',()=>down=false);
+}
+
+// 3D camera interaction
+const el=renderer.domElement, ptrs=new Map(); let pinch0=0, r0=0, dragging=false;
+el.addEventListener('pointerdown',e=>{ el.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); camGoal=null; dragging=true;
+  if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; pinch0=Math.hypot(a.x-b.x,a.y-b.y)||1; r0=cam.r; } });
+el.addEventListener('pointermove',e=>{ if(!ptrs.has(e.pointerId)) return; const prev=ptrs.get(e.pointerId), cur={x:e.clientX,y:e.clientY}; ptrs.set(e.pointerId,cur);
+  if(ptrs.size===1){ cam.th-=(cur.x-prev.x)*0.008; cam.ph=clamp(cam.ph-(cur.y-prev.y)*0.008,0.04,1.62); }
+  else if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; cam.r=clamp(r0*pinch0/(Math.hypot(a.x-b.x,a.y-b.y)||1),4,30); } });
+const up=e=>{ ptrs.delete(e.pointerId); if(!ptrs.size) dragging=false; };
+el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
+el.addEventListener('wheel',e=>{ e.preventDefault(); camGoal=null; cam.r=clamp(cam.r*Math.exp(e.deltaY*0.001),4,30); },{passive:false});
+
+function resize(){ const w=host.clientWidth, h=host.clientHeight; renderer.setSize(w,h,false); el.style.width=w+'px'; el.style.height=h+'px'; camera.aspect=w/h;
+  camera.fov = w<560 ? 50 : 40; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(host);
+
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ readTokens(); buildStatic(); colorProbe(); });
+
+/* ---------- loop ---------- */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if (playing){ u+=dir*dt*0.11*speed; if(u>1){u=1;dir=-1;} if(u<0){u=0;dir=1;} omega=SW_MIN*Math.pow(SW_MAX/SW_MIN,u); }
+  if (paramAnim){ tAnim+=dt*0.45*speed; const a=PRESETS[pi].anim, k=0.5-0.5*Math.cos(tAnim);
+    params[a.id]= a.log ? a.min*Math.pow(a.max/a.min,k) : a.min+(a.max-a.min)*k;
+    if (inputs[a.id]){ inputs[a.id].inp.value=params[a.id]; showVal(a.id); } dirty=true; }
+  if (dirty){ rebuild(); dirty=false; }
+  if (camGoal){ const f=1-Math.exp(-dt*5); let dth=camGoal.th-cam.th; dth=Math.atan2(Math.sin(dth),Math.cos(dth));
+    cam.th+=dth*f; cam.ph+=(camGoal.ph-cam.ph)*f; cam.r+=(camGoal.r-cam.r)*f;
+    if (Math.abs(dth)<1e-3 && Math.abs(camGoal.ph-cam.ph)<1e-3) camGoal=null; }
+  if (autoRot && !dragging && !camGoal) cam.th+=dt*0.14*speed;
+  placeCam(); updateProbe(); drawPlot($('#bodeMag'),'mag'); drawPlot($('#bodePh'),'ph');
+  if ((roTimer+=dt)>0.08){ roTimer=0; updateReadout(); }
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+
+loadPreset(1); sel.value=1;
+buildStatic(); colorProbe(); renderCbar(); resize();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(()=>buildStatic());
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

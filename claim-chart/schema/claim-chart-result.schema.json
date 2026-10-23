@@ -1,0 +1,268 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "claim-chart-result/1",
+  "title": "Claim chart result",
+  "description": "Export and import format of the claim chart page. The page writes every node; on import it reads only check, reading, memo, aiCheck, aiReason, aiEvidence and tr of each node, and skips a node whose text differs from the claim. Quotes in aiEvidence are verified against the target files only when the page is built, not on import. Not legal advice.",
+  "type": "object",
+  "required": [
+    "format",
+    "patents"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "claim-chart-result/1"
+    },
+    "generated": {
+      "type": "string",
+      "description": "When the page was built (YYYY-MM-DD HH:MM)."
+    },
+    "exported": {
+      "type": "string",
+      "description": "When this JSON was written (YYYY-MM-DD HH:MM)."
+    },
+    "disclaimer": {
+      "type": "string"
+    },
+    "patents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/patent"
+      }
+    }
+  },
+  "$defs": {
+    "value": {
+      "description": "true: the sentence of the node holds for the product. false: it does not. tbd: not decided yet.",
+      "enum": [
+        "true",
+        "false",
+        "tbd"
+      ]
+    },
+    "patent": {
+      "type": "object",
+      "required": [
+        "id",
+        "claims"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Full patent number used as the tab name, e.g. JP0000000 or US8046721."
+        },
+        "number": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "holder": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "verdict": {
+          "$ref": "#/$defs/value",
+          "description": "OR over the claims: true when any claim is true."
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/claim"
+          }
+        },
+        "aiVerdict": {
+          "$ref": "#/$defs/value",
+          "description": "Patent verdict computed from the AI provisional checks."
+        },
+        "ai": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "description": "What the AI compared the claims with."
+            },
+            "by": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "required": [
+        "n",
+        "nodes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "header": {
+          "type": "string"
+        },
+        "cites": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "Claims this claim refers to."
+        },
+        "verdict": {
+          "$ref": "#/$defs/value"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "description": "Every node of the claim tree, parents before children."
+        },
+        "aiVerdict": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Label such as 1B.2.1; unique inside a patent."
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "description": "and/or: gate; not: negation over one list; leaf: checked by a person; opt: optional clause, always true; ref: mirrors the cited claim.",
+          "enum": [
+            "and",
+            "or",
+            "not",
+            "leaf",
+            "opt",
+            "ref"
+          ]
+        },
+        "gate": {
+          "enum": [
+            "and",
+            "or"
+          ],
+          "description": "Gate actually used for and/or nodes, after a NOT flip and the chosen reading."
+        },
+        "ref": {
+          "type": "integer",
+          "description": "Cited claim number, for kind ref."
+        },
+        "text": {
+          "type": "string",
+          "description": "The original claim text this node covers, verbatim. On import, a node whose text differs is skipped."
+        },
+        "checkable": {
+          "type": "boolean",
+          "description": "True for leaves and for nodes whose own wording is also a condition."
+        },
+        "check": {
+          "$ref": "#/$defs/value",
+          "description": "The person's (or an AI's) answer for this node's own wording. Read on import."
+        },
+        "reading": {
+          "enum": [
+            "or",
+            "and"
+          ],
+          "description": "For a node whose scope can be read two ways. Read on import."
+        },
+        "value": {
+          "$ref": "#/$defs/value",
+          "description": "Computed result of the node from the person's checks. Ignored on import."
+        },
+        "worthChecking": {
+          "type": "boolean",
+          "description": "False when the node is tbd but its ancestors are already decided by a sibling. Ignored on import."
+        },
+        "memo": {
+          "type": "string",
+          "description": "Free note, e.g. where in the product and a quote. Read on import."
+        },
+        "aiCheck": {
+          "$ref": "#/$defs/value",
+          "description": "AI provisional answer for this node's own wording. Read on import. Absence of a description in the target is tbd, never false."
+        },
+        "aiReason": {
+          "type": "string",
+          "description": "Why the AI answered so. Read on import."
+        },
+        "aiEvidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "description": "Where in the target the AI found it. Read on import."
+        },
+        "aiValue": {
+          "$ref": "#/$defs/value",
+          "description": "Computed result of the node from the AI layer. Ignored on import."
+        },
+        "tr": {
+          "type": "object",
+          "description": "Machine translation of the node's wording by language code (ja, en). [label] holes must match the node's children. Read on import.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ie": {
+          "type": "string",
+          "description": "For a leaf under a NOT: the negation with only this leaf filled in (\"i.e.\"), built mechanically. True/False answers this sentence."
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "file",
+        "quote"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Path of the target file (specification or code), relative to the target's root."
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based line where the quote starts; computed by the builder."
+        },
+        "quote": {
+          "type": "string",
+          "description": "Verbatim excerpt from the file."
+        }
+      }
+    }
+  }
+}

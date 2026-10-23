@@ -1,0 +1,22 @@
+{
+  "id": "US5946647",
+  "country": "US",
+  "number": "US 5,946,647",
+  "title": "System and method for performing an action on a structure in computer-generated data",
+  "holder": "Apple Computer Inc",
+  "filed": "1996-02-01",
+  "registered": "1999-08-31",
+  "status": "Expired - Lifetime（Google Patents の表示、2026-10-23 に確認）",
+  "source": "https://patents.google.com/patent/US5946647A/en",
+  "origLang": "en",
+  "summary": [
+    {
+      "file": "problem.txt",
+      "role": "problem"
+    },
+    {
+      "file": "solution.txt",
+      "role": "solution"
+    }
+  ]
+}
